@@ -1,36 +1,19 @@
 'use client';
 import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Users, Save, AlertCircle, CheckCircle2, Loader2, ArrowLeft } from 'lucide-react';
-
-interface User {
-    _id: string;
-    name: string;
-    username: string;
-    role: 'Coordinator' | 'Trainer' | 'Trainee';
-    archived?: boolean;
-}
-
-interface ModuleTraining {
-    module: string;
-    ojt: boolean;
-    practical: boolean;
-    signedOff: boolean;
-    notes: string;
-}
-
-const nataModules = ['Module 1', 'Module 2', 'Module 3', 'Module 4'];
+import { AlertCircle, CheckCircle2, Loader2, ArrowLeft, Save } from 'lucide-react';
+import { IUser } from '@/models/User';
+import { ITraining } from '@/models/Training';
 
 export default function TrainingPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const userId = searchParams?.get('userId');
 
-    const [currentUser, setCurrentUser] = useState<User | null>(null);
-    const [viewedUser, setViewedUser] = useState<User | null>(null);
-    const [trainingData, setTrainingData] = useState<ModuleTraining[]>([]);
-    const [originalData, setOriginalData] = useState<ModuleTraining[]>([]);
-
+    const [currentUser, setCurrentUser] = useState<IUser | null>(null);
+    const [viewedUser, setViewedUser] = useState<IUser | null>(null);
+    const [trainingData, setTrainingData] = useState<ITraining[]>([]);
+    const [originalData, setOriginalData] = useState<ITraining[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -42,56 +25,40 @@ export default function TrainingPage() {
         const fetchCurrentUser = async () => {
             try {
                 const res = await fetch('/api/me');
-                if (!res.ok) {
-                    throw new Error('Failed to fetch user data');
-                }
-                const user: User = await res.json();
+                if (!res.ok) throw new Error('Failed to fetch user');
+                const user: IUser = await res.json();
                 setCurrentUser(user);
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'Failed to load user');
                 setLoading(false);
             }
         };
-
         fetchCurrentUser();
     }, []);
 
-    // Fetch viewed user and their training data
+    // Fetch viewed user with populated trainings/modules
     useEffect(() => {
         const fetchViewedUserAndTraining = async () => {
             if (!currentUser) return;
-
             try {
                 setLoading(true);
                 setError(null);
 
-                // Determine which user to fetch
-                let url = '/api/me';
-                if (userId && currentUser.role !== 'Trainee') {
-                    url = `/api/users/${userId}`;
-                }
+                const url =
+                    userId && currentUser.role !== 'Trainee'
+                        ? `/api/users/${userId}`
+                        : '/api/me';
 
-                const userRes = await fetch(url);
-                if (!userRes.ok) {
-                    throw new Error('Failed to fetch user data');
-                }
-                const user: User = await userRes.json();
+                const res = await fetch(url);
+                if (!res.ok) throw new Error('Failed to fetch viewed user');
+
+                const user: IUser = await res.json();
                 setViewedUser(user);
 
-                // Fetch training data for the user
-                const trainingRes = await fetch(`/api/training/${user._id}`);
-                let modules: ModuleTraining[];
-
-                if (trainingRes.ok) {
-                    const data = await trainingRes.json();
-                    modules = data.modules || initializeModules();
-                } else {
-                    // Initialize empty training data if none exists
-                    modules = initializeModules();
-                }
-
-                setTrainingData(modules);
-                setOriginalData(JSON.parse(JSON.stringify(modules)));
+                // trainings already populated with module info
+                const trainings = (user.trainings || []) as ITraining[];
+                setTrainingData(trainings);
+                setOriginalData(JSON.parse(JSON.stringify(trainings)));
                 setHasChanges(false);
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'Failed to load training data');
@@ -109,50 +76,49 @@ export default function TrainingPage() {
         setHasChanges(changed);
     }, [trainingData, originalData]);
 
-    const initializeModules = (): ModuleTraining[] => {
-        return nataModules.map((mod) => ({
-            module: mod,
-            ojt: false,
-            practical: false,
-            signedOff: false,
-            notes: '',
-        }));
-    };
+    const isEditable =
+        currentUser && (currentUser.role === 'Coordinator' || currentUser.role === 'Trainer');
 
-    const isEditable = currentUser && (currentUser.role === 'Coordinator' || currentUser.role === 'Trainer');
+    // Toggle logic
+    const handleToggle = useCallback(
+        (index: number, field: keyof ITraining) => {
+            if (!isEditable) return;
 
-    const handleToggle = useCallback((index: number, field: keyof ModuleTraining) => {
-        if (!isEditable) return;
+            setTrainingData((prev) => {
+                const updated = [...prev];
+                const item = updated[index];
 
-        setTrainingData((prev) => {
-            const updated = [...prev];
-            const modules = updated[index];
+                if (field === 'signedOff' && (!item.ojt || !item.practical)) {
+                    return prev;
+                }
 
-            // Allow practical to be toggled independently
-            if (field === 'signedOff' && (!modules.ojt || !modules.practical)) return prev;
+                const newValue = !item[field as keyof Pick<ITraining, 'ojt' | 'practical' | 'signedOff'>];
+                (item[field as 'ojt' | 'practical' | 'signedOff'] as boolean) = newValue as boolean;
 
-            // Toggle the field
-            updated[index] = { ...modules, [field]: !modules[field] };
+                if ((field === 'ojt' || field === 'practical') && !newValue) {
+                    item.signedOff = false;
+                }
 
-            // Auto-uncheck dependent fields when unchecking a prerequisite
-            if (field === 'ojt' && modules.ojt) {
-                // Unchecking OJT still unchecks signOff only, leave practical as is
-                updated[index].signedOff = false;
-            } else if (field === 'practical' && modules.practical) {
-                // Unchecking practical unchecks signOff
-                updated[index].signedOff = false;
-            }
-
-            return updated;
-        });
-    }, [isEditable]);
-
+                return updated;
+            });
+        },
+        [isEditable]
+    );
 
     const handleNotesChange = useCallback((index: number, value: string) => {
-        if (!isEditable) return;
         setTrainingData((prev) => {
             const updated = [...prev];
-            updated[index] = { ...updated[index], notes: value };
+            updated[index].notes = value;
+            return updated;
+        });
+    }, []); 
+    
+    const handleNotesChangeWithCheck = useCallback((index: number, value: string) => {
+        if (!isEditable) return;
+
+        setTrainingData((prev) => {
+            const updated = [...prev];
+            updated[index].notes = value;
             return updated;
         });
     }, [isEditable]);
@@ -165,21 +131,17 @@ export default function TrainingPage() {
             setError(null);
             setSaveSuccess(false);
 
-            const res = await fetch(`/api/training/${viewedUser._id}`, {
-                method: 'PUT',
+            const res = await fetch(`/api/users/${viewedUser._id}`, {
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ modules: trainingData }),
+                body: JSON.stringify({ trainings: trainingData }),
             });
 
-            if (!res.ok) {
-                throw new Error('Failed to save training data');
-            }
+            if (!res.ok) throw new Error('Failed to save training data');
 
             setOriginalData(JSON.parse(JSON.stringify(trainingData)));
             setHasChanges(false);
             setSaveSuccess(true);
-
-            // Hide success message after 3 seconds
             setTimeout(() => setSaveSuccess(false), 3000);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to save changes');
@@ -194,7 +156,7 @@ export default function TrainingPage() {
     };
 
     const getProgressStats = () => {
-        const completed = trainingData.filter(m => m.signedOff).length;
+        const completed = trainingData.filter((m) => m.signedOff).length;
         const total = trainingData.length;
         const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
         return { completed, total, percentage };
@@ -202,27 +164,22 @@ export default function TrainingPage() {
 
     const stats = getProgressStats();
 
-    if (loading) {
+    if (loading)
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="text-center">
-                    <Loader2 className="w-8 h-8 animate-spin text-gray-600 mx-auto mb-2" />
-                    <p className="text-gray-600">Loading training data...</p>
-                </div>
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <Loader2 className="w-8 h-8 animate-spin text-gray-600" />
             </div>
         );
-    }
 
-    if (error && !currentUser) {
+    if (error && !currentUser)
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="bg-white border border-red-200 rounded-lg p-6 max-w-md">
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <div className="bg-white border border-red-200 p-6 rounded-lg">
                     <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
-                    <p className="text-red-700 text-center">{error}</p>
+                    <p className="text-center text-red-700">{error}</p>
                 </div>
             </div>
         );
-    }
 
     if (!currentUser || !viewedUser) return null;
 
@@ -230,177 +187,142 @@ export default function TrainingPage() {
         <div className="min-h-screen bg-gray-50">
             <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
                 {/* Header */}
-                <div className="bg-white border border-gray-200 rounded-lg p-6">
-                    <div className="flex items-center justify-between flex-wrap gap-4">
-                        <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
-                                {userId && (
-                                    <button
-                                        onClick={() => router.back()}
-                                        className="p-1 hover:bg-gray-100 rounded transition-colors"
-                                        aria-label="Go back"
-                                    >
-                                        <ArrowLeft className="w-5 h-5 text-gray-600" />
-                                    </button>
-                                )}
-                                <h1 className="text-2xl font-semibold text-gray-900">
-                                    {isEditable ? 'Trainee Training' : 'My Training'}
-                                </h1>
-                            </div>
-                            <p className="text-sm text-gray-600">
-                                <span className="font-medium">{viewedUser.name}</span> • {viewedUser.role}
-                            </p>
+                <div className="bg-white border border-gray-200 rounded-lg p-6 flex justify-between items-center flex-wrap gap-4">
+                    <div>
+                        <div className="flex items-center gap-2">
+                            {userId && (
+                                <button
+                                    onClick={() => router.back()}
+                                    className="p-1 hover:bg-gray-100 rounded"
+                                >
+                                    <ArrowLeft className="w-5 h-5 text-gray-600" />
+                                </button>
+                            )}
+                            <h1 className="text-2xl font-semibold">
+                                {isEditable ? 'Trainee Training' : 'My Training'}
+                            </h1>
                         </div>
-
-                        {/* Progress Stats */}
-                        <div className="flex items-center gap-6">
-                            <div className="text-right">
-                                <p className="text-2xl font-bold text-gray-900">{stats.percentage}%</p>
-                                <p className="text-xs text-gray-600">Complete</p>
-                            </div>
-                            <div className="text-right">
-                                <p className="text-2xl font-bold text-gray-900">
-                                    {stats.completed}/{stats.total}
-                                </p>
-                                <p className="text-xs text-gray-600">Modules</p>
-                            </div>
-                        </div>
+                        <p className="text-sm text-gray-600">
+                            <span className="font-medium">{viewedUser.name}</span> • {viewedUser.role}
+                        </p>
                     </div>
 
-                    {/* Progress Bar */}
-                    <div className="mt-4">
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div
-                                className="bg-green-600 h-2 rounded-full transition-all duration-300"
-                                style={{ width: `${stats.percentage}%` }}
-                            />
+                    <div className="flex gap-6">
+                        <div className="text-right">
+                            <p className="text-2xl font-bold">{stats.percentage}%</p>
+                            <p className="text-xs text-gray-600">Complete</p>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-2xl font-bold">
+                                {stats.completed}/{stats.total}
+                            </p>
+                            <p className="text-xs text-gray-600">Modules</p>
                         </div>
                     </div>
                 </div>
 
-                {/* Error Alert */}
+                {/* Error / Success Alerts */}
                 {error && (
                     <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
-                        <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                        <AlertCircle className="w-5 h-5 text-red-500" />
                         <p className="text-red-700 text-sm">{error}</p>
                     </div>
                 )}
-
-                {/* Success Alert */}
                 {saveSuccess && (
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
-                        <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                        <CheckCircle2 className="w-5 h-5 text-green-500" />
                         <p className="text-green-700 text-sm">Training data saved successfully!</p>
                     </div>
                 )}
 
-                {/* Training Table */}
+                {/* Table */}
                 <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-gray-50 border-b border-gray-200">
-                                <tr>
-                                    <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Module
-                                    </th>
-                                    <th className="px-4 sm:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        OJT
-                                    </th>
-                                    <th className="px-4 sm:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Practical
-                                    </th>
-                                    <th className="px-4 sm:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Sign Off
-                                    </th>
-                                    <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Notes
-                                    </th>
+                    <table className="w-full">
+                        <thead className="bg-gray-50 border-b">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                    Module
+                                </th>
+                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">
+                                    OJT
+                                </th>
+                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">
+                                    Practical
+                                </th>
+                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">
+                                    Sign Off
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                    Notes
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                            {trainingData.map((t, idx) => (
+                                <tr key={t._id?.toString()} className="hover:bg-gray-50">
+                                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                                        {typeof t.module === 'object' && 'name' in t.module
+                                            ? t.module.name
+                                            : 'Unknown Module'}
+                                    </td>
+                                    <td className="text-center">
+                                        <input
+                                            type="checkbox"
+                                            checked={t.ojt}
+                                            onChange={() => handleToggle(idx, 'ojt')}
+                                            disabled={!isEditable}
+                                        />
+                                    </td>
+                                    <td className="text-center">
+                                        <input
+                                            type="checkbox"
+                                            checked={t.practical}
+                                            onChange={() => handleToggle(idx, 'practical')}
+                                            disabled={!isEditable}
+                                        />
+                                    </td>
+                                    <td className="text-center">
+                                        <input
+                                            type="checkbox"
+                                            checked={t.signedOff}
+                                            onChange={() => handleToggle(idx, 'signedOff')}
+                                            disabled={!isEditable || !t.ojt || !t.practical}
+                                        />
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <input
+                                            type="text"
+                                            value={t.notes}
+                                            onChange={(e) => handleNotesChange(idx, e.target.value)}
+                                            className="w-full border rounded-md px-3 py-2 text-sm"
+                                            disabled={!isEditable}
+                                        />
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200">
-                                {trainingData.map((mod, idx) => (
-                                    <tr key={mod.module} className="hover:bg-gray-50 transition-colors">
-                                        <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                            {mod.module}
-                                        </td>
-                                        <td className="px-4 sm:px-6 py-4 text-center">
-                                            <input
-                                                type="checkbox"
-                                                checked={mod.ojt}
-                                                onChange={() => handleToggle(idx, 'ojt')}
-                                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                                                disabled={!isEditable}
-                                                aria-label={`${mod.module} OJT`}
-                                            />
-                                        </td>
-                                        <td className="px-4 sm:px-6 py-4 text-center">
-                                            <input
-                                                type="checkbox"
-                                                checked={mod.practical}
-                                                onChange={() => handleToggle(idx, 'practical')}
-                                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                                                disabled={!isEditable}
-                                                aria-label={`${mod.module} Practical`}
-                                            />
-                                        </td>
-                                        <td className="px-4 sm:px-6 py-4 text-center">
-                                            <input
-                                                type="checkbox"
-                                                checked={mod.signedOff}
-                                                onChange={() => handleToggle(idx, 'signedOff')}
-                                                className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-2 focus:ring-green-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                                                disabled={!isEditable || !mod.ojt || !mod.practical}
-                                                aria-label={`${mod.module} Sign Off`}
-                                            />
-                                        </td>
-                                        <td className="px-4 sm:px-6 py-4">
-                                            <input
-                                                type="text"
-                                                value={mod.notes}
-                                                onChange={(e) => handleNotesChange(idx, e.target.value)}
-                                                placeholder={isEditable ? "Add notes..." : "No notes"}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed"
-                                                disabled={!isEditable}
-                                                aria-label={`${mod.module} Notes`}
-                                            />
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
 
-                {/* Action Buttons */}
+                {/* Save / Cancel */}
                 {isEditable && hasChanges && (
-                    <div className="bg-white border border-gray-200 rounded-lg p-4 flex items-center justify-between gap-4 flex-wrap">
-                        <p className="text-sm text-gray-600">
-                            You have unsaved changes
-                        </p>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4 flex justify-between items-center">
+                        <p className="text-sm text-gray-600">You have unsaved changes</p>
                         <div className="flex gap-3">
                             <button
                                 onClick={handleCancel}
                                 disabled={saving}
-                                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                className="px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleSave}
                                 disabled={saving}
-                                className="px-4 py-2 bg-blue-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                                className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 flex items-center gap-2"
                             >
-                                {saving ? (
-                                    <>
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                        Saving...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Save className="w-4 h-4" />
-                                        Save Changes
-                                    </>
-                                )}
+                                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                Save
                             </button>
                         </div>
                     </div>

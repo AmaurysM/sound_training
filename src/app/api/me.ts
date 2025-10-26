@@ -23,6 +23,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     res.status(200).json(safeUser);
   } catch (err) {
+    console.error(err);
     res.status(401).json({ error: 'Not authenticated' });
   }
 }
