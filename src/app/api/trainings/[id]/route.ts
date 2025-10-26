@@ -3,10 +3,12 @@ import { connectToDatabase } from "@/lib/mongodb";
 import Training from "@/models/Training";
 
 // ✅ READ one training
-export async function GET(_: Request, { params }: { params: { id: string } }) {
+export async function GET(_: Request, context: { params: Promise<{ id: string }> }) {
   try {
     await connectToDatabase();
-    const training = await Training.findById(params.id)
+
+    const { id } = await context.params; // unwrap params
+    const training = await Training.findById(id)
       .populate("user", "name username role")
       .populate("module", "name description")
       .lean();
@@ -18,12 +20,14 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
   }
 }
 
-// ✅ UPDATE training (e.g., sign-off or progress updates)
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+// ✅ UPDATE training
+export async function PATCH(req: Request, context: { params: Promise<{ id: string }> }) {
   try {
     await connectToDatabase();
+
+    const { id } = await context.params; // unwrap params
     const updates = await req.json();
-    const updated = await Training.findByIdAndUpdate(params.id, updates, { new: true });
+    const updated = await Training.findByIdAndUpdate(id, updates, { new: true });
     if (!updated) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(updated);
   } catch {
@@ -32,10 +36,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 }
 
 // ✅ DELETE training
-export async function DELETE(_: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_: Request, context: { params: Promise<{ id: string }> }) {
   try {
     await connectToDatabase();
-    const deleted = await Training.findByIdAndDelete(params.id);
+
+    const { id } = await context.params; // unwrap params
+    const deleted = await Training.findByIdAndDelete(id);
     if (!deleted) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json({ message: "Deleted successfully" });
   } catch {

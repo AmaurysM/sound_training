@@ -1,3 +1,5 @@
+// src/app/api/trainings/route.ts
+
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import Training from "@/models/Training";
@@ -12,7 +14,12 @@ export async function POST(req: Request) {
     const training = await Training.create(data);
 
     // Add to user's training list
-    await User.findByIdAndUpdate(training.user, { $push: { trainings: training._id } });
+    // await User.findByIdAndUpdate(training.user, { $push: { trainings: training._id } });
+    await User.findByIdAndUpdate(
+      training.user,
+      { $push: { trainings: training._id } }, // adds training id to user's trainings array
+      { new: true } // optional: returns updated user
+    );
 
     return NextResponse.json(training, { status: 201 });
   } catch (err) {
@@ -32,6 +39,9 @@ export async function GET() {
     return NextResponse.json(trainings);
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "Failed to fetch trainings" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch trainings" },
+      { status: 500 }
+    );
   }
 }

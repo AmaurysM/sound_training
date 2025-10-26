@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed:users": "tsx src/scripts/seed.ts",
+    "seed:modules": "tsx src/scripts/seedTrainingModules.ts"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

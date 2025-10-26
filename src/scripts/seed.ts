@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
-import UserModel from '@/models/User'; // adjust path if needed
 import dotenv from 'dotenv';
+import UserModel from '@/models/User'; // adjust path if needed
 
 dotenv.config();
 
@@ -12,30 +12,32 @@ async function seed() {
     await mongoose.connect(MONGO_URI);
     console.log('Connected to MongoDB');
 
-    // Clear existing users (optional)
+    // Clear existing users
     await UserModel.deleteMany({});
     console.log('Existing users cleared');
 
-    // Seed users
+    // Seed users with updated schema (trainings as empty array)
     const users = [
       {
         name: 'Alice Coordinator',
         username: 'alice',
         password: await bcrypt.hash('password123', 10),
         role: 'Coordinator',
+        trainings: [],
       },
       {
         name: 'Tom Trainer',
         username: 'tom',
         password: await bcrypt.hash('password123', 10),
         role: 'Trainer',
+        trainings: [],
       },
       {
         name: 'Tina Trainee',
         username: 'tina',
         password: await bcrypt.hash('password123', 10),
         role: 'Trainee',
-        //studentId: 'S12345',
+        trainings: [],
       },
     ];
 
