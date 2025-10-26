@@ -1,30 +1,32 @@
-// src/app/api/users/[id]/route.ts
-
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
-import User from "@/models/User";
-import Training from "@/models/Training"; // ← ADD THIS
-import TrainingModule from "@/models/TrainingModule"; // ← ADD THIS
+import mongoose from "mongoose";
 
-// ✅ READ single user
+// Import all models at once to ensure registration
+import { User, Training, TrainingModule } from "@/models";
+
 export async function GET(req: Request, context: { params: Promise<{ id: string }> }) {
   try {
     await connectToDatabase();
+    
+    // Debug: Check which models are registered
+    console.log('Registered models:', Object.keys(mongoose.models));
 
     const { id } = await context.params;
     
     const user = await User.findById(id)
       .populate({
         path: "trainings",
+        model: Training,
         populate: {
           path: "module",
-          model: "TrainingModule",
+          model: TrainingModule,
         },
       })
       .lean();
 
     if (!user) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     return NextResponse.json(user, { status: 200 });
@@ -32,12 +34,11 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
     console.error("Error fetching user:", err);
     return NextResponse.json({ 
       error: "Error fetching user", 
-      details: err instanceof Error ? err.message : 'Unknown error' 
+      details: err instanceof Error ? err.message : 'Unknown error'
     }, { status: 500 });
   }
 }
 
-// ✅ UPDATE user (no password change here)
 export async function PATCH(req: Request, context: { params: Promise<{ id: string }> }) {
   try {
     await connectToDatabase();
@@ -51,7 +52,6 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
   }
 }
 
-// ✅ ARCHIVE user (instead of delete)
 export async function DELETE(_: Request, context: { params: Promise<{ id: string }> }) {
   try {
     await connectToDatabase();

@@ -1,16 +1,5 @@
-import mongoose, { Schema, Document, models } from 'mongoose';
-import { ITraining } from './Training';
-
-export interface IUser extends Document {
-  username: string;
-  password: string;
-  role: 'Coordinator' | 'Trainer' | 'Trainee';
-  name: string;
-  archived: boolean;
-  trainings?: mongoose.Types.ObjectId[] | ITraining[];
-  createdAt?: Date;
-  updatedAt?: Date;
-}
+import mongoose, { Schema, models } from 'mongoose';
+import { IUser } from './types';
 
 const UserSchema = new Schema<IUser>(
   {
@@ -25,3 +14,4 @@ const UserSchema = new Schema<IUser>(
 );
 
 export default models.User || mongoose.model<IUser>('User', UserSchema);
+export type { IUser };

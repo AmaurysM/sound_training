@@ -1,16 +1,5 @@
-import mongoose, { Schema, Document, models } from 'mongoose';
-import { ITrainingModule } from './TrainingModule';
-
-export interface ITraining extends Document {
-  user: mongoose.Types.ObjectId; // user assigned to
-  module: mongoose.Types.ObjectId | ITrainingModule; // reference to module template
-  ojt: boolean;
-  practical: boolean;
-  signedOff: boolean;
-  notes: string;
-  createdAt?: Date;
-  updatedAt?: Date;
-}
+import mongoose, { Schema, models } from 'mongoose';
+import { ITraining } from './types';
 
 const TrainingSchema = new Schema<ITraining>(
   {
@@ -25,3 +14,4 @@ const TrainingSchema = new Schema<ITraining>(
 );
 
 export default models.Training || mongoose.model<ITraining>('Training', TrainingSchema);
+export type { ITraining };

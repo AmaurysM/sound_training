@@ -1,11 +1,5 @@
 import mongoose, { Schema, Document, models } from 'mongoose';
-
-export interface ITrainingModule extends Document {
-  name: string;
-  description?: string;
-  createdAt?: Date;
-  updatedAt?: Date;
-}
+import { ITrainingModule } from './types';
 
 const TrainingModuleSchema = new Schema<ITrainingModule>(
   {
@@ -16,3 +10,4 @@ const TrainingModuleSchema = new Schema<ITrainingModule>(
 );
 
 export default models.TrainingModule || mongoose.model<ITrainingModule>('TrainingModule', TrainingModuleSchema);
+export type { ITrainingModule };

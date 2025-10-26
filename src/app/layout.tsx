@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next"; // ← Add Viewport import
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -15,7 +15,14 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "NATA Training Tracker",
   description: "Track and manage athletic training progress",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1",
+  // ← Remove viewport from here
+};
+
+// ← Add separate viewport export
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
 };
 
 export default function RootLayout({
@@ -26,7 +33,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="bg-blue-50">
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=yes" />
+        {/* ← You can remove this meta tag too, Next.js handles it now */}
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-blue-50`}
@@ -34,6 +41,5 @@ export default function RootLayout({
         {children}
       </body>
     </html>
-
   );
 }
