@@ -482,14 +482,14 @@ export default function TrainingPage() {
 
                     <div className={`${showMobileMenu ? 'block' : 'hidden'} lg:block mt-4`}>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-                            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 sm:p-4">
+                            <div className="bg-linear-to-br from-blue-50 to-blue-100 rounded-lg p-3 sm:p-4">
                                 <div className="flex items-center gap-2 mb-1">
                                     <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600" />
                                     <p className="text-xs font-medium text-blue-900">Progress</p>
                                 </div>
                                 <p className="text-2xl sm:text-3xl font-bold text-blue-900">{stats.percentage}%</p>
                             </div>
-                            <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-3 sm:p-4">
+                            <div className="bg-linear-to-br from-green-50 to-green-100 rounded-lg p-3 sm:p-4">
                                 <div className="flex items-center gap-2 mb-1">
                                     <Award className="w-3 h-3 sm:w-4 sm:h-4 text-green-600" />
                                     <p className="text-xs font-medium text-green-900">Completed</p>
@@ -498,7 +498,7 @@ export default function TrainingPage() {
                                     {stats.completed}/{stats.total}
                                 </p>
                             </div>
-                            <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg p-3 sm:p-4 col-span-2 sm:col-span-1">
+                            <div className="bg-linear-to-br from-amber-50 to-amber-100 rounded-lg p-3 sm:p-4 col-span-2 sm:col-span-1">
                                 <div className="flex items-center gap-2 mb-1">
                                     <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-amber-600" />
                                     <p className="text-xs font-medium text-amber-900">In Progress</p>
@@ -525,7 +525,7 @@ export default function TrainingPage() {
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2 sm:h-3 overflow-hidden">
                             <div
-                                className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 sm:h-3 rounded-full transition-all duration-500"
+                                className="bg-linear-to-r from-blue-500 to-blue-600 h-2 sm:h-3 rounded-full transition-all duration-500"
                                 style={{ width: `${stats.percentage}%` }}
                             />
                         </div>
@@ -536,7 +536,7 @@ export default function TrainingPage() {
                     <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4 flex items-start gap-2 sm:gap-3 shadow-sm">
                         <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-500 shrink-0 mt-0.5" />
                         <div className="flex-1 min-w-0">
-                            <p className="text-red-700 text-xs sm:text-sm font-medium break-words">{error}</p>
+                            <p className="text-red-700 text-xs sm:text-sm font-medium wrap-break-word">{error}</p>
                         </div>
                         <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700 shrink-0">
                             <X className="w-4 h-4" />
@@ -577,7 +577,7 @@ export default function TrainingPage() {
                                 </button>
                             </div>
 
-                            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                                 <button
                                     onClick={handleExportData}
                                     disabled={trainingData.length === 0}

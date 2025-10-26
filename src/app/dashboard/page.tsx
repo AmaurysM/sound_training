@@ -401,7 +401,7 @@ export default function DashboardPage() {
                             >
                                 <span className="truncate">{selectedRole || 'All Roles'}</span>
                                 <svg
-                                    className={`w-4 h-4 transform transition-transform flex-shrink-0 ml-2 ${roleDropdownOpen ? 'rotate-180' : ''}`}
+                                    className={`w-4 h-4 transform transition-transform shrink-0 ml-2 ${roleDropdownOpen ? 'rotate-180' : ''}`}
                                     fill="none"
                                     stroke="currentColor"
                                     viewBox="0 0 24 24"
