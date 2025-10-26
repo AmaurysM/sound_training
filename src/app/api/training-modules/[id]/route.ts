@@ -1,9 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import TrainingModule from "@/models/TrainingModule";
 
 // ✅ READ one module by ID
-export async function GET(_: Request, { params }: { params: { id: string } }) {
+export async function GET(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
     await connectToDatabase();
     const mod = await TrainingModule.findById(params.id).lean();
@@ -20,7 +23,7 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
 
 // ✅ UPDATE a module
 export async function PATCH(
-  req: Request,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -40,7 +43,7 @@ export async function PATCH(
 
 // ✅ DELETE a module
 export async function DELETE(
-  _: Request,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
