@@ -2,38 +2,32 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import TrainingModule from "@/models/TrainingModule";
 
-// ✅ READ one module by ID
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await context.params; // ✅ await the params
     await connectToDatabase();
-    const mod = await TrainingModule.findById(params.id).lean();
+    const mod = await TrainingModule.findById(id).lean();
     if (!mod) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(mod);
   } catch (err) {
     console.error(err);
-    return NextResponse.json(
-      { error: "Error fetching module" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Error fetching module" }, { status: 500 });
   }
 }
 
-// ✅ UPDATE a module
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await context.params;
     await connectToDatabase();
     const updates = await req.json();
-    const updated = await TrainingModule.findByIdAndUpdate(params.id, updates, {
-      new: true,
-    });
-    if (!updated)
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const updated = await TrainingModule.findByIdAndUpdate(id, updates, { new: true });
+    if (!updated) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(updated);
   } catch (err) {
     console.error(err);
@@ -41,14 +35,14 @@ export async function PATCH(
   }
 }
 
-// ✅ DELETE a module
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await context.params;
     await connectToDatabase();
-    await TrainingModule.findByIdAndDelete(params.id);
+    await TrainingModule.findByIdAndDelete(id);
     return NextResponse.json({ message: "Deleted successfully" });
   } catch (err) {
     console.error(err);
