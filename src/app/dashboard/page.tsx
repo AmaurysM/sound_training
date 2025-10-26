@@ -1,3 +1,5 @@
+// src/app/dashboard/page.tsx
+
 'use client';
 import React, { useEffect, useState, startTransition, useRef } from 'react';
 import { useRouter } from 'next/navigation';
