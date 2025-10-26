@@ -24,16 +24,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="bg-blue-50">
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=yes" />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen overflow-x-hidden overscroll-none bg-linear-to-br from-blue-50 to-blue-100`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-blue-50`}
       >
         {children}
       </body>
-
     </html>
+
   );
 }
