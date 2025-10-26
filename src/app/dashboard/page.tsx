@@ -255,7 +255,7 @@ export default function DashboardPage() {
 
                 {/* Add New User */}
                 {!showArchived && currentUser.role === 'Coordinator' && (
-                    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="bg-white border border-gray-200 rounded-lg">
                         {!showAddUserForm ? (
                             <button
                                 onClick={() => setShowAddUserForm(true)}
@@ -279,57 +279,38 @@ export default function DashboardPage() {
                                 <div className="space-y-4">
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                                                Full Name
-                                            </label>
-                                            <div
-                                                contentEditable
-                                                suppressContentEditableWarning
+                                            <label className="block text-xs font-medium text-gray-700 mb-1.5">Full Name</label>
+                                            <input
+                                                type="text"
                                                 className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                                                onInput={(e) =>
-                                                    setNewUserForm({ ...newUserForm, name: (e.target as HTMLDivElement).innerText })
-                                                }
-                                            >
-                                                {newUserForm.name}
-                                            </div>
+                                                value={newUserForm.name}
+                                                onChange={(e) => setNewUserForm({ ...newUserForm, name: e.target.value })}
+                                            />
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                                                Username
-                                            </label>
-                                            <div
-                                                contentEditable
-                                                suppressContentEditableWarning
+                                            <label className="block text-xs font-medium text-gray-700 mb-1.5">Username</label>
+                                            <input
+                                                type="text"
                                                 className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                                                onInput={(e) =>
-                                                    setNewUserForm({ ...newUserForm, username: (e.target as HTMLDivElement).innerText })
-                                                }
-                                            >
-                                                {newUserForm.username}
-                                            </div>
+                                                value={newUserForm.username}
+                                                onChange={(e) => setNewUserForm({ ...newUserForm, username: e.target.value })}
+                                            />
                                         </div>
                                     </div>
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                                                Password
-                                            </label>
-                                            <div
-                                                contentEditable
-                                                suppressContentEditableWarning
+                                            <label className="block text-xs font-medium text-gray-700 mb-1.5">Password</label>
+                                            <input
+                                                type="password"
                                                 className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                                                onInput={(e) =>
-                                                    setNewUserForm({ ...newUserForm, password: (e.target as HTMLDivElement).innerText })
-                                                }
-                                            >
-                                                {newUserForm.password}
-                                            </div>
+                                                value={newUserForm.password}
+                                                onChange={(e) => setNewUserForm({ ...newUserForm, password: e.target.value })}
+                                            />
                                         </div>
-                                        <div ref={searchRoleDropdownRef} className="relative z-50">
-                                            <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                                                Role
-                                            </label>
+
+                                        <div ref={searchRoleDropdownRef} className="relative">
+                                            <label className="block text-xs font-medium text-gray-700 mb-1.5">Role</label>
 
                                             <div
                                                 onClick={() => setSearchRoleDropdownOpen((prev) => !prev)}
@@ -379,6 +360,7 @@ export default function DashboardPage() {
                         )}
                     </div>
                 )}
+
 
                 {/* Search and Filters */}
                 <div className="flex flex-col sm:flex-row gap-3">

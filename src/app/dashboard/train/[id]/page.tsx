@@ -83,7 +83,7 @@ export default function TrainingPage() {
     }, []);
 
     const fetchModules = useCallback(async () => {
-        if (!currentUser || currentUser.role !== 'Coordinator') return;
+        if (!currentUser) return;
         try {
             setLoadingModules(true);
             const res = await fetch('/api/training-modules');
@@ -97,6 +97,7 @@ export default function TrainingPage() {
         }
     }, [currentUser]);
 
+
     useEffect(() => {
         fetchModules();
     }, [fetchModules]);
@@ -107,8 +108,8 @@ export default function TrainingPage() {
             setLoading(true);
             setError(null);
 
-            const canViewOthers = currentUser.role === 'Coordinator' || currentUser.role === 'Trainer';
-            const targetUserId = userId && canViewOthers ? userId : null;
+           //const canViewOthers = currentUser.role === 'Coordinator' || currentUser.role === 'Trainer';
+            const targetUserId = userId  ? userId : null;
             const url = targetUserId ? `/api/users/${targetUserId}` : '/api/me';
 
             const res = await fetch(url);
