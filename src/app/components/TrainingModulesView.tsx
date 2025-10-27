@@ -1,6 +1,7 @@
 import { Search, Filter, Download, Plus, FileText, CheckCircle2, Clock, AlertCircle, History, X, MessageSquare, Save, UserCheck } from "lucide-react";
 import { ISignature, ITraining, IUser, Stat } from "@/models/types";
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 const TrainingModulesView = ({
     currentUser,
@@ -35,6 +36,7 @@ const TrainingModulesView = ({
     setSaveSuccess: React.Dispatch<React.SetStateAction<boolean>>
     saving: boolean
 }) => {
+    const router = useRouter();
 
     const isEditable = currentUser && (currentUser.role === 'Coordinator' || currentUser.role === 'Trainer');
     const isCoordinator = currentUser?.role === 'Coordinator';
@@ -713,7 +715,18 @@ const TrainingModulesView = ({
                                                 <td className="px-6 py-4">
                                                     <div className="flex items-center gap-2">
                                                         <div>
-                                                            <p className="text-sm font-medium text-gray-900">{moduleName}</p>
+                                                            {/* <p className="text-sm font-medium text-gray-900">{moduleName}</p>
+                                                            {typeof t.module === 'object' && t.module.description && (
+                                                                <p className="text-xs text-gray-500 mt-0.5">{t.module.description}</p>
+                                                            )} */}
+                                                            <button
+                                                                onClick={() => router.push(`/dashboard/module/${t._id}`)}
+                                                                className="text-sm font-medium text-gray-900 hover:underline hover:text-blue-800 transition-colors"
+                                                            >
+                                                                {moduleName}
+                                                            </button>
+
+                                                            {/* Description below */}
                                                             {typeof t.module === 'object' && t.module.description && (
                                                                 <p className="text-xs text-gray-500 mt-0.5">{t.module.description}</p>
                                                             )}

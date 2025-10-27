@@ -1,0 +1,8 @@
+ignoredBuiltDependencies:
+  - aws-sdk
+
+onlyBuiltDependencies:
+  - bcrypt
+  - esbuild
+  - sharp
+  - unrs-resolver

@@ -39,10 +39,19 @@ export default async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL('/login', req.url));
   }
 
-  // Optional: redirect trainees if trying to access other dashboards
+  // Handle trainee-specific routing
   if (payload?.role === 'Trainee') {
     const traineePath = `/dashboard/train/${payload.id}`;
-    if (!pathname.startsWith(traineePath) && pathname.startsWith('/dashboard')) {
+    const modulePath = '/dashboard/module/';
+    
+    // Allow trainees to access:
+    // 1. Their own training dashboard
+    // 2. Module detail pages
+    const isOwnDashboard = pathname.startsWith(traineePath);
+    const isModulePage = pathname.startsWith(modulePath);
+    
+    if (!isOwnDashboard && !isModulePage && pathname.startsWith('/dashboard')) {
+      // Redirect to their training dashboard if trying to access other areas
       return NextResponse.redirect(new URL(traineePath, req.url));
     }
   }
