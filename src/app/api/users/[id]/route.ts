@@ -11,19 +11,23 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
   try {
     await connectToDatabase();
     
-    // Debug: Check which models are registered
-    console.log('Registered models:', Object.keys(mongoose.models));
-
     const { id } = await context.params;
-    
+
     const user = await User.findById(id)
       .populate({
         path: "trainings",
-        model: Training,
-        populate: {
-          path: "module",
-          model: TrainingModule,
-        },
+        model: "Training",
+        populate: [
+          {
+            path: "module",
+            model: "TrainingModule",
+          },
+          {
+            path: "signatures",
+            model: "Signature",
+            select: "userId userName role signedAt",
+          },
+        ],
       })
       .lean();
 
@@ -40,6 +44,7 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
     }, { status: 500 });
   }
 }
+
 
 export async function PATCH(req: Request, context: { params: Promise<{ id: string }> }) {
   try {

@@ -1,5 +1,5 @@
-import mongoose, { Schema, Document, models } from 'mongoose';
-import { ITrainingModule } from './types';
+import mongoose, { Schema, Document, models } from "mongoose";
+import { ITrainingModule } from "./mongoTypes";
 
 const TrainingModuleSchema = new Schema<ITrainingModule>(
   {
@@ -9,5 +9,6 @@ const TrainingModuleSchema = new Schema<ITrainingModule>(
   { timestamps: true }
 );
 
-export default models.TrainingModule || mongoose.model<ITrainingModule>('TrainingModule', TrainingModuleSchema);
+export default models.TrainingModule ||
+  mongoose.model<ITrainingModule>("TrainingModule", TrainingModuleSchema);
 export type { ITrainingModule };

@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import { Plus, X, CheckCircle2, FileText, Loader2 } from 'lucide-react';
-import { ITrainingModule } from '../dashboard/train/[id]/page';
+import { ITrainingModule } from "@/models/types";
 
 // interface Module {
 //     _id?: string;

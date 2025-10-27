@@ -2,7 +2,7 @@
 import React from 'react';
 import { X, Calendar, Clock, CheckCircle2 } from 'lucide-react';
 import { ITrainingModule } from '@/models/TrainingModule';
-import { ITraining } from '../dashboard/train/[id]/page';
+import { ITraining } from "@/models/types";
 
 interface TrainingHistoryModalProps {
   show: boolean;

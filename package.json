@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "seed:users": "tsx src/scripts/seed.ts",
-    "seed:modules": "tsx src/scripts/seedTrainingModules.ts"
+    "seed:modules": "tsx src/scripts/seedTrainingModules.ts",
+    "seed:migrateSignatures":"tsx src/scripts/migrateSignatures.ts"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

@@ -1,8 +1,8 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { X, Save, Loader2, AlertCircle, User } from 'lucide-react';
-import { IUser } from '../dashboard/train/[id]/page';
-import { Role } from '@/models/types';
+import { IUser } from "@/models/types";
+import { Role } from "@/models/types";
 
 
 interface EditUserModalProps {
@@ -158,7 +158,7 @@ export default function EditUserModal({ show, user, onClose, onSave }: EditUserM
                             onChange={(e) =>
                                 setFormData({
                                     ...formData,
-                                    role: e.target.value as Role ,
+                                    role: e.target.value as Role,
                                 })
                             }
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"

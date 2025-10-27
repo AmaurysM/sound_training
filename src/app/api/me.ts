@@ -1,3 +1,5 @@
+// api/me.ts
+
 import { NextApiRequest, NextApiResponse } from 'next';
 import { jwtVerify } from "jose";
 import UserModel, { IUser } from '@/models/User'; // mongoose model
