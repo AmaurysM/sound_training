@@ -28,3 +28,5 @@ export interface IUser extends Document {
   createdAt?: Date;
   updatedAt?: Date;
 }
+
+export type Role = 'Trainee' | 'Trainer' | 'Coordinator';

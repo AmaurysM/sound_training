@@ -1,3 +1,5 @@
+// scr/app/api/users/[id]/route.ts
+
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import mongoose from "mongoose";

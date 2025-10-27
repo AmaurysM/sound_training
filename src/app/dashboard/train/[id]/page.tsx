@@ -4,12 +4,14 @@ import { useParams, useRouter } from 'next/navigation';
 import {
     AlertCircle, CheckCircle2, Loader2, ArrowLeft, Save, Plus, X,
     RefreshCw, Filter, Search, Download, Calendar, User, Award,
-    Clock, TrendingUp, FileText, History, Menu, LogOut, Home
+    Clock, TrendingUp, FileText, History, Menu, LogOut, Home,
+    Edit
 } from 'lucide-react';
 import TrainingHistoryModal from '@/app/components/ShowHistoryModal';
 import AddModuleModal from '@/app/components/AddModuleModal';
+import EditUserModal from '@/app/components/EditUserModal';
 
-interface IUser {
+export interface IUser {
     _id?: string;
     username: string;
     password: string;
@@ -66,6 +68,7 @@ export default function TrainingPage() {
     const [filterStatus, setFilterStatus] = useState<'all' | 'completed' | 'in-progress' | 'not-started'>('all');
     const [showFilters, setShowFilters] = useState(false);
     const [showMobileMenu, setShowMobileMenu] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
 
     useEffect(() => {
         const fetchCurrentUser = async () => {
@@ -108,8 +111,8 @@ export default function TrainingPage() {
             setLoading(true);
             setError(null);
 
-           //const canViewOthers = currentUser.role === 'Coordinator' || currentUser.role === 'Trainer';
-            const targetUserId = userId  ? userId : null;
+            //const canViewOthers = currentUser.role === 'Coordinator' || currentUser.role === 'Trainer';
+            const targetUserId = userId ? userId : null;
             const url = targetUserId ? `/api/users/${targetUserId}` : '/api/me';
 
             const res = await fetch(url);
@@ -456,8 +459,17 @@ export default function TrainingPage() {
                                     <span>•</span>
                                     <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium whitespace-nowrap">
                                         {viewedUser.role}
-                                    </span>
+                                    </span>{isCoordinator && !isViewingOwnProfile && (
+                                    <button
+                                        onClick={() => setShowEditModal(true)}
+                                        className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                                        title="Edit user"
+                                    >
+                                        <Edit className="w-4 h-4 text-gray-600" />
+                                    </button>
+                                )}
                                 </div>
+                                
                             </div>
                         </div>
 
@@ -999,6 +1011,18 @@ export default function TrainingPage() {
                     setSelectedTraining(null);
                 }}
             />
+            {/* Add before the closing </div> of the main container */}
+            <EditUserModal
+                show={showEditModal}
+                user={viewedUser}
+                onClose={() => setShowEditModal(false)}
+                onSave={() => {
+                    fetchViewedUserAndTraining();
+                    setShowEditModal(false);
+                }}
+            />
         </div>
+
+
     );
 }
