@@ -9,7 +9,8 @@
     "lint": "eslint",
     "seed:users": "tsx src/scripts/seed.ts",
     "seed:modules": "tsx src/scripts/seedTrainingModules.ts",
-    "seed:migrateSignatures": "tsx src/scripts/migrateSignatures.ts"
+    "seed:migrateSignatures": "tsx src/scripts/migrateSignatures.ts",
+    "seed:populateAllData": "tsx src/scripts/populateAllData.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.918.0",

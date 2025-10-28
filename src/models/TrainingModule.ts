@@ -5,6 +5,7 @@ const TrainingModuleSchema = new Schema<ITrainingModule>(
   {
     name: { type: String, required: true, unique: true },
     description: { type: String },
+    submodules: [{ type: Schema.Types.ObjectId, ref: "TrainingSubmodule" }],
   },
   { timestamps: true }
 );

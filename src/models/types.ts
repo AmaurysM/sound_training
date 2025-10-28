@@ -1,3 +1,5 @@
+// import { ITrainingSubmodule } from "./TrainingSubModule";
+
 export type Role = "Trainee" | "Trainer" | "Coordinator";
 
 export interface Stat {
@@ -20,15 +22,24 @@ export interface IUser {
   updatedAt?: Date;
 }
 
+export interface ITrainingSubModule {
+  _id?: string;
+  moduleId: string;
+  code: string;
+  title: string;
+  requiresPractical: boolean;
+  description?: string;
+}
+
 export interface ITrainingModule {
   _id?: string;
   name: string;
   description?: string;
+  submodules: ITrainingSubModule[];
   createdAt?: Date;
   updatedAt?: Date;
 }
 
-// NEW: Signature interface
 export interface ISignature {
   _id?: string;
   userId: string;
@@ -39,12 +50,12 @@ export interface ISignature {
 
 export interface ITraining {
   _id?: string;
-  user: string;
-  module: string | ITrainingModule;
+  user: string; // Id of user or the user object.
+  module: string | ITrainingModule; // Id of module or ItrainingModule object.
   ojt: boolean;
   practical: boolean;
   signedOff: boolean;
-  signatures: ISignature[]; // NEW: Array of signatures
+  signatures: ISignature[];
   notes: string;
   createdAt?: Date;
   updatedAt?: Date;

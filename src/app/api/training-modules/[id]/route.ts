@@ -1,3 +1,5 @@
+// app/api/training-modules/[id]/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import TrainingModule from "@/models/TrainingModule";
@@ -7,9 +9,17 @@ export async function GET(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await context.params; // ✅ await the params
+    const { id } = await context.params;
     await connectToDatabase();
-    const mod = await TrainingModule.findById(id).lean();
+
+    // ✅ Populate submodules
+    const mod = await TrainingModule.findById(id)
+      .populate({
+        path: "submodules",       // field to populate
+        select: "code title requiresPractical", // optional: select specific fields
+      })
+      .lean();
+
     if (!mod) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(mod);
   } catch (err) {

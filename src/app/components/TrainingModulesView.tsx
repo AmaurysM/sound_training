@@ -616,7 +616,7 @@ const TrainingModulesView = ({
                                                 return (
                                                     <span className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium whitespace-nowrap">
                                                         <CheckCircle2 className="w-3 h-3" />
-                                                        <span>Completed</span>
+                                                        <span>COMPLETED</span>
                                                     </span>
                                                 );
                                             }

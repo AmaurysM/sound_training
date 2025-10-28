@@ -25,7 +25,6 @@ async function seed() {
         password: await bcrypt.hash("password123", 10),
         role: "Coordinator",
         trainings: [],
-        signatures: [],
       },
       {
         name: "Tom Trainer",
@@ -33,7 +32,6 @@ async function seed() {
         password: await bcrypt.hash("password123", 10),
         role: "Trainer",
         trainings: [],
-        signatures: [],
       },
       {
         name: "Tina Trainee",
@@ -41,7 +39,6 @@ async function seed() {
         password: await bcrypt.hash("password123", 10),
         role: "Trainee",
         trainings: [],
-        signatures: [],
       },
     ];
 

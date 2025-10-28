@@ -1,17 +1,27 @@
 // src/models/mongoTypes.ts
 import mongoose, { Document } from "mongoose";
+import { Role } from "./types";
 
 export interface ITrainingModule extends Document {
   name: string;
   description?: string;
+  submodules?: mongoose.Types.ObjectId[] | ITrainingSubModule[];
   createdAt?: Date;
   updatedAt?: Date;
+}
+
+export interface ITrainingSubModule extends Document {
+  moduleId: mongoose.Types.ObjectId;
+  code: string;
+  title: string;
+  requiresPractical: boolean;
+  description?: string;
 }
 
 export interface ISignature extends Document {
   userId: mongoose.Types.ObjectId;
   userName: string;
-  role: 'Trainer' | 'Coordinator';
+  role: Role;
   signedAt: Date;
   trainingId: mongoose.Types.ObjectId;
   createdAt?: Date;

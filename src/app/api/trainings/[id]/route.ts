@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { Training, Signature, ISignature } from "@/models";
 import mongoose from "mongoose";
+import TrainingSubmodule from "@/models/TrainingSubModule"; // ✅ ADD THIS LINE
 
 // GET training by ID
 export async function GET(
@@ -15,7 +16,15 @@ export async function GET(
 
     const training = await Training.findById(id)
       .populate("user", "name username role")
-      .populate("module", "name description")
+      .populate({
+        path: "module",
+        select: "name description submodules",
+        populate: {
+          path: "submodules", // ✅ matches the field in the schema
+          model: "TrainingSubModule", // ✅ matches the model name
+          select: "title code description requiresPractical", // fields you want
+        },
+      })
       .populate({
         path: "signatures",
         model: "Signature",
@@ -23,6 +32,7 @@ export async function GET(
       })
       .lean();
 
+    // console.log({...training})
     if (!training)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -37,14 +47,18 @@ export async function GET(
 }
 
 // PATCH - add signature or update training
-export async function PATCH(req: Request, context: { params: Promise<{ id: string }> }) {
+export async function PATCH(
+  req: Request,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
     await connectToDatabase();
     const { id } = await context.params;
     const updates = await req.json();
 
     const training = await Training.findById(id);
-    if (!training) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!training)
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     // 1️⃣ Handle full signatures array update
     if (updates.signatures && Array.isArray(updates.signatures)) {
@@ -57,7 +71,12 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
           // Update existing signature by _id
           signatureDoc = await Signature.findByIdAndUpdate(
             (sig as ISignature)._id,
-            { userId: sig.userId, userName: sig.userName, role: sig.role, signedAt: sig.signedAt },
+            {
+              userId: sig.userId,
+              userName: sig.userName,
+              role: sig.role,
+              signedAt: sig.signedAt,
+            },
             { new: true }
           );
         } else {
@@ -114,12 +133,14 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
   } catch (err) {
     console.error("Update error:", err);
     return NextResponse.json(
-      { error: "Update failed", details: err instanceof Error ? err.message : "Unknown error" },
+      {
+        error: "Update failed",
+        details: err instanceof Error ? err.message : "Unknown error",
+      },
       { status: 400 }
     );
   }
 }
-
 
 // ✅ DELETE training (and its signatures)
 export async function DELETE(

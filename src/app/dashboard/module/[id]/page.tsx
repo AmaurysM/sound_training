@@ -16,48 +16,10 @@ import {
     Award,
     ClipboardList,
     Loader2,
+    ChevronUp,
+    ChevronDown,
 } from "lucide-react";
-
-interface User {
-    _id: string;
-    username: string;
-    role: string;
-    name: string;
-}
-
-interface Module {
-    _id: string;
-    name: string;
-    description?: string;
-}
-
-interface Signature {
-    _id: string;
-    userId: string;
-    userName: string;
-    role: string;
-    signedAt: string;
-}
-
-interface Training {
-    _id: string;
-    user: User;
-    module: Module;
-    ojt: boolean;
-    practical: boolean;
-    signedOff: boolean;
-    signatures: Signature[];
-    notes: string;
-    createdAt: string;
-    updatedAt: string;
-}
-
-interface CurrentUser {
-    _id: string;
-    name: string;
-    username: string;
-    role: string;
-}
+import { ITraining, ITrainingModule, IUser, Role, ISignature } from "@/models/types";
 
 interface UploadedFile {
     _id: string;
@@ -71,14 +33,17 @@ interface UploadedFile {
 export default function TrainingModulePage() {
     const params = useParams();
     const router = useRouter();
-    const [training, setTraining] = useState<Training | null>(null);
-    const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+    const [training, setTraining] = useState<ITraining | null>(null);
+    const [currentUser, setCurrentUser] = useState<IUser | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [notes, setNotes] = useState("");
     const [files, setFiles] = useState<UploadedFile[]>([]);
     const [uploading, setUploading] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [modules, setModules] = useState<ITrainingModule>();
+    const [trainingUser, setTrainingUser] = useState<IUser | null>(null);
+    const [showSubmodules, setShowSubmodules] = useState(false);
 
     useEffect(() => {
         fetchData();
@@ -99,17 +64,29 @@ export default function TrainingModulePage() {
             const trainingRes = await fetch(`/api/trainings/${params.id}`);
             if (!trainingRes.ok) throw new Error("Failed to load training");
 
-            const trainingData = await trainingRes.json();
+            const trainingData: any = await trainingRes.json();
+
+            // Ensure module and submodules are typed correctly
+            const moduleData =
+                typeof trainingData.module === "string"
+                    ? { name: "Unknown Module", description: "", submodules: [] }
+                    : trainingData.module;
+
             setTraining(trainingData);
             setNotes(trainingData.notes || "");
+            setModules(moduleData); // ✅ module includes submodules already
 
-            // Fetch files
+            setTrainingUser(trainingData.user || null);
+
+            console.log("Module:", moduleData);
+            console.log("Submodules:", moduleData.submodules);
+
+            // Fetch training files
             const filesRes = await fetch(`/api/trainings/${params.id}/files`);
             if (filesRes.ok) {
                 const filesData = await filesRes.json();
                 setFiles(filesData);
             }
-
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to load data");
         } finally {
@@ -117,12 +94,14 @@ export default function TrainingModulePage() {
         }
     };
 
+
+
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
         // ⚡ Check that currentUser exists
-        if (!currentUser) {
+        if (!currentUser || !currentUser._id) {
             alert("You must be logged in to upload files");
             return;
         }
@@ -224,8 +203,9 @@ export default function TrainingModulePage() {
                 ...prev,
                 signatures: updatedSignatures,
                 signedOff,
-                updatedAt: new Date().toISOString()
+                updatedAt: new Date() // <- Date object, not string
             } : null);
+
 
             // Prepare update payload for API
             const updatePayload = {
@@ -258,7 +238,8 @@ export default function TrainingModulePage() {
     };
 
     const handleSign = async (role: "Trainer" | "Coordinator" | "Trainee") => {
-        if (!currentUser || !training) return;
+        if (!currentUser || !training || !currentUser._id) return;
+
 
         try {
             // Prevent same user from signing multiple times for the same role
@@ -291,11 +272,12 @@ export default function TrainingModulePage() {
             }
 
             const tempId = `temp-${Date.now()}`; // Temporary ID for optimistic update only
-            const newSignature = {
+            const newSignature: ISignature = {
+                // tempId: tempId,
                 userId: currentUser._id,
                 userName: currentUser.name,
                 role,
-                signedAt: new Date().toISOString(),
+                signedAt: new Date(),
             };
 
             // Optimistic update with temp ID (for React key only)
@@ -307,12 +289,13 @@ export default function TrainingModulePage() {
             const hasTrainee = updatedSignatures.some(sig => sig.role === 'Trainee');
             const signedOff = hasTrainer && hasCoordinator && hasTrainee;
 
+
             // Update state optimistically
             setTraining(prev => prev ? {
                 ...prev,
                 signatures: updatedSignatures,
                 signedOff,
-                updatedAt: new Date().toISOString()
+                updatedAt: new Date()
             } : null);
 
             // Prepare update payload - remove temp IDs for API call
@@ -351,7 +334,7 @@ export default function TrainingModulePage() {
     };
 
     // Updated canSign function with coordinator restrictions
-    const canSign = (role: "Trainer" | "Coordinator" | "Trainee") => {
+    const canSign = (role: Role) => {
         if (!currentUser || !training) return false;
 
         // Check if user has already signed in this role
@@ -364,7 +347,7 @@ export default function TrainingModulePage() {
         switch (role) {
             case "Trainee":
                 // Only the trainee themselves can sign as trainee
-                return currentUser._id === training.user._id;
+                return currentUser._id === training.user;
 
             case "Trainer":
                 // Trainers and Coordinators can sign as trainer, but coordinators can't sign both
@@ -506,15 +489,18 @@ export default function TrainingModulePage() {
                             <div className="flex-1">
                                 <div className="flex items-center gap-3 mb-3">
                                     <h1 className="text-3xl font-bold">
-                                        {training.module.name}
+                                        {typeof training.module !== "string" ? training.module.name : "Unknown Module"}
                                     </h1>
                                 </div>
                                 <p className="text-blue-100 text-lg mb-4">
                                     National Aviation Training Association (NATA) Module
                                 </p>
-                                {training.module.description && (
+                                {typeof training.module !== "string" && training.module.description && (
                                     <p className="text-blue-50 mb-4">{training.module.description}</p>
                                 )}
+                                {/* {training.module.description && (
+                                    <p className="text-blue-50 mb-4">{training.module.description}</p>
+                                )} */}
                             </div>
                             {fullySigned && (
                                 <div className="bg-white/20 backdrop-blur-sm px-6 py-3 rounded-full flex items-center gap-2 border border-white/30">
@@ -548,10 +534,11 @@ export default function TrainingModulePage() {
                                 </div>
                                 <div>
                                     <p className="text-sm text-gray-500">Trainee</p>
-                                    <p className="font-semibold text-gray-900">{training.user.name}</p>
-                                    <p className="text-xs text-gray-500">@{training.user.username}</p>
+                                    <p className="font-semibold text-gray-900">{trainingUser?.name}</p>
+                                    <p className="text-xs text-gray-500">@{trainingUser?.username}</p>
                                 </div>
                             </div>
+
                             <div className="flex items-center gap-3">
                                 <div className="p-3 bg-green-100 rounded-lg">
                                     <Calendar className="w-5 h-5 text-green-600" />
@@ -559,12 +546,15 @@ export default function TrainingModulePage() {
                                 <div>
                                     <p className="text-sm text-gray-500">Started</p>
                                     <p className="font-semibold text-gray-900">
-                                        {new Date(training.createdAt).toLocaleDateString('en-US', {
-                                            month: 'long',
-                                            day: 'numeric',
-                                            year: 'numeric'
-                                        })}
+                                        {training.createdAt
+                                            ? new Date(training.createdAt).toLocaleDateString('en-US', {
+                                                month: 'long',
+                                                day: 'numeric',
+                                                year: 'numeric',
+                                            })
+                                            : 'No date'}
                                     </p>
+
                                 </div>
                             </div>
                             <div className="flex items-center gap-3">
@@ -574,12 +564,144 @@ export default function TrainingModulePage() {
                                 <div>
                                     <p className="text-sm text-gray-500">Last Updated</p>
                                     <p className="font-semibold text-gray-900">
-                                        {new Date(training.updatedAt).toLocaleDateString('en-US', {
-                                            month: 'long',
-                                            day: 'numeric',
-                                            year: 'numeric'
-                                        })}
+                                        {training.updatedAt
+                                            ? new Date(
+                                                typeof training.updatedAt === 'string'
+                                                    ? training.updatedAt
+                                                    : training.updatedAt.toISOString()
+                                            ).toLocaleDateString('en-US', {
+                                                month: 'long',
+                                                day: 'numeric',
+                                                year: 'numeric',
+                                            })
+                                            : 'No date'}
                                     </p>
+
+
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {/* Collapsible Submodules Section */}
+                    {modules?.submodules && modules?.submodules.length > 0 && (
+                        <div className="border-t border-gray-200">
+                            <button
+                                onClick={() => setShowSubmodules(!showSubmodules)}
+                                className="w-full px-8 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors group"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <ClipboardList className="w-5 h-5 text-purple-600" />
+                                    <span className="font-semibold text-gray-900">
+                                        Module Curriculum ({modules.submodules.length} submodules)
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm text-gray-500 group-hover:text-gray-700">
+                                        {showSubmodules ? 'Hide' : 'Show'}
+                                    </span>
+                                    {showSubmodules ? (
+                                        <ChevronUp className="w-5 h-5 text-gray-500 group-hover:text-gray-700" />
+                                    ) : (
+                                        <ChevronDown className="w-5 h-5 text-gray-500 group-hover:text-gray-700" />
+                                    )}
+                                </div>
+                            </button>
+
+                            <div
+                                className={`overflow-hidden transition-all duration-300 ease-in-out ${showSubmodules ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+                                    }`}
+                            >
+                                <div className="px-8 pb-6 pt-2 bg-gradient-to-br from-gray-50 to-white">
+                                    <div className="space-y-3">
+                                        {modules?.submodules.map((submodule, index) => (
+                                            <div
+                                                key={submodule._id || index}
+                                                className="p-5 bg-white rounded-xl border border-gray-200 hover:shadow-md hover:border-purple-300 transition-all group"
+                                            >
+                                                <div className="flex items-start gap-4">
+                                                    <div className="shrink-0 w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-xl flex items-center justify-center font-bold shadow-md group-hover:scale-105 transition-transform">
+                                                        {submodule.code}
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <h3 className="font-bold text-lg text-gray-900 mb-1">
+                                                            {submodule.title}
+                                                        </h3>
+                                                        {submodule.description && (
+                                                            <p className="text-sm text-gray-600 mb-2">
+                                                                {submodule.description}
+                                                            </p>
+                                                        )}
+                                                        {submodule.requiresPractical && (
+                                                            <div className="inline-flex items-center gap-1 px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-semibold border border-amber-200">
+                                                                <Award className="w-3 h-3" />
+                                                                Practical Required
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Training Requirements */}
+                    <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
+                        <div className="flex items-center gap-3 mb-6">
+                            <CheckCircle2 className="w-6 h-6 text-green-600" />
+                            <h2 className="text-2xl font-bold text-gray-900">Training Requirements</h2>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div
+                                onClick={() => currentUser?.role !== "Trainee" && handleToggleCheckbox("ojt")}
+                                className={`p-5 rounded-xl border-2 transition-all ${training.ojt
+                                    ? "bg-green-50 border-green-300"
+                                    : "bg-gray-50 border-gray-200 hover:border-gray-300"
+                                    } ${currentUser?.role !== "Trainee" ? "cursor-pointer" : ""}`}
+                            >
+                                <div className="flex items-start gap-4">
+                                    <div className={`shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center mt-1 transition-all ${training.ojt
+                                        ? "bg-green-500 border-green-500"
+                                        : "bg-white border-gray-300"
+                                        }`}>
+                                        {training.ojt && <CheckCircle2 className="w-4 h-4 text-white" />}
+                                    </div>
+                                    <div className="flex-1">
+                                        <h3 className="font-semibold text-lg text-gray-900 mb-1">
+                                            On-the-Job Training (OJT)
+                                        </h3>
+                                        <p className="text-sm text-gray-600">
+                                            Complete hands-on training under supervision of a qualified trainer
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div
+                                onClick={() => currentUser?.role !== "Trainee" && handleToggleCheckbox("practical")}
+                                className={`p-5 rounded-xl border-2 transition-all ${training.practical
+                                    ? "bg-green-50 border-green-300"
+                                    : "bg-gray-50 border-gray-200 hover:border-gray-300"
+                                    } ${currentUser?.role !== "Trainee" ? "cursor-pointer" : ""}`}
+                            >
+                                <div className="flex items-start gap-4">
+                                    <div className={`shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center mt-1 transition-all ${training.practical
+                                        ? "bg-green-500 border-green-500"
+                                        : "bg-white border-gray-300"
+                                        }`}>
+                                        {training.practical && <CheckCircle2 className="w-4 h-4 text-white" />}
+                                    </div>
+                                    <div className="flex-1">
+                                        <h3 className="font-semibold text-lg text-gray-900 mb-1">
+                                            Practical Assessment
+                                        </h3>
+                                        <p className="text-sm text-gray-600">
+                                            Demonstrate proficiency through practical examination
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -808,9 +930,9 @@ export default function TrainingModulePage() {
                                                     </p>
                                                 </div>
                                                 {/* Delete button - only show if current user owns this signature */}
-                                                {currentUser && sig.userId === currentUser._id && (
+                                                {currentUser && sig._id && sig.userId === currentUser._id && (
                                                     <button
-                                                        onClick={() => handleRemoveSignature(sig._id)}
+                                                        onClick={() => handleRemoveSignature(sig._id!)}
                                                         className="absolute top-3 right-3 p-1 text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
                                                         title="Remove your signature"
                                                     >
