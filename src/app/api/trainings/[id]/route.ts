@@ -12,7 +12,6 @@ export async function GET(
   try {
     await connectToDatabase();
     const { id } = await context.params;
-    console.log(id)
 
     const training = await Training.findById(id)
       .populate("user", "name username role")

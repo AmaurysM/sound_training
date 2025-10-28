@@ -34,8 +34,6 @@ export async function GET(req: Request) {
       studentId: user.studentId,
     };
 
-    console.log(user)
-
     return NextResponse.json(safeUser);
   } catch (err) {
     console.error("Authentication error:", err);

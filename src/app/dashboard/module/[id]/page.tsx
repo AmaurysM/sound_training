@@ -841,7 +841,7 @@ export default function TrainingModulePage() {
                                             {canSign("Trainee") && (
                                                 <button
                                                     onClick={() => handleSign("Trainee")}
-                                                    className="w-full px-4 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors font-semibold shadow-md"
+                                                    className="w-full px-4 py-3 bg-green-500 text-white rounded-xl hover:bg-green-700  font-semibold shadow-md"
                                                 >
                                                     Trainee Acknowledgement
                                                 </button>
