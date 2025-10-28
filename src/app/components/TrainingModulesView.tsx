@@ -529,7 +529,8 @@ const TrainingModulesView = ({
             </div>
 
             {/* Training Data Display */}
-            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+
+            <div className="overflow-show">
                 {filteredData.length === 0 ? (
                     <div className="p-8 sm:p-12 text-center">
                         <FileText className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" />
@@ -558,7 +559,7 @@ const TrainingModulesView = ({
                 ) : (
                     <>
                         {/* Desktop Table View (hidden on mobile) */}
-                        <div className="hidden lg:block overflow-x-auto">
+                        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hidden lg:block overflow-x-auto">
                             <table className="w-full">
                                 <thead className="bg-gray-50 border-b border-gray-200">
                                     <tr>
@@ -696,7 +697,7 @@ const TrainingModulesView = ({
                         </div>
 
                         {/* Mobile/Tablet Card View */}
-                        <div className="lg:hidden divide-y divide-gray-200">
+                        <div className="lg:hidden space-y-3">
                             {filteredData.map((t, idx) => {
                                 const actualIndex = trainingData.indexOf(t);
                                 const moduleName = typeof t.module === 'object' && 'name' in t.module
@@ -711,92 +712,113 @@ const TrainingModulesView = ({
                                 const hasTraineeSignature = (t.signatures || []).some(s => s.role === 'Trainee');
 
                                 return (
-                                    <div key={t._id?.toString() || idx} className="p-4 hover:bg-gray-50 transition-colors">
-                                        {/* Header with Module Name and Status */}
-                                        <div className="flex justify-between items-start gap-3 mb-3">
-                                            <div className="flex-1 min-w-0">
+                                    <div key={t._id?.toString() || idx} className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all overflow-hidden">
+                                        {/* Header Section */}
+                                        <div className="p-4 border-b border-gray-100">
+                                            <div className="flex items-start justify-between gap-3 mb-2">
                                                 <button
                                                     onClick={() => router.push(`/dashboard/module/${t._id}`)}
-                                                    className="text-sm font-medium text-gray-900 hover:underline hover:text-blue-800 transition-colors block"
+                                                    className="flex-1 min-w-0 text-left"
                                                 >
-                                                    {moduleName}
+                                                    <h3 className="text-base font-bold text-gray-900 hover:text-blue-600 transition-colors leading-tight">
+                                                        {moduleName}
+                                                    </h3>
                                                 </button>
-                                                {moduleDescription && (
-                                                    <p className="text-xs text-gray-500 mt-1">{moduleDescription}</p>
-                                                )}
+                                                {getStatusBadge(t)}
                                             </div>
-                                            {getStatusBadge(t)}
+                                            {moduleDescription && (
+                                                <p className="text-xs text-gray-500 leading-relaxed line-clamp-2">{moduleDescription}</p>
+                                            )}
                                         </div>
 
-                                        {/* Progress Checkboxes */}
-                                        <div className="grid grid-cols-2 gap-3 mb-3">
-                                            <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={t.ojt}
-                                                    onChange={() => handleToggle(actualIndex, 'ojt')}
-                                                    disabled={!isEditable}
-                                                    className="w-5 h-5 cursor-pointer disabled:cursor-not-allowed text-blue-600 focus:ring-2 focus:ring-blue-500 rounded"
-                                                />
-                                                <span className="text-sm text-gray-700 font-medium">OJT</span>
+                                        {/* Content Section */}
+                                        <div className="p-4 space-y-3">
+                                            {/* Progress Checkboxes - Compact */}
+                                            <div className="flex items-center gap-4">
+                                                <label className="flex items-center gap-2 cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={t.ojt}
+                                                        onChange={() => handleToggle(actualIndex, 'ojt')}
+                                                        disabled={!isEditable}
+                                                        className="w-4 h-4 cursor-pointer disabled:cursor-not-allowed text-blue-600 focus:ring-2 focus:ring-blue-500 rounded"
+                                                    />
+                                                    <span className="text-sm font-medium text-gray-700">OJT</span>
+                                                </label>
+                                                <label className="flex items-center gap-2 cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={t.practical}
+                                                        onChange={() => handleToggle(actualIndex, 'practical')}
+                                                        disabled={!isEditable}
+                                                        className="w-4 h-4 cursor-pointer disabled:cursor-not-allowed text-blue-600 focus:ring-2 focus:ring-blue-500 rounded"
+                                                    />
+                                                    <span className="text-sm font-medium text-gray-700">Practical</span>
+                                                </label>
                                             </div>
-                                            <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={t.practical}
-                                                    onChange={() => handleToggle(actualIndex, 'practical')}
-                                                    disabled={!isEditable}
-                                                    className="w-5 h-5 cursor-pointer disabled:cursor-not-allowed text-blue-600 focus:ring-2 focus:ring-blue-500 rounded"
-                                                />
-                                                <span className="text-sm text-gray-700 font-medium">Practical</span>
-                                            </div>
-                                        </div>
 
-                                        {/* Signatures Section */}
-                                        <div className="mb-3">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <span className="text-xs font-semibold text-gray-500 uppercase">Signatures</span>
+                                            {/* Signatures - Compact Inline */}
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Signatures</span>
+                                                    <div className="flex items-center gap-2">
+                                                        <div className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${trainerSignatures > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-400'
+                                                            }`}>
+                                                            <span>T</span>
+                                                            {trainerSignatures > 0 && <CheckCircle2 className="w-3 h-3" />}
+                                                        </div>
+                                                        <div className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${hasCoordinatorSignature ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-400'
+                                                            }`}>
+                                                            <span>C</span>
+                                                            {hasCoordinatorSignature && <CheckCircle2 className="w-3 h-3" />}
+                                                        </div>
+                                                        <div className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${hasTraineeSignature ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-400'
+                                                            }`}>
+                                                            <span>S</span>
+                                                            {hasTraineeSignature && <CheckCircle2 className="w-3 h-3" />}
+                                                        </div>
+                                                    </div>
+                                                </div>
                                                 {isEditable && (
                                                     <button
                                                         onClick={() => handleOpenSignatureModal(idx)}
                                                         disabled={!t.ojt || !t.practical}
-                                                        className="text-xs text-blue-600 hover:text-blue-800 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                                                        className="text-xs text-blue-600 hover:text-blue-800 disabled:opacity-50 disabled:cursor-not-allowed font-semibold px-2 py-1 hover:bg-blue-50 rounded transition-colors"
                                                     >
                                                         Manage
                                                     </button>
                                                 )}
                                             </div>
-                                            <div className="flex gap-2 text-xs">
-                                                <div className={`flex-1 p-2 rounded-lg text-center ${trainerSignatures > 0 ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-500'}`}>
-                                                    <div className="font-medium">Trainer</div>
-                                                    <div className="text-lg">{trainerSignatures > 0 ? '✓' : '✗'}</div>
+
+                                            {/* Show notes preview for trainees */}
+                                            {isTrainee && t.notes && (
+                                                <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                                                    <div className="flex items-start gap-2">
+                                                        <MessageSquare className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-xs font-semibold text-blue-900 mb-1">Trainer Notes</p>
+                                                            <p className="text-xs text-blue-700 leading-relaxed line-clamp-3">{t.notes}</p>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <div className={`flex-1 p-2 rounded-lg text-center ${hasCoordinatorSignature ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-500'}`}>
-                                                    <div className="font-medium">Coord</div>
-                                                    <div className="text-lg">{hasCoordinatorSignature ? '✓' : '✗'}</div>
-                                                </div>
-                                                <div className={`flex-1 p-2 rounded-lg text-center ${hasTraineeSignature ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-500'}`}>
-                                                    <div className="font-medium">Trainee</div>
-                                                    <div className="text-lg">{hasTraineeSignature ? '✓' : '✗'}</div>
-                                                </div>
-                                            </div>
+                                            )}
                                         </div>
 
-                                        {/* Notes and Actions */}
-                                        <div className="flex items-center justify-between pt-3 border-t border-gray-200">
+                                        {/* Actions Footer */}
+                                        <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
                                             {!isTrainee && (
                                                 <button
                                                     onClick={() => handleOpenNoteModal(idx)}
-                                                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${t.notes
-                                                        ? 'bg-blue-50 text-blue-700 hover:bg-blue-100'
-                                                        : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${t.notes
+                                                            ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                                            : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
                                                         }`}
                                                 >
-                                                    <MessageSquare className="w-4 h-4" />
+                                                    <MessageSquare className="w-3.5 h-3.5" />
                                                     <span>{t.notes ? 'View Note' : 'Add Note'}</span>
                                                 </button>
                                             )}
-                                            
+
                                             {isCoordinator && (
                                                 <div className="flex items-center gap-2">
                                                     <button
@@ -804,7 +826,7 @@ const TrainingModulesView = ({
                                                             setSelectedTraining(t);
                                                             setShowHistoryModal(true);
                                                         }}
-                                                        className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
+                                                        className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                                         title="View history"
                                                     >
                                                         <History className="w-4 h-4" />
@@ -812,22 +834,16 @@ const TrainingModulesView = ({
                                                     <button
                                                         onClick={() => handleRemoveModule(actualIndex)}
                                                         disabled={saving}
-                                                        className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                                                        className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
                                                         title="Remove module"
                                                     >
                                                         <X className="w-4 h-4" />
                                                     </button>
                                                 </div>
                                             )}
-                                        </div>
 
-                                        {/* Show notes preview for trainees */}
-                                        {isTrainee && t.notes && (
-                                            <div className="mt-3 pt-3 border-t border-gray-200">
-                                                <p className="text-xs text-gray-500 mb-1">Notes:</p>
-                                                <p className="text-sm text-gray-700">{t.notes}</p>
-                                            </div>
-                                        )}
+                                            {isTrainee && <div></div>}
+                                        </div>
                                     </div>
                                 );
                             })}
