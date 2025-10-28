@@ -63,6 +63,8 @@ export async function POST(
       fileName: file.name,
       fileType: file.type,
       url,
+      uploadedBy,
+      uploadedById,
     });
 
     return NextResponse.json(newFile);
