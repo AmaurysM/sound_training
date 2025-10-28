@@ -1,7 +1,6 @@
 'use client';
 import React from 'react';
 import { X, Calendar, Clock, CheckCircle2 } from 'lucide-react';
-import { ITrainingModule } from '@/models/TrainingModule';
 import { ITraining } from "@/models/types";
 
 interface TrainingHistoryModalProps {
@@ -11,8 +10,6 @@ interface TrainingHistoryModalProps {
   onClose: () => void;
 }
 
-
-
 export default function TrainingHistoryModal({
   show,
   training,
@@ -20,14 +17,6 @@ export default function TrainingHistoryModal({
   onClose,
 }: TrainingHistoryModalProps) {
   if (!show || !training || !isCoordinator) return null;
-
-  // Helper to safely get the module name
-  const getModuleName = () => {
-    if (typeof training.module === 'object' && 'name' in training.module) {
-      return (training.module as ITrainingModule).name;
-    }
-    return 'Unknown Module';
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -40,7 +29,10 @@ export default function TrainingHistoryModal({
                 Training History
               </h2>
               <p className="text-xs sm:text-sm text-gray-600 mt-1 wrap-break-word">
-                {getModuleName()}
+                {typeof training.module === "string"
+                  ? training.module 
+                  : training.module?.name 
+                }
               </p>
             </div>
             <button
