@@ -18,6 +18,8 @@ import {
     Loader2,
     ChevronUp,
     ChevronDown,
+    Shield,
+    FileCheck,
 } from "lucide-react";
 import { ITraining, ITrainingModule, IUser, Role, ISignature } from "@/models/types";
 
@@ -66,7 +68,6 @@ export default function TrainingModulePage() {
 
             const trainingData: any = await trainingRes.json();
 
-            // Ensure module and submodules are typed correctly
             const moduleData =
                 typeof trainingData.module === "string"
                     ? { name: "Unknown Module", description: "", submodules: [] }
@@ -74,14 +75,9 @@ export default function TrainingModulePage() {
 
             setTraining(trainingData);
             setNotes(trainingData.notes || "");
-            setModules(moduleData); // ✅ module includes submodules already
-
+            setModules(moduleData);
             setTrainingUser(trainingData.user || null);
 
-            console.log("Module:", moduleData);
-            console.log("Submodules:", moduleData.submodules);
-
-            // Fetch training files
             const filesRes = await fetch(`/api/trainings/${params.id}/files`);
             if (filesRes.ok) {
                 const filesData = await filesRes.json();
@@ -94,13 +90,10 @@ export default function TrainingModulePage() {
         }
     };
 
-
-
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // ⚡ Check that currentUser exists
         if (!currentUser || !currentUser._id) {
             alert("You must be logged in to upload files");
             return;
@@ -111,8 +104,6 @@ export default function TrainingModulePage() {
             const formData = new FormData();
             formData.append("file", file);
             formData.append("trainingId", params.id as string);
-
-            // Append uploader info safely
             formData.append("uploadedBy", currentUser.name);
             formData.append("uploadedById", currentUser._id.toString());
 
@@ -131,8 +122,6 @@ export default function TrainingModulePage() {
             setUploading(false);
         }
     };
-
-
 
     const handleToggleCheckbox = async (field: "ojt" | "practical") => {
         if (!training) return;
@@ -177,11 +166,9 @@ export default function TrainingModulePage() {
         if (!training || !currentUser) return;
 
         try {
-            // Find the signature to remove
             const signatureToRemove = training.signatures.find(sig => sig._id === signatureId);
             if (!signatureToRemove) return;
 
-            // Check if the current user can remove this signature
             if (signatureToRemove.userId !== currentUser._id) {
                 alert('You can only remove your own signatures.');
                 return;
@@ -189,31 +176,25 @@ export default function TrainingModulePage() {
 
             if (!confirm('Are you sure you want to remove your signature?')) return;
 
-            // Optimistic update: remove the signature
             const updatedSignatures = training.signatures.filter(sig => sig._id !== signatureId);
 
-            // Recalculate signedOff status
             const hasTrainer = updatedSignatures.some(sig => sig.role === 'Trainer');
             const hasCoordinator = updatedSignatures.some(sig => sig.role === 'Coordinator');
             const hasTrainee = updatedSignatures.some(sig => sig.role === 'Trainee');
             const signedOff = hasTrainer && hasCoordinator && hasTrainee;
 
-            // Update state optimistically
             setTraining(prev => prev ? {
                 ...prev,
                 signatures: updatedSignatures,
                 signedOff,
-                updatedAt: new Date() // <- Date object, not string
+                updatedAt: new Date()
             } : null);
 
-
-            // Prepare update payload for API
             const updatePayload = {
                 signatures: updatedSignatures,
                 signedOff: signedOff
             };
 
-            // API call
             const res = await fetch(`/api/trainings/${params.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
@@ -225,13 +206,11 @@ export default function TrainingModulePage() {
                 throw new Error(errorData.message || `Failed to remove signature: ${res.status}`);
             }
 
-            // Update with server data
             const serverUpdated = await res.json();
             setTraining(serverUpdated);
 
         } catch (err) {
             console.error('Failed to remove signature:', err);
-            // Revert optimistic update on error
             fetchData();
             alert(err instanceof Error ? err.message : 'Failed to remove signature');
         }
@@ -240,9 +219,7 @@ export default function TrainingModulePage() {
     const handleSign = async (role: "Trainer" | "Coordinator" | "Trainee") => {
         if (!currentUser || !training || !currentUser._id) return;
 
-
         try {
-            // Prevent same user from signing multiple times for the same role
             const existingUserSignatures = training.signatures.filter(
                 sig => sig.userId === currentUser._id && sig.role === role
             );
@@ -252,7 +229,6 @@ export default function TrainingModulePage() {
                 return;
             }
 
-            // Prevent coordinator from signing both roles
             if (currentUser.role === "Coordinator") {
                 const hasSignedAsTrainer = training.signatures.some(
                     sig => sig.userId === currentUser._id && sig.role === "Trainer"
@@ -271,26 +247,21 @@ export default function TrainingModulePage() {
                 }
             }
 
-            const tempId = `temp-${Date.now()}`; // Temporary ID for optimistic update only
+            const tempId = `temp-${Date.now()}`;
             const newSignature: ISignature = {
-                // tempId: tempId,
                 userId: currentUser._id,
                 userName: currentUser.name,
                 role,
                 signedAt: new Date(),
             };
 
-            // Optimistic update with temp ID (for React key only)
             const updatedSignatures = [...training.signatures, { ...newSignature, _id: tempId }];
 
-            // Check if all required signatures are present
             const hasTrainer = updatedSignatures.some(sig => sig.role === 'Trainer');
             const hasCoordinator = updatedSignatures.some(sig => sig.role === 'Coordinator');
             const hasTrainee = updatedSignatures.some(sig => sig.role === 'Trainee');
             const signedOff = hasTrainer && hasCoordinator && hasTrainee;
 
-
-            // Update state optimistically
             setTraining(prev => prev ? {
                 ...prev,
                 signatures: updatedSignatures,
@@ -298,7 +269,6 @@ export default function TrainingModulePage() {
                 updatedAt: new Date()
             } : null);
 
-            // Prepare update payload - remove temp IDs for API call
             const apiSignatures = updatedSignatures.map(sig => {
                 const { _id, ...sigWithoutId } = sig;
                 return sigWithoutId;
@@ -309,7 +279,6 @@ export default function TrainingModulePage() {
                 signedOff: signedOff
             };
 
-            // API call
             const res = await fetch(`/api/trainings/${params.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
@@ -321,39 +290,31 @@ export default function TrainingModulePage() {
                 throw new Error(errorData.message || `Failed to add signature: ${res.status}`);
             }
 
-            // Update with server data to get proper IDs
             const serverUpdated = await res.json();
             setTraining(serverUpdated);
 
         } catch (err) {
             console.error('Failed to add signature:', err);
-            // Revert optimistic update on error
             fetchData();
             alert(err instanceof Error ? err.message : 'Failed to add signature');
         }
     };
 
-    // Updated canSign function with coordinator restrictions
     const canSign = (role: Role) => {
         if (!currentUser || !training) return false;
 
-        // Check if user has already signed in this role
         const hasSigned = training.signatures.some(
             sig => sig.userId === currentUser._id && sig.role === role
         );
         if (hasSigned) return false;
 
-        // Role-based permission checks with coordinator restrictions
         switch (role) {
             case "Trainee":
-                // Only the trainee themselves can sign as trainee
                 return currentUser._id === training.user;
 
             case "Trainer":
-                // Trainers and Coordinators can sign as trainer, but coordinators can't sign both
                 if (!["Trainer", "Coordinator"].includes(currentUser.role)) return false;
 
-                // Coordinator restriction: can't sign as trainer if already signed as coordinator
                 if (currentUser.role === "Coordinator") {
                     const hasSignedAsCoordinator = training.signatures.some(
                         sig => sig.userId === currentUser._id && sig.role === "Coordinator"
@@ -363,10 +324,8 @@ export default function TrainingModulePage() {
                 return true;
 
             case "Coordinator":
-                // Only Coordinators can sign as coordinator
                 if (currentUser.role !== "Coordinator") return false;
 
-                // Coordinator restriction: can't sign as coordinator if already signed as trainer
                 const hasSignedAsTrainer = training.signatures.some(
                     sig => sig.userId === currentUser._id && sig.role === "Trainer"
                 );
@@ -377,7 +336,6 @@ export default function TrainingModulePage() {
         }
     };
 
-    // Helper function to get available signing options for coordinator
     const getCoordinatorSigningOptions = () => {
         if (!currentUser || currentUser.role !== "Coordinator") return [];
 
@@ -421,7 +379,6 @@ export default function TrainingModulePage() {
 
             if (!res.ok) throw new Error("Failed to delete file");
 
-            // Remove file from state
             setFiles(files.filter(f => f._id !== fileId));
         } catch (err) {
             alert(err instanceof Error ? err.message : "Failed to delete file");
@@ -439,10 +396,10 @@ export default function TrainingModulePage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
                 <div className="text-center">
-                    <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
-                    <p className="text-gray-600">Loading training module...</p>
+                    <Loader2 className="w-16 h-16 animate-spin text-blue-600 mx-auto mb-4" />
+                    <p className="text-slate-600 text-lg font-medium">Loading training module...</p>
                 </div>
             </div>
         );
@@ -450,15 +407,18 @@ export default function TrainingModulePage() {
 
     if (error || !training) {
         return (
-            <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50">
-                <div className="max-w-7xl mx-auto p-6">
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-                        <p className="text-red-600 font-semibold">{error || "Training not found"}</p>
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+                <div className="max-w-7xl mx-auto p-8">
+                    <div className="bg-white border border-red-200 rounded-2xl p-8 text-center shadow-lg">
+                        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <FileText className="w-8 h-8 text-red-600" />
+                        </div>
+                        <p className="text-red-600 font-semibold text-lg mb-6">{error || "Training not found"}</p>
                         <button
                             onClick={() => router.back()}
-                            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                            className="px-6 py-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all font-medium shadow-md hover:shadow-lg"
                         >
-                            Go Back
+                            Return to Dashboard
                         </button>
                     </div>
                 </div>
@@ -471,138 +431,151 @@ export default function TrainingModulePage() {
     const fullySigned = isFullySigned();
 
     return (
-        <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50">
-            <div className="max-w-7xl mx-auto p-6">
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+            <div className="max-w-7xl mx-auto p-6 lg:p-8">
                 {/* Back Button */}
                 <button
                     onClick={() => router.back()}
-                    className="mb-6 flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+                    className="mb-8 flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors group"
                 >
-                    <ArrowLeft className="w-5 h-5" />
+                    <div className="p-2 rounded-lg group-hover:bg-white transition-colors">
+                        <ArrowLeft className="w-5 h-5" />
+                    </div>
                     <span className="font-medium">Back to Dashboard</span>
                 </button>
 
                 {/* Header Card */}
-                <div className="bg-white rounded-2xl shadow-lg overflow-hidden mb-6 border border-gray-100">
-                    <div className="bg-linear-to-r from-blue-600 to-purple-600 p-8 text-white">
-                        <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                                <div className="flex items-center gap-3 mb-3">
-                                    <h1 className="text-3xl font-bold">
+                <div className="bg-white rounded-3xl shadow-xl overflow-hidden mb-8 border border-slate-200">
+                    <div className="bg-gradient-to-r from-slate-900 via-blue-900 to-slate-900 p-8 lg:p-10 text-white relative overflow-hidden">
+                        <div className="absolute inset-0 bg-grid-white/[0.05] bg-[size:20px_20px]"></div>
+                        <div className="relative z-10">
+                            <div className="flex items-start justify-between flex-wrap gap-4">
+                                <div className="flex-1 min-w-0">
+                                    <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/10 backdrop-blur-sm rounded-full border border-white/20 mb-4">
+                                        <Shield className="w-4 h-4" />
+                                        <span className="text-sm font-medium">NATA Certified Training</span>
+                                    </div>
+                                    <h1 className="text-4xl lg:text-5xl font-bold mb-3 leading-tight">
                                         {typeof training.module !== "string" ? training.module.name : "Unknown Module"}
                                     </h1>
+                                    <p className="text-slate-200 text-lg mb-2">
+                                        National Aviation Training Association Module
+                                    </p>
+                                    {typeof training.module !== "string" && training.module.description && (
+                                        <p className="text-slate-300 max-w-3xl leading-relaxed">
+                                            {training.module.description}
+                                        </p>
+                                    )}
                                 </div>
-                                <p className="text-blue-100 text-lg mb-4">
-                                    National Aviation Training Association (NATA) Module
-                                </p>
-                                {typeof training.module !== "string" && training.module.description && (
-                                    <p className="text-blue-50 mb-4">{training.module.description}</p>
+                                {fullySigned && (
+                                    <div className="bg-gradient-to-br from-emerald-400 to-emerald-600 px-6 py-4 rounded-2xl flex items-center gap-3 border-2 border-white/30 shadow-2xl">
+                                        <Award className="w-7 h-7 text-white" />
+                                        <div>
+                                            <div className="font-bold text-lg text-white">Certified</div>
+                                            <div className="text-xs text-white/80">Fully Signed Off</div>
+                                        </div>
+                                    </div>
                                 )}
-                                {/* {training.module.description && (
-                                    <p className="text-blue-50 mb-4">{training.module.description}</p>
-                                )} */}
                             </div>
-                            {fullySigned && (
-                                <div className="bg-white/20 backdrop-blur-sm px-6 py-3 rounded-full flex items-center gap-2 border border-white/30">
-                                    <Award className="w-6 h-6" />
-                                    <span className="font-semibold text-lg">Certified</span>
-                                </div>
-                            )}
-                        </div>
 
-                        {/* Progress Bar */}
-                        <div className="mt-6">
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm font-medium text-blue-100">Overall Progress</span>
-                                <span className="text-sm font-bold">{progress}%</span>
-                            </div>
-                            <div className="w-full bg-white/20 rounded-full h-3 overflow-hidden">
-                                <div
-                                    className="bg-green-500 h-full rounded-full transition-all duration-500 shadow-lg"
-                                    style={{ width: `${progress}%` }}
-                                ></div>
+                            {/* Progress Bar */}
+                            <div className="mt-8">
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className="text-sm font-semibold text-slate-200">Training Completion</span>
+                                    <span className="text-2xl font-bold">{progress}%</span>
+                                </div>
+                                <div className="w-full bg-white/10 backdrop-blur-sm rounded-full h-4 overflow-hidden border border-white/20">
+                                    <div
+                                        className="bg-gradient-to-r from-emerald-400 to-emerald-500 h-full rounded-full transition-all duration-700 shadow-lg relative"
+                                        style={{ width: `${progress}%` }}
+                                    >
+                                        <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
 
                     {/* Trainee Info */}
-                    <div className="p-6 bg-gray-50 border-t border-gray-100">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="flex items-center gap-3">
-                                <div className="p-3 bg-blue-100 rounded-lg">
-                                    <User className="w-5 h-5 text-blue-600" />
+                    <div className="p-6 lg:p-8 bg-slate-50 border-t border-slate-200">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="flex items-center gap-4 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                                <div className="p-3 bg-blue-50 rounded-xl">
+                                    <User className="w-6 h-6 text-blue-600" />
                                 </div>
-                                <div>
-                                    <p className="text-sm text-gray-500">Trainee</p>
-                                    <p className="font-semibold text-gray-900">{trainingUser?.name}</p>
-                                    <p className="text-xs text-gray-500">@{trainingUser?.username}</p>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Trainee</p>
+                                    <p className="font-bold text-slate-900 truncate">{trainingUser?.name}</p>
+                                    <p className="text-sm text-slate-500">@{trainingUser?.username}</p>
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-3">
-                                <div className="p-3 bg-green-100 rounded-lg">
-                                    <Calendar className="w-5 h-5 text-green-600" />
+                            <div className="flex items-center gap-4 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                                <div className="p-3 bg-emerald-50 rounded-xl">
+                                    <Calendar className="w-6 h-6 text-emerald-600" />
                                 </div>
-                                <div>
-                                    <p className="text-sm text-gray-500">Started</p>
-                                    <p className="font-semibold text-gray-900">
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Started</p>
+                                    <p className="font-bold text-slate-900">
                                         {training.createdAt
                                             ? new Date(training.createdAt).toLocaleDateString('en-US', {
-                                                month: 'long',
+                                                month: 'short',
                                                 day: 'numeric',
                                                 year: 'numeric',
                                             })
                                             : 'No date'}
                                     </p>
-
                                 </div>
                             </div>
-                            <div className="flex items-center gap-3">
-                                <div className="p-3 bg-purple-100 rounded-lg">
-                                    <Clock className="w-5 h-5 text-purple-600" />
+
+                            <div className="flex items-center gap-4 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                                <div className="p-3 bg-purple-50 rounded-xl">
+                                    <Clock className="w-6 h-6 text-purple-600" />
                                 </div>
-                                <div>
-                                    <p className="text-sm text-gray-500">Last Updated</p>
-                                    <p className="font-semibold text-gray-900">
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Last Updated</p>
+                                    <p className="font-bold text-slate-900">
                                         {training.updatedAt
                                             ? new Date(
                                                 typeof training.updatedAt === 'string'
                                                     ? training.updatedAt
                                                     : training.updatedAt.toISOString()
                                             ).toLocaleDateString('en-US', {
-                                                month: 'long',
+                                                month: 'short',
                                                 day: 'numeric',
                                                 year: 'numeric',
                                             })
                                             : 'No date'}
                                     </p>
-
-
                                 </div>
                             </div>
                         </div>
                     </div>
+
                     {/* Collapsible Submodules Section */}
                     {modules?.submodules && modules?.submodules.length > 0 && (
-                        <div className="border-t border-gray-200">
+                        <div className="border-t border-slate-200">
                             <button
                                 onClick={() => setShowSubmodules(!showSubmodules)}
-                                className="w-full px-8 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors group"
+                                className="w-full px-6 lg:px-8 py-5 flex items-center justify-between hover:bg-slate-50 transition-colors group"
                             >
                                 <div className="flex items-center gap-3">
-                                    <ClipboardList className="w-5 h-5 text-purple-600" />
-                                    <span className="font-semibold text-gray-900">
-                                        Module Curriculum ({modules.submodules.length} submodules)
-                                    </span>
+                                    <div className="p-2 bg-purple-50 rounded-lg">
+                                        <ClipboardList className="w-5 h-5 text-purple-600" />
+                                    </div>
+                                    <div className="text-left">
+                                        <span className="font-bold text-slate-900 block">Module Curriculum</span>
+                                        <span className="text-sm text-slate-500">{modules.submodules.length} submodules included</span>
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-sm text-gray-500 group-hover:text-gray-700">
-                                        {showSubmodules ? 'Hide' : 'Show'}
+                                <div className="flex items-center gap-3">
+                                    <span className="text-sm font-medium text-slate-500 group-hover:text-slate-700">
+                                        {showSubmodules ? 'Hide' : 'Show'} Details
                                     </span>
                                     {showSubmodules ? (
-                                        <ChevronUp className="w-5 h-5 text-gray-500 group-hover:text-gray-700" />
+                                        <ChevronUp className="w-5 h-5 text-slate-400 group-hover:text-slate-600" />
                                     ) : (
-                                        <ChevronDown className="w-5 h-5 text-gray-500 group-hover:text-gray-700" />
+                                        <ChevronDown className="w-5 h-5 text-slate-400 group-hover:text-slate-600" />
                                     )}
                                 </div>
                             </button>
@@ -611,30 +584,30 @@ export default function TrainingModulePage() {
                                 className={`overflow-hidden transition-all duration-300 ease-in-out ${showSubmodules ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
                                     }`}
                             >
-                                <div className="px-8 pb-6 pt-2 bg-gradient-to-br from-gray-50 to-white">
+                                <div className="px-6 lg:px-8 pb-8 pt-2 bg-slate-50">
                                     <div className="space-y-3">
                                         {modules?.submodules.map((submodule, index) => (
                                             <div
                                                 key={submodule._id || index}
-                                                className="p-5 bg-white rounded-xl border border-gray-200 hover:shadow-md hover:border-purple-300 transition-all group"
+                                                className="p-6 bg-white rounded-2xl border border-slate-200 hover:shadow-lg hover:border-purple-300 transition-all group"
                                             >
-                                                <div className="flex items-start gap-4">
-                                                    <div className="shrink-0 w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-xl flex items-center justify-center font-bold shadow-md group-hover:scale-105 transition-transform">
+                                                <div className="flex items-start gap-5">
+                                                    <div className="shrink-0 w-14 h-14 bg-gradient-to-br from-purple-600 to-purple-700 text-white rounded-xl flex items-center justify-center font-bold text-lg shadow-md group-hover:scale-105 transition-transform">
                                                         {submodule.code}
                                                     </div>
                                                     <div className="flex-1">
-                                                        <h3 className="font-bold text-lg text-gray-900 mb-1">
+                                                        <h3 className="font-bold text-xl text-slate-900 mb-2">
                                                             {submodule.title}
                                                         </h3>
                                                         {submodule.description && (
-                                                            <p className="text-sm text-gray-600 mb-2">
+                                                            <p className="text-sm text-slate-600 mb-3 leading-relaxed">
                                                                 {submodule.description}
                                                             </p>
                                                         )}
                                                         {submodule.requiresPractical && (
-                                                            <div className="inline-flex items-center gap-1 px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-semibold border border-amber-200">
-                                                                <Award className="w-3 h-3" />
-                                                                Practical Required
+                                                            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg text-xs font-semibold border border-amber-200">
+                                                                <Award className="w-3.5 h-3.5" />
+                                                                Practical Assessment Required
                                                             </div>
                                                         )}
                                                     </div>
@@ -646,99 +619,41 @@ export default function TrainingModulePage() {
                             </div>
                         </div>
                     )}
-
-                    {/* Training Requirements */}
-                    <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
-                        <div className="flex items-center gap-3 mb-6">
-                            <CheckCircle2 className="w-6 h-6 text-green-600" />
-                            <h2 className="text-2xl font-bold text-gray-900">Training Requirements</h2>
-                        </div>
-
-                        <div className="space-y-4">
-                            <div
-                                onClick={() => currentUser?.role !== "Trainee" && handleToggleCheckbox("ojt")}
-                                className={`p-5 rounded-xl border-2 transition-all ${training.ojt
-                                    ? "bg-green-50 border-green-300"
-                                    : "bg-gray-50 border-gray-200 hover:border-gray-300"
-                                    } ${currentUser?.role !== "Trainee" ? "cursor-pointer" : ""}`}
-                            >
-                                <div className="flex items-start gap-4">
-                                    <div className={`shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center mt-1 transition-all ${training.ojt
-                                        ? "bg-green-500 border-green-500"
-                                        : "bg-white border-gray-300"
-                                        }`}>
-                                        {training.ojt && <CheckCircle2 className="w-4 h-4 text-white" />}
-                                    </div>
-                                    <div className="flex-1">
-                                        <h3 className="font-semibold text-lg text-gray-900 mb-1">
-                                            On-the-Job Training (OJT)
-                                        </h3>
-                                        <p className="text-sm text-gray-600">
-                                            Complete hands-on training under supervision of a qualified trainer
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div
-                                onClick={() => currentUser?.role !== "Trainee" && handleToggleCheckbox("practical")}
-                                className={`p-5 rounded-xl border-2 transition-all ${training.practical
-                                    ? "bg-green-50 border-green-300"
-                                    : "bg-gray-50 border-gray-200 hover:border-gray-300"
-                                    } ${currentUser?.role !== "Trainee" ? "cursor-pointer" : ""}`}
-                            >
-                                <div className="flex items-start gap-4">
-                                    <div className={`shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center mt-1 transition-all ${training.practical
-                                        ? "bg-green-500 border-green-500"
-                                        : "bg-white border-gray-300"
-                                        }`}>
-                                        {training.practical && <CheckCircle2 className="w-4 h-4 text-white" />}
-                                    </div>
-                                    <div className="flex-1">
-                                        <h3 className="font-semibold text-lg text-gray-900 mb-1">
-                                            Practical Assessment
-                                        </h3>
-                                        <p className="text-sm text-gray-600">
-                                            Demonstrate proficiency through practical examination
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
                     {/* Left Column */}
-                    <div className="lg:col-span-2 space-y-6">
+                    <div className="lg:col-span-2 space-y-6 lg:space-y-8">
                         {/* Training Requirements */}
-                        <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
+                        <div className="bg-white rounded-2xl shadow-lg p-6 lg:p-8 border border-slate-200">
                             <div className="flex items-center gap-3 mb-6">
-                                <ClipboardList className="w-6 h-6 text-blue-600" />
-                                <h2 className="text-2xl font-bold text-gray-900">Training Requirements</h2>
+                                <div className="p-2 bg-emerald-50 rounded-lg">
+                                    <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+                                </div>
+                                <h2 className="text-2xl font-bold text-slate-900">Training Requirements</h2>
                             </div>
 
                             <div className="space-y-4">
                                 <div
                                     onClick={() => currentUser?.role !== "Trainee" && handleToggleCheckbox("ojt")}
-                                    className={`p-5 rounded-xl border-2 transition-all ${training.ojt
-                                        ? "bg-green-50 border-green-300"
-                                        : "bg-gray-50 border-gray-200 hover:border-gray-300"
+                                    className={`p-6 rounded-2xl border-2 transition-all ${training.ojt
+                                        ? "bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-300 shadow-md"
+                                        : "bg-slate-50 border-slate-200 hover:border-slate-300 hover:shadow-sm"
                                         } ${currentUser?.role !== "Trainee" ? "cursor-pointer" : ""}`}
                                 >
                                     <div className="flex items-start gap-4">
-                                        <div className={`shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center mt-1 transition-all ${training.ojt
-                                            ? "bg-green-500 border-green-500"
-                                            : "bg-white border-gray-300"
+                                        <div className={`shrink-0 w-7 h-7 rounded-full border-2 flex items-center justify-center mt-0.5 transition-all ${training.ojt
+                                            ? "bg-emerald-500 border-emerald-500 shadow-lg shadow-emerald-200"
+                                            : "bg-white border-slate-300"
                                             }`}>
-                                            {training.ojt && <CheckCircle2 className="w-4 h-4 text-white" />}
+                                            {training.ojt && <CheckCircle2 className="w-5 h-5 text-white" />}
                                         </div>
                                         <div className="flex-1">
-                                            <h3 className="font-semibold text-lg text-gray-900 mb-1">
+                                            <h3 className="font-bold text-lg text-slate-900 mb-2">
                                                 On-the-Job Training (OJT)
                                             </h3>
-                                            <p className="text-sm text-gray-600">
-                                                Complete hands-on training under supervision of a qualified trainer
+                                            <p className="text-sm text-slate-600 leading-relaxed">
+                                                Complete hands-on training under the direct supervision of a qualified trainer
                                             </p>
                                         </div>
                                     </div>
@@ -746,24 +661,24 @@ export default function TrainingModulePage() {
 
                                 <div
                                     onClick={() => currentUser?.role !== "Trainee" && handleToggleCheckbox("practical")}
-                                    className={`p-5 rounded-xl border-2 transition-all ${training.practical
-                                        ? "bg-green-50 border-green-300"
-                                        : "bg-gray-50 border-gray-200 hover:border-gray-300"
+                                    className={`p-6 rounded-2xl border-2 transition-all ${training.practical
+                                        ? "bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-300 shadow-md"
+                                        : "bg-slate-50 border-slate-200 hover:border-slate-300 hover:shadow-sm"
                                         } ${currentUser?.role !== "Trainee" ? "cursor-pointer" : ""}`}
                                 >
                                     <div className="flex items-start gap-4">
-                                        <div className={`shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center mt-1 transition-all ${training.practical
-                                            ? "bg-green-500 border-green-500"
-                                            : "bg-white border-gray-300"
+                                        <div className={`shrink-0 w-7 h-7 rounded-full border-2 flex items-center justify-center mt-0.5 transition-all ${training.practical
+                                            ? "bg-emerald-500 border-emerald-500 shadow-lg shadow-emerald-200"
+                                            : "bg-white border-slate-300"
                                             }`}>
-                                            {training.practical && <CheckCircle2 className="w-4 h-4 text-white" />}
+                                            {training.practical && <CheckCircle2 className="w-5 h-5 text-white" />}
                                         </div>
                                         <div className="flex-1">
-                                            <h3 className="font-semibold text-lg text-gray-900 mb-1">
+                                            <h3 className="font-bold text-lg text-slate-900 mb-2">
                                                 Practical Assessment
                                             </h3>
-                                            <p className="text-sm text-gray-600">
-                                                Demonstrate proficiency through practical examination
+                                            <p className="text-sm text-slate-600 leading-relaxed">
+                                                Demonstrate proficiency through comprehensive practical examination
                                             </p>
                                         </div>
                                     </div>
@@ -772,34 +687,63 @@ export default function TrainingModulePage() {
                         </div>
 
                         {/* Notes Section */}
-                        <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
-                            <h2 className="text-2xl font-bold text-gray-900 mb-4">Training Notes</h2>
+                        <div className="bg-white rounded-2xl shadow-lg p-6 lg:p-8 border border-slate-200">
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="p-2 bg-blue-50 rounded-lg">
+                                    <FileText className="w-6 h-6 text-blue-600" />
+                                </div>
+                                <h2 className="text-2xl font-bold text-slate-900">Training Notes</h2>
+                            </div>
                             <textarea
                                 value={notes}
                                 onChange={(e) => setNotes(e.target.value)}
-                                className="w-full h-40 p-4 border-2 border-gray-200 rounded-xl resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                                placeholder="Add detailed notes about the trainee's progress, areas of improvement, and observations..."
+                                className="w-full h-48 p-5 border-2 border-slate-200 rounded-xl resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-slate-50 font-mono text-sm"
+                                placeholder="Document trainee progress, performance observations, areas for improvement, and additional notes..."
                                 disabled={currentUser?.role === "Trainee"}
                             />
                             {currentUser?.role !== "Trainee" && (
                                 <button
                                     onClick={handleSaveNotes}
                                     disabled={saving}
-                                    className="mt-4 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors flex items-center gap-2 font-semibold disabled:opacity-50"
+                                    className="mt-4 px-6 py-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all flex items-center gap-2 font-semibold disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
                                 >
-                                    <Save className="w-5 h-5" />
-                                    {saving ? "Saving..." : "Save Notes"}
+                                    {saving ? (
+                                        <>
+                                            <Loader2 className="w-5 h-5 animate-spin" />
+                                            Saving...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Save className="w-5 h-5" />
+                                            Save Notes
+                                        </>
+                                    )}
                                 </button>
                             )}
                         </div>
 
                         {/* Files Section */}
-                        <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
-                            <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-2xl font-bold text-gray-900">Documents & Files</h2>
+                        <div className="bg-white rounded-2xl shadow-lg p-6 lg:p-8 border border-slate-200">
+                            <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-purple-50 rounded-lg">
+                                        <FileCheck className="w-6 h-6 text-purple-600" />
+                                    </div>
+                                    <h2 className="text-2xl font-bold text-slate-900">Documents & Files</h2>
+                                </div>
                                 {currentUser?.role !== "Trainee" && (
-                                    <label className="flex items-center gap-2 px-5 py-3 bg-linear-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 cursor-pointer transition-all font-semibold shadow-md">
-                                        <span>{uploading ? "Uploading..." : "Upload File"}</span>
+                                    <label className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-xl hover:from-slate-800 hover:to-slate-700 cursor-pointer transition-all font-semibold shadow-lg hover:shadow-xl">
+                                        {uploading ? (
+                                            <>
+                                                <Loader2 className="w-5 h-5 animate-spin" />
+                                                <span>Uploading...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Download className="w-5 h-5" />
+                                                <span>Upload File</span>
+                                            </>
+                                        )}
                                         <input
                                             type="file"
                                             onChange={handleFileUpload}
@@ -811,40 +755,48 @@ export default function TrainingModulePage() {
                             </div>
 
                             {files.length === 0 ? (
-                                <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
-                                    <FileText className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                                    <p className="text-gray-500 font-medium">No files uploaded yet</p>
-                                    <p className="text-sm text-gray-400 mt-1">Upload training materials and documentation</p>
+                                <div className="text-center py-16 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-300">
+                                    <div className="w-16 h-16 bg-slate-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <FileText className="w-8 h-8 text-slate-400" />
+                                    </div>
+                                    <p className="text-slate-600 font-semibold text-lg">No files uploaded yet</p>
+                                    <p className="text-sm text-slate-500 mt-2">Upload training materials, certificates, and documentation</p>
                                 </div>
                             ) : (
                                 <div className="space-y-3">
                                     {files.map((file, index) => (
                                         <div
                                             key={index}
-                                            className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors border border-gray-200"
+                                            className="flex items-center justify-between p-5 bg-slate-50 rounded-xl hover:bg-slate-100 transition-all border border-slate-200 hover:shadow-md group"
                                         >
-                                            <div className="flex items-center gap-4">
-                                                <div className="p-3 bg-blue-100 rounded-lg">
+                                            <div className="flex items-center gap-4 flex-1 min-w-0">
+                                                <div className="p-3 bg-blue-100 rounded-xl">
                                                     <FileText className="w-6 h-6 text-blue-600" />
                                                 </div>
-                                                <div>
-                                                    <p className="font-semibold text-gray-900">{file.fileName}</p>
-                                                    <p className="text-sm text-gray-500">
-                                                        {file.fileType} • {new Date(file.createdAt).toLocaleDateString()}
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="font-bold text-slate-900 truncate">{file.fileName}</p>
+                                                    <p className="text-sm text-slate-500">
+                                                        {file.fileType} • {new Date(file.createdAt).toLocaleDateString('en-US', {
+                                                            month: 'short',
+                                                            day: 'numeric',
+                                                            year: 'numeric'
+                                                        })}
                                                     </p>
                                                 </div>
                                             </div>
-                                            <div className="flex gap-2">
+                                            <div className="flex gap-2 ml-4">
                                                 <button
                                                     onClick={() => window.open(file.url, "_blank")}
-                                                    className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
+                                                    className="p-2.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-200"
+                                                    title="Download file"
                                                 >
                                                     <Download className="w-5 h-5" />
                                                 </button>
                                                 {currentUser?.role !== "Trainee" && (
                                                     <button
                                                         onClick={() => handleDeleteFile(file._id)}
-                                                        className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
+                                                        className="p-2.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-200"
+                                                        title="Delete file"
                                                     >
                                                         <Trash2 className="w-5 h-5" />
                                                     </button>
@@ -859,31 +811,36 @@ export default function TrainingModulePage() {
 
                     {/* Right Column - Signatures */}
                     <div className="lg:col-span-1">
-                        <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100 sticky top-6">
+                        <div className="bg-white rounded-2xl shadow-lg p-6 lg:p-8 border border-slate-200 sticky top-6">
                             <div className="flex items-center gap-3 mb-6">
-                                <Award className="w-6 h-6 text-purple-600" />
-                                <h2 className="text-2xl font-bold text-gray-900">Certifications</h2>
+                                <div className="p-2 bg-purple-50 rounded-lg">
+                                    <Award className="w-6 h-6 text-purple-600" />
+                                </div>
+                                <h2 className="text-2xl font-bold text-slate-900">Certifications</h2>
                             </div>
 
                             {/* Signature Requirements */}
-                            <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                                <h3 className="font-semibold text-gray-900 mb-3">Signature Requirements</h3>
-                                <div className="space-y-2 text-sm">
-                                    <div className="flex items-center gap-2">
-                                        <div className={`w-3 h-3 rounded-full ${signingRequirements.trainer ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                                        <span className={signingRequirements.trainer ? 'text-green-700 font-medium' : 'text-gray-600'}>
+                            <div className="mb-6 p-5 bg-slate-50 rounded-xl border border-slate-200">
+                                <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                                    <CheckCircle2 className="w-5 h-5 text-slate-600" />
+                                    Required Signatures
+                                </h3>
+                                <div className="space-y-3 text-sm">
+                                    <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-slate-200">
+                                        <div className={`w-4 h-4 rounded-full ${signingRequirements.trainer ? 'bg-emerald-500' : 'bg-slate-300'} transition-colors`}></div>
+                                        <span className={`font-medium ${signingRequirements.trainer ? 'text-emerald-700' : 'text-slate-600'}`}>
                                             Trainer Signature
                                         </span>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <div className={`w-3 h-3 rounded-full ${signingRequirements.coordinator ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                                        <span className={signingRequirements.coordinator ? 'text-green-700 font-medium' : 'text-gray-600'}>
+                                    <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-slate-200">
+                                        <div className={`w-4 h-4 rounded-full ${signingRequirements.coordinator ? 'bg-emerald-500' : 'bg-slate-300'} transition-colors`}></div>
+                                        <span className={`font-medium ${signingRequirements.coordinator ? 'text-emerald-700' : 'text-slate-600'}`}>
                                             Coordinator Signature
                                         </span>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <div className={`w-3 h-3 rounded-full ${signingRequirements.trainee ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                                        <span className={signingRequirements.trainee ? 'text-green-700 font-medium' : 'text-gray-600'}>
+                                    <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-slate-200">
+                                        <div className={`w-4 h-4 rounded-full ${signingRequirements.trainee ? 'bg-emerald-500' : 'bg-slate-300'} transition-colors`}></div>
+                                        <span className={`font-medium ${signingRequirements.trainee ? 'text-emerald-700' : 'text-slate-600'}`}>
                                             Trainee Acknowledgement
                                         </span>
                                     </div>
@@ -891,35 +848,37 @@ export default function TrainingModulePage() {
 
                                 {/* Coordinator Restriction Notice */}
                                 {currentUser?.role === "Coordinator" && (
-                                    <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded-lg">
-                                        <p className="text-xs text-blue-700 text-center">
-                                            <strong>Note:</strong> As a coordinator, you can sign as either Trainer or Coordinator, but not both.
+                                    <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                        <p className="text-xs text-blue-700 leading-relaxed">
+                                            <strong>Note:</strong> Coordinators may sign as either Trainer or Coordinator, but not both roles.
                                         </p>
                                     </div>
                                 )}
                             </div>
 
                             {training.signatures.length === 0 ? (
-                                <div className="text-center py-8 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 mb-6">
-                                    <Award className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                                    <p className="text-gray-500 font-medium">No signatures yet</p>
-                                    <p className="text-sm text-gray-400 mt-1">Awaiting required signatures</p>
+                                <div className="text-center py-12 bg-slate-50 rounded-xl border-2 border-dashed border-slate-300 mb-6">
+                                    <div className="w-14 h-14 bg-slate-200 rounded-full flex items-center justify-center mx-auto mb-3">
+                                        <Award className="w-7 h-7 text-slate-400" />
+                                    </div>
+                                    <p className="text-slate-600 font-semibold">No signatures yet</p>
+                                    <p className="text-sm text-slate-500 mt-1">Awaiting required signatures</p>
                                 </div>
                             ) : (
                                 <div className="space-y-3 mb-6">
                                     {training.signatures.map((sig) => (
                                         <div
                                             key={sig._id}
-                                            className="p-4 bg-linear-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200 relative group"
+                                            className="p-5 bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl border-2 border-emerald-200 relative group hover:shadow-md transition-all"
                                         >
                                             <div className="flex items-start gap-3">
-                                                <div className="shrink-0 w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
+                                                <div className="shrink-0 w-11 h-11 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full flex items-center justify-center shadow-lg">
                                                     <CheckCircle2 className="w-6 h-6 text-white" />
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="font-bold text-gray-900">{sig.userName}</p>
-                                                    <p className="text-sm text-green-700 font-semibold">{sig.role}</p>
-                                                    <p className="text-xs text-gray-600 mt-1">
+                                                    <p className="font-bold text-slate-900 truncate">{sig.userName}</p>
+                                                    <p className="text-sm text-emerald-700 font-bold">{sig.role}</p>
+                                                    <p className="text-xs text-slate-600 mt-1.5">
                                                         {new Date(sig.signedAt).toLocaleString('en-US', {
                                                             month: 'short',
                                                             day: 'numeric',
@@ -929,27 +888,24 @@ export default function TrainingModulePage() {
                                                         })}
                                                     </p>
                                                 </div>
-                                                {/* Delete button - only show if current user owns this signature */}
                                                 {currentUser && sig._id && sig.userId === currentUser._id && (
                                                     <button
                                                         onClick={() => handleRemoveSignature(sig._id!)}
-                                                        className="absolute top-3 right-3 p-1 text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        className="absolute top-3 right-3 p-1.5 text-red-500  rounded-lg  opacity-100 transition-all border border-red-200 hover:bg-red-300"
                                                         title="Remove your signature"
                                                     >
                                                         <Trash2 className="w-4 h-4" />
                                                     </button>
                                                 )}
                                             </div>
-
-
                                         </div>
                                     ))}
                                 </div>
                             )}
 
                             {currentUser && (
-                                <div className="space-y-3 pt-4 border-t border-gray-200">
-                                    <p className="text-sm font-semibold text-gray-700 mb-3">Sign as:</p>
+                                <div className="space-y-3 pt-6 border-t-2 border-slate-200">
+                                    <p className="text-sm font-bold text-slate-700 mb-4 uppercase tracking-wide">Sign as:</p>
 
                                     {/* Special handling for coordinators */}
                                     {currentUser.role === "Coordinator" ? (
@@ -958,24 +914,28 @@ export default function TrainingModulePage() {
                                                 <button
                                                     key={option.role}
                                                     onClick={() => handleSign(option.role as "Trainer" | "Coordinator")}
-                                                    className={`w-full px-4 py-3 bg-${option.color}-600 text-white rounded-xl hover:bg-${option.color}-700 transition-colors font-semibold shadow-md`}
+                                                    className={`w-full px-5 py-4 ${option.color === 'blue' 
+                                                        ? 'bg-blue-600 hover:bg-blue-700' 
+                                                        : 'bg-purple-600 hover:bg-purple-700'
+                                                    } text-white rounded-xl transition-all font-bold shadow-lg hover:shadow-xl hover:scale-105 active:scale-95`}
                                                 >
                                                     {option.label}
                                                 </button>
                                             ))}
                                             {getCoordinatorSigningOptions().length === 0 && (
-                                                <p className="text-sm text-gray-500 text-center py-2">
-                                                    You have already signed this module
-                                                </p>
+                                                <div className="text-center py-6 bg-slate-50 rounded-xl border border-slate-200">
+                                                    <p className="text-sm text-slate-600 font-medium">
+                                                        You have already signed this module
+                                                    </p>
+                                                </div>
                                             )}
                                         </div>
                                     ) : (
-                                        /* Regular signing for non-coordinators */
                                         <>
                                             {canSign("Trainee") && (
                                                 <button
                                                     onClick={() => handleSign("Trainee")}
-                                                    className="w-full px-4 py-3 bg-green-500 text-white rounded-xl hover:bg-green-700  font-semibold shadow-md"
+                                                    className="w-full px-5 py-4 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all font-bold shadow-lg hover:shadow-xl hover:scale-105 active:scale-95"
                                                 >
                                                     Trainee Acknowledgement
                                                 </button>
@@ -983,7 +943,7 @@ export default function TrainingModulePage() {
                                             {canSign("Trainer") && (
                                                 <button
                                                     onClick={() => handleSign("Trainer")}
-                                                    className="w-full px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-semibold shadow-md"
+                                                    className="w-full px-5 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all font-bold shadow-lg hover:shadow-xl hover:scale-105 active:scale-95"
                                                 >
                                                     Trainer
                                                 </button>
@@ -991,15 +951,17 @@ export default function TrainingModulePage() {
                                             {canSign("Coordinator") && (
                                                 <button
                                                     onClick={() => handleSign("Coordinator")}
-                                                    className="w-full px-4 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors font-semibold shadow-md"
+                                                    className="w-full px-5 py-4 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-all font-bold shadow-lg hover:shadow-xl hover:scale-105 active:scale-95"
                                                 >
                                                     Coordinator
                                                 </button>
                                             )}
                                             {!canSign("Trainee") && !canSign("Trainer") && !canSign("Coordinator") && (
-                                                <p className="text-sm text-gray-500 text-center py-2">
-                                                    You have already signed this module
-                                                </p>
+                                                <div className="text-center py-6 bg-slate-50 rounded-xl border border-slate-200">
+                                                    <p className="text-sm text-slate-600 font-medium">
+                                                        You have already signed this module
+                                                    </p>
+                                                </div>
                                             )}
                                         </>
                                     )}
