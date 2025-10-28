@@ -51,7 +51,6 @@ const TrainingModulesView = ({
     const [noteText, setNoteText] = useState('');
     const [showSignatureModal, setShowSignatureModal] = useState(false);
     const [selectedSignatureIndex, setSelectedSignatureIndex] = useState<number | null>(null);
-    const [toggleError, setToggleError] = useState<string | null>(null);
 
     const getFilteredTrainingData = () => {
         let filtered = trainingData;
@@ -255,7 +254,6 @@ const TrainingModulesView = ({
                 throw new Error('Training ID not found');
             }
 
-            // Prevent same user from signing multiple times
             const existingSignatures = training.signatures || [];
             const existingUserIds = existingSignatures.map(s => s.userId);
 
@@ -277,7 +275,6 @@ const TrainingModulesView = ({
                 if (!item.signatures) item.signatures = [];
                 item.signatures = [...item.signatures, newSignature];
 
-                // Check if all signatures are complete: 1 trainer + 1 coordinator + 1 trainee
                 const trainerSig = item.signatures.some(s => s.role === 'Trainer');
                 const coordSig = item.signatures.some(s => s.role === 'Coordinator');
                 const traineeSig = item.signatures.some(s => s.role === 'Trainee');
@@ -427,86 +424,37 @@ const TrainingModulesView = ({
         fetchModules();
     }, [fetchModules]);
 
+    const getStatusBadge = (t: ITraining) => {
+        if (t.signedOff) {
+            return (
+                <span className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium whitespace-nowrap">
+                    <CheckCircle2 className="w-3 h-3" />
+                    <span>Completed</span>
+                </span>
+            );
+        }
+        if (t.ojt || t.practical) {
+            return (
+                <span className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-medium whitespace-nowrap">
+                    <Clock className="w-3 h-3" />
+                    <span>In Progress</span>
+                </span>
+            );
+        }
+        return (
+            <span className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium whitespace-nowrap">
+                <AlertCircle className="w-3 h-3" />
+                <span>Not Started</span>
+            </span>
+        );
+    };
+
     return (
         <>
-            {!isTrainee && (
-                <div className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4 shadow-sm">
-                    <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-3">
-                        <div className="flex flex-1 min-w-[250px] items-center gap-2 sm:gap-3">
-                            <div className="relative flex-1">
-                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                <input
-                                    type="text"
-                                    placeholder="Search modules..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full pl-10 pr-4 py-2 border text-gray-600 border-gray-300 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                />
-                            </div>
-
-                            <button
-                                onClick={() => setShowFilters(!showFilters)}
-                                className={`px-3 sm:px-4 py-2 border rounded-lg text-xs sm:text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${showFilters
-                                    ? 'bg-blue-50 border-blue-300 text-blue-700'
-                                    : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                                    }`}
-                            >
-                                <Filter className="w-4 h-4" />
-                                <span className="hidden sm:inline">Filters</span>
-                            </button>
-                        </div>
-
-                        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                            <button
-                                onClick={handleExportData}
-                                disabled={trainingData.length === 0}
-                                className="px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                            >
-                                <Download className="w-4 h-4" />
-                                <span className="hidden sm:inline">Export CSV</span>
-                            </button>
-
-                            {isCoordinator && (
-                                <button
-                                    onClick={() => setShowAddModal(true)}
-                                    disabled={loadingModules}
-                                    className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg text-xs sm:text-sm hover:bg-blue-700 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
-                                >
-                                    <Plus className="w-4 h-4" />
-                                    <span className="hidden sm:inline">Assign Module</span>
-                                </button>
-                            )}
-                        </div>
-                    </div>
-
-                    {showFilters && (
-                        <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-gray-200">
-                            <div className="grid grid-cols-2 sm:flex gap-2">
-                                {([
-                                    { label: 'All', key: 'all', count: trainingData.length },
-                                    { label: 'Completed', key: 'completed', count: stats.completed },
-                                    { label: 'In Progress', key: 'in-progress', count: stats.inProgress },
-                                    { label: 'Not Started', key: 'not-started', count: stats.notStarted },
-                                ] as const).map(({ label, key, count }) => (
-                                    <button
-                                        key={key}
-                                        onClick={() => setFilterStatus(key)}
-                                        className={`px-2 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors ${filterStatus === key
-                                            ? 'bg-blue-600 text-white'
-                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                            }`}
-                                    >
-                                        {label} ({count})
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {isTrainee && (
-                <div className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4 shadow-sm">
+            {/* Search and Filter Bar */}
+            <div className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4 shadow-sm">
+                <div className="flex flex-col gap-3">
+                    {/* Search and Action Buttons Row */}
                     <div className="flex flex-col sm:flex-row gap-3">
                         <div className="relative flex-1">
                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -515,10 +463,49 @@ const TrainingModulesView = ({
                                 placeholder="Search modules..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 border text-gray-600 border-gray-300 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="w-full pl-10 pr-4 py-2 border text-gray-600 border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             />
                         </div>
-                        <div className="grid grid-cols-2 sm:flex gap-2">
+
+                        <div className="flex items-center gap-2">
+                            {!isTrainee && (
+                                <button
+                                    onClick={() => setShowFilters(!showFilters)}
+                                    className={`px-4 py-2 border rounded-lg text-sm flex items-center gap-2 transition-colors ${showFilters
+                                        ? 'bg-blue-50 border-blue-300 text-blue-700'
+                                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                                        }`}
+                                >
+                                    <Filter className="w-4 h-4" />
+                                    <span className="hidden sm:inline">Filters</span>
+                                </button>
+                            )}
+
+                            <button
+                                onClick={handleExportData}
+                                disabled={trainingData.length === 0}
+                                className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                                <Download className="w-4 h-4" />
+                                <span className="hidden sm:inline">Export</span>
+                            </button>
+
+                            {isCoordinator && (
+                                <button
+                                    onClick={() => setShowAddModal(true)}
+                                    disabled={loadingModules}
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                    <span className="hidden sm:inline">Assign</span>
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Filter Tabs */}
+                    {(showFilters || isTrainee) && (
+                        <div className="grid grid-cols-2 sm:flex gap-2 pt-3 border-t border-gray-200">
                             {([
                                 { label: 'All', key: 'all', count: trainingData.length },
                                 { label: 'Completed', key: 'completed', count: stats.completed },
@@ -528,7 +515,7 @@ const TrainingModulesView = ({
                                 <button
                                     key={key}
                                     onClick={() => setFilterStatus(key)}
-                                    className={`px-2 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors ${filterStatus === key
+                                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filterStatus === key
                                         ? 'bg-blue-600 text-white'
                                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                         }`}
@@ -537,10 +524,11 @@ const TrainingModulesView = ({
                                 </button>
                             ))}
                         </div>
-                    </div>
+                    )}
                 </div>
-            )}
+            </div>
 
+            {/* Training Data Display */}
             <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
                 {filteredData.length === 0 ? (
                     <div className="p-8 sm:p-12 text-center">
@@ -548,9 +536,9 @@ const TrainingModulesView = ({
                         <p className="text-base sm:text-lg font-medium text-gray-900 mb-2">
                             {trainingData.length === 0 ? 'No training modules assigned' : 'No modules match your filters'}
                         </p>
-                        <p className="text-xs sm:text-sm text-gray-500 mb-4">
+                        <p className="text-sm text-gray-500 mb-4">
                             {trainingData.length === 0 && isCoordinator
-                                ? 'Click "Assign Module" to get started'
+                                ? 'Click "Assign" to get started'
                                 : trainingData.length === 0 && isTrainee
                                     ? 'Your trainer will assign modules to you soon'
                                     : 'Try adjusting your search or filters'}
@@ -561,7 +549,7 @@ const TrainingModulesView = ({
                                     setSearchQuery('');
                                     setFilterStatus('all');
                                 }}
-                                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-xs sm:text-sm hover:bg-gray-200"
+                                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200"
                             >
                                 Clear Filters
                             </button>
@@ -569,32 +557,33 @@ const TrainingModulesView = ({
                     </div>
                 ) : (
                     <>
-                        <div className={`overflow-x-auto ${isTrainee ? 'hidden md:block' : ''}`}>
-                            <table className="w-full min-w-[800px]">
+                        {/* Desktop Table View (hidden on mobile) */}
+                        <div className="hidden lg:block overflow-x-auto">
+                            <table className="w-full">
                                 <thead className="bg-gray-50 border-b border-gray-200">
                                     <tr>
-                                        <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                            Module Name
+                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
+                                            Module
                                         </th>
-                                        <th className="px-3 sm:px-6 py-3 sm:py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                        <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase">
                                             OJT
                                         </th>
-                                        <th className="px-3 sm:px-6 py-3 sm:py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                        <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase">
                                             Practical
                                         </th>
-                                        <th className="px-3 sm:px-6 py-3 sm:py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                        <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase">
                                             Signatures
                                         </th>
                                         {!isTrainee && (
-                                            <th className="px-3 sm:px-6 py-3 sm:py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase">
                                                 Notes
                                             </th>
                                         )}
-                                        <th className="px-3 sm:px-6 py-3 sm:py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                        <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase">
                                             Status
                                         </th>
                                         {isCoordinator && (
-                                            <th className="px-3 sm:px-6 py-3 sm:py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase">
                                                 Actions
                                             </th>
                                         )}
@@ -611,49 +600,20 @@ const TrainingModulesView = ({
                                         const hasCoordinatorSignature = (t.signatures || []).some(s => s.role === 'Coordinator');
                                         const hasTraineeSignature = (t.signatures || []).some(s => s.role === 'Trainee');
 
-                                        const getStatusBadge = () => {
-                                            if (t.signedOff) {
-                                                return (
-                                                    <span className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium whitespace-nowrap">
-                                                        <CheckCircle2 className="w-3 h-3" />
-                                                        <span>COMPLETED</span>
-                                                    </span>
-                                                );
-                                            }
-                                            if (t.ojt || t.practical) {
-                                                return (
-                                                    <span className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-medium whitespace-nowrap">
-                                                        <Clock className="w-3 h-3" />
-                                                        <span>In Progress</span>
-                                                    </span>
-                                                );
-                                            }
-                                            return (
-                                                <span className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium whitespace-nowrap">
-                                                    <AlertCircle className="w-3 h-3" />
-                                                    <span>Not Started</span>
-                                                </span>
-                                            );
-                                        };
-
                                         return (
                                             <tr key={t._id?.toString() || idx} className="hover:bg-gray-50 transition-colors">
-                                                <td className="px-6 py-4">
-                                                    <div className="flex items-center gap-2">
-                                                        <div>
-                                                            <button
-                                                                onClick={() => router.push(`/dashboard/module/${t._id}`)}
-                                                                className="text-sm font-medium text-gray-900 hover:underline hover:text-blue-800 transition-colors"
-                                                            >
-                                                                {moduleName}
-                                                            </button>
-                                                            {typeof t.module === 'object' && t.module.description && (
-                                                                <p className="text-xs text-gray-500 mt-0.5">{t.module.description}</p>
-                                                            )}
-                                                        </div>
-                                                    </div>
+                                                <td className="px-4 py-3">
+                                                    <button
+                                                        onClick={() => router.push(`/dashboard/module/${t._id}`)}
+                                                        className="text-sm font-medium text-gray-900 hover:underline hover:text-blue-800 transition-colors text-left"
+                                                    >
+                                                        {moduleName}
+                                                    </button>
+                                                    {typeof t.module === 'object' && t.module.description && (
+                                                        <p className="text-xs text-gray-500 mt-0.5">{t.module.description}</p>
+                                                    )}
                                                 </td>
-                                                <td className="px-6 py-4 text-center">
+                                                <td className="px-4 py-3 text-center">
                                                     <input
                                                         type="checkbox"
                                                         checked={t.ojt}
@@ -662,7 +622,7 @@ const TrainingModulesView = ({
                                                         className="w-5 h-5 cursor-pointer disabled:cursor-not-allowed text-blue-600 focus:ring-2 focus:ring-blue-500 rounded"
                                                     />
                                                 </td>
-                                                <td className="px-6 py-4 text-center">
+                                                <td className="px-4 py-3 text-center">
                                                     <input
                                                         type="checkbox"
                                                         checked={t.practical}
@@ -671,36 +631,24 @@ const TrainingModulesView = ({
                                                         className="w-5 h-5 cursor-pointer disabled:cursor-not-allowed text-blue-600 focus:ring-2 focus:ring-blue-500 rounded"
                                                     />
                                                 </td>
-                                                <td className="px-6 py-4 text-center">
-                                                    <div className="flex flex-col items-center gap-1">
-                                                        {isEditable ? (
-                                                            <button
-                                                                onClick={() => handleOpenSignatureModal(idx)}
-                                                                disabled={!t.ojt || !t.practical}
-                                                                className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1 whitespace-nowrap"
-                                                            >
-                                                                <span className="hidden md:flex items-center gap-1">
-                                                                    <UserCheck className="w-3 h-3" />
-                                                                    T:{trainerSignatures > 0 ? '✓' : '✗'} C:{hasCoordinatorSignature ? '✓' : '✗'} S:{hasTraineeSignature ? '✓' : '✗'}
-                                                                </span>
-                                                                <span className="flex md:hidden items-center gap-1">
-                                                                    <UserCheck className="w-3 h-3" />
-                                                                    {trainerSignatures > 0 ? '✓' : '✗'}/{hasCoordinatorSignature ? '✓' : '✗'}/{hasTraineeSignature ? '✓' : '✗'}
-                                                                </span>
-                                                            </button>
-                                                        ) : (
-                                                            <span className="text-xs text-gray-600">
-                                                                Trainer:{trainerSignatures > 0 ? '✓' : '✗'} Coord:{hasCoordinatorSignature ? '✓' : '✗'} Trainee:{hasTraineeSignature ? '✓' : '✗'}
-                                                            </span>
-                                                        )}
-                                                        {(!t.ojt || !t.practical) && (
-                                                            <span className="text-xs text-gray-400">Prerequisites required</span>
-                                                        )}
-                                                    </div>
+                                                <td className="px-4 py-3 text-center">
+                                                    {isEditable ? (
+                                                        <button
+                                                            onClick={() => handleOpenSignatureModal(idx)}
+                                                            disabled={!t.ojt || !t.practical}
+                                                            className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1"
+                                                        >
+                                                            <UserCheck className="w-3 h-3" />
+                                                            T:{trainerSignatures > 0 ? '✓' : '✗'} C:{hasCoordinatorSignature ? '✓' : '✗'} S:{hasTraineeSignature ? '✓' : '✗'}
+                                                        </button>
+                                                    ) : (
+                                                        <span className="text-xs text-gray-600">
+                                                            T:{trainerSignatures > 0 ? '✓' : '✗'} C:{hasCoordinatorSignature ? '✓' : '✗'} S:{hasTraineeSignature ? '✓' : '✗'}
+                                                        </span>
+                                                    )}
                                                 </td>
-
                                                 {!isTrainee && (
-                                                    <td className="px-6 py-4 text-center">
+                                                    <td className="px-4 py-3 text-center">
                                                         <button
                                                             onClick={() => handleOpenNoteModal(idx)}
                                                             className={`p-2 rounded-lg transition-colors ${t.notes
@@ -713,11 +661,11 @@ const TrainingModulesView = ({
                                                         </button>
                                                     </td>
                                                 )}
-                                                <td className="px-6 py-4 text-center">
-                                                    {getStatusBadge()}
+                                                <td className="px-4 py-3 text-center">
+                                                    {getStatusBadge(t)}
                                                 </td>
                                                 {isCoordinator && (
-                                                    <td className="px-6 py-4 text-center">
+                                                    <td className="px-4 py-3 text-center">
                                                         <div className="flex items-center justify-center gap-2">
                                                             <button
                                                                 onClick={() => {
@@ -747,104 +695,143 @@ const TrainingModulesView = ({
                             </table>
                         </div>
 
-                        {isTrainee && (
-                            <div className="md:hidden divide-y divide-gray-200">
-                                {filteredData.map((t, idx) => {
-                                    const moduleName = typeof t.module === 'object' && 'name' in t.module
-                                        ? t.module.name
-                                        : 'Unknown Module';
-                                    const moduleDescription = typeof t.module === 'object' && t.module.description
-                                        ? t.module.description
-                                        : '';
+                        {/* Mobile/Tablet Card View */}
+                        <div className="lg:hidden divide-y divide-gray-200">
+                            {filteredData.map((t, idx) => {
+                                const actualIndex = trainingData.indexOf(t);
+                                const moduleName = typeof t.module === 'object' && 'name' in t.module
+                                    ? t.module.name
+                                    : 'Unknown Module';
+                                const moduleDescription = typeof t.module === 'object' && t.module.description
+                                    ? t.module.description
+                                    : '';
 
-                                    const trainerSignatures = (t.signatures || []).filter(s => s.role === 'Trainer').length;
-                                    const hasCoordinatorSignature = (t.signatures || []).some(s => s.role === 'Coordinator');
-                                    const hasTraineeSignature = (t.signatures || []).some(s => s.role === 'Trainee');
+                                const trainerSignatures = (t.signatures || []).filter(s => s.role === 'Trainer').length;
+                                const hasCoordinatorSignature = (t.signatures || []).some(s => s.role === 'Coordinator');
+                                const hasTraineeSignature = (t.signatures || []).some(s => s.role === 'Trainee');
 
-                                    const getStatusBadge = () => {
-                                        if (t.signedOff) {
-                                            return (
-                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
-                                                    <CheckCircle2 className="w-3 h-3" />
-                                                    <span>Completed</span>
-                                                </span>
-                                            );
-                                        }
-                                        if (t.ojt || t.practical) {
-                                            return (
-                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">
-                                                    <Clock className="w-3 h-3" />
-                                                    <span>In Progress</span>
-                                                </span>
-                                            );
-                                        }
-                                        return (
-                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">
-                                                <AlertCircle className="w-3 h-3" />
-                                                <span>Not Started</span>
-                                            </span>
-                                        );
-                                    };
+                                return (
+                                    <div key={t._id?.toString() || idx} className="p-4 hover:bg-gray-50 transition-colors">
+                                        {/* Header with Module Name and Status */}
+                                        <div className="flex justify-between items-start gap-3 mb-3">
+                                            <div className="flex-1 min-w-0">
+                                                <button
+                                                    onClick={() => router.push(`/dashboard/module/${t._id}`)}
+                                                    className="text-sm font-medium text-gray-900 hover:underline hover:text-blue-800 transition-colors block"
+                                                >
+                                                    {moduleName}
+                                                </button>
+                                                {moduleDescription && (
+                                                    <p className="text-xs text-gray-500 mt-1">{moduleDescription}</p>
+                                                )}
+                                            </div>
+                                            {getStatusBadge(t)}
+                                        </div>
 
-                                    return (
-                                        <div key={t._id?.toString() || idx} className="p-4 hover:bg-gray-50 transition-colors">
-                                            <div className="flex justify-between items-start mb-3">
-                                                <div className="flex-1 min-w-0">
+                                        {/* Progress Checkboxes */}
+                                        <div className="grid grid-cols-2 gap-3 mb-3">
+                                            <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={t.ojt}
+                                                    onChange={() => handleToggle(actualIndex, 'ojt')}
+                                                    disabled={!isEditable}
+                                                    className="w-5 h-5 cursor-pointer disabled:cursor-not-allowed text-blue-600 focus:ring-2 focus:ring-blue-500 rounded"
+                                                />
+                                                <span className="text-sm text-gray-700 font-medium">OJT</span>
+                                            </div>
+                                            <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={t.practical}
+                                                    onChange={() => handleToggle(actualIndex, 'practical')}
+                                                    disabled={!isEditable}
+                                                    className="w-5 h-5 cursor-pointer disabled:cursor-not-allowed text-blue-600 focus:ring-2 focus:ring-blue-500 rounded"
+                                                />
+                                                <span className="text-sm text-gray-700 font-medium">Practical</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Signatures Section */}
+                                        <div className="mb-3">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <span className="text-xs font-semibold text-gray-500 uppercase">Signatures</span>
+                                                {isEditable && (
                                                     <button
-                                                        onClick={() => router.push(`/dashboard/module/${t._id}`)}
-                                                        className="text-sm font-medium text-gray-900 hover:underline hover:text-blue-800 transition-colors"
+                                                        onClick={() => handleOpenSignatureModal(idx)}
+                                                        disabled={!t.ojt || !t.practical}
+                                                        className="text-xs text-blue-600 hover:text-blue-800 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                                                     >
-                                                        {moduleName}
+                                                        Manage
                                                     </button>
-                                                    {moduleDescription && (
-                                                        <p className="text-xs text-gray-500">{moduleDescription}</p>
-                                                    )}
-                                                </div>
-                                                {getStatusBadge()}
+                                                )}
                                             </div>
-
-                                            <div className="grid grid-cols-3 gap-3">
-                                                <div className="text-center">
-                                                    <p className="text-xs text-gray-500 mb-1">OJT</p>
-                                                    <div className="flex justify-center">
-                                                        {t.ojt ? (
-                                                            <CheckCircle2 className="w-5 h-5 text-green-600" />
-                                                        ) : (
-                                                            <div className="w-5 h-5 border-2 border-gray-300 rounded"></div>
-                                                        )}
-                                                    </div>
+                                            <div className="flex gap-2 text-xs">
+                                                <div className={`flex-1 p-2 rounded-lg text-center ${trainerSignatures > 0 ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-500'}`}>
+                                                    <div className="font-medium">Trainer</div>
+                                                    <div className="text-lg">{trainerSignatures > 0 ? '✓' : '✗'}</div>
                                                 </div>
-                                                <div className="text-center">
-                                                    <p className="text-xs text-gray-500 mb-1">Practical</p>
-                                                    <div className="flex justify-center">
-                                                        {t.practical ? (
-                                                            <CheckCircle2 className="w-5 h-5 text-green-600" />
-                                                        ) : (
-                                                            <div className="w-5 h-5 border-2 border-gray-300 rounded"></div>
-                                                        )}
-                                                    </div>
+                                                <div className={`flex-1 p-2 rounded-lg text-center ${hasCoordinatorSignature ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-500'}`}>
+                                                    <div className="font-medium">Coord</div>
+                                                    <div className="text-lg">{hasCoordinatorSignature ? '✓' : '✗'}</div>
                                                 </div>
-                                                <div className="text-center">
-                                                    <p className="text-xs text-gray-500 mb-1">Signatures</p>
-                                                    <div className="flex justify-center">
-                                                        <span className="text-xs text-gray-700">
-                                                            T:{trainerSignatures > 0 ? '✓' : '✗'} C:{hasCoordinatorSignature ? '✓' : '✗'} S:{hasTraineeSignature ? '✓' : '✗'}
-                                                        </span>
-                                                    </div>
+                                                <div className={`flex-1 p-2 rounded-lg text-center ${hasTraineeSignature ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-500'}`}>
+                                                    <div className="font-medium">Trainee</div>
+                                                    <div className="text-lg">{hasTraineeSignature ? '✓' : '✗'}</div>
                                                 </div>
                                             </div>
+                                        </div>
 
-                                            {t.notes && (
-                                                <div className="mt-3 pt-3 border-t border-gray-200">
-                                                    <p className="text-xs text-gray-500 mb-1">Notes:</p>
-                                                    <p className="text-xs text-gray-700">{t.notes}</p>
+                                        {/* Notes and Actions */}
+                                        <div className="flex items-center justify-between pt-3 border-t border-gray-200">
+                                            {!isTrainee && (
+                                                <button
+                                                    onClick={() => handleOpenNoteModal(idx)}
+                                                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${t.notes
+                                                        ? 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                                                        : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                                                        }`}
+                                                >
+                                                    <MessageSquare className="w-4 h-4" />
+                                                    <span>{t.notes ? 'View Note' : 'Add Note'}</span>
+                                                </button>
+                                            )}
+                                            
+                                            {isCoordinator && (
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={() => {
+                                                            setSelectedTraining(t);
+                                                            setShowHistoryModal(true);
+                                                        }}
+                                                        className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
+                                                        title="View history"
+                                                    >
+                                                        <History className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleRemoveModule(actualIndex)}
+                                                        disabled={saving}
+                                                        className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                                                        title="Remove module"
+                                                    >
+                                                        <X className="w-4 h-4" />
+                                                    </button>
                                                 </div>
                                             )}
                                         </div>
-                                    );
-                                })}
-                            </div>
-                        )}
+
+                                        {/* Show notes preview for trainees */}
+                                        {isTrainee && t.notes && (
+                                            <div className="mt-3 pt-3 border-t border-gray-200">
+                                                <p className="text-xs text-gray-500 mb-1">Notes:</p>
+                                                <p className="text-sm text-gray-700">{t.notes}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </>
                 )}
             </div>
@@ -905,7 +892,7 @@ const TrainingModulesView = ({
             {/* Signature Modal */}
             {showSignatureModal && selectedSignatureIndex !== null && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+                    <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-auto">
                         <div className="flex items-center justify-between p-6 border-b border-gray-200">
                             <h3 className="text-lg font-semibold text-gray-900">Sign Off Training</h3>
                             <button
@@ -922,7 +909,7 @@ const TrainingModulesView = ({
                         <div className="p-6 space-y-6">
                             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                                 <p className="text-sm text-blue-800">
-                                    <strong>Requirements:</strong> 1 Trainer signature + 1 Coordinator signature + Trainee signature
+                                    <strong>Requirements:</strong> 1 Trainer + 1 Coordinator + 1 Trainee signature
                                 </p>
                             </div>
 
@@ -975,7 +962,6 @@ const TrainingModulesView = ({
                                         </div>
                                     )}
 
-
                                     <h4 className="text-sm font-semibold text-gray-900 mb-3">Add Signature</h4>
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                         {(() => {
@@ -990,7 +976,7 @@ const TrainingModulesView = ({
                                                     className="px-4 py-3 border-2 border-blue-300 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                                 >
                                                     <UserCheck className="w-4 h-4" />
-                                                    Sign as Trainer
+                                                    <span>Trainer</span>
                                                     {hasTrainerSig && (
                                                         <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
                                                             ✓
@@ -1012,7 +998,7 @@ const TrainingModulesView = ({
                                                     className="px-4 py-3 border-2 border-purple-300 text-purple-700 rounded-lg text-sm font-medium hover:bg-purple-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                                 >
                                                     <UserCheck className="w-4 h-4" />
-                                                    Sign as Coordinator
+                                                    <span>Coordinator</span>
                                                     {hasCoordinatorSig && (
                                                         <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full">
                                                             ✓
@@ -1035,7 +1021,7 @@ const TrainingModulesView = ({
                                                     className="px-4 py-3 border-2 border-green-300 text-green-700 rounded-lg text-sm font-medium hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                                 >
                                                     <UserCheck className="w-4 h-4" />
-                                                    Sign as Trainee
+                                                    <span>Trainee</span>
                                                     {hasTraineeSig && (
                                                         <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
                                                             ✓

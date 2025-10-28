@@ -715,7 +715,7 @@ export default function TrainingModulePage() {
                                     ) : (
                                         <>
                                             <Save className="w-5 h-5" />
-                                            Save Notes
+                                            Save Note
                                         </>
                                     )}
                                 </button>
