@@ -94,11 +94,6 @@ export default function TrainingModulePage() {
         }
     };
 
-    useEffect(() => {
-        console.log(currentUser, trainingUser, training);
-    }, [currentUser, trainingUser, training]);
-
-
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;

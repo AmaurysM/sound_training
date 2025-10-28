@@ -68,10 +68,10 @@ export async function POST(
     });
 
     return NextResponse.json(newFile);
-  } catch (err: any) {
+  } catch (err) {
     console.error(err);
     return NextResponse.json(
-      { error: err.message || "Upload failed" },
+      { error: err || "Upload failed" },
       { status: 500 }
     );
   }
@@ -90,10 +90,10 @@ export async function GET(
     const files = await TrainingFile.find({ trainingId: id }).sort({ createdAt: -1 });
 
     return NextResponse.json(files);
-  } catch (err: any) {
+  } catch (err) {
     console.error(err);
     return NextResponse.json(
-      { error: err.message || "Failed to fetch files" },
+      { error: err || "Failed to fetch files" },
       { status: 500 }
     );
   }
