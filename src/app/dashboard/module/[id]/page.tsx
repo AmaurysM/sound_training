@@ -143,8 +143,6 @@ export default function TrainingModulePage() {
         }
     };
 
-
-
     const handleToggleCheckbox = async (field: "ojt" | "practical") => {
         if (!training) return;
 
@@ -184,33 +182,238 @@ export default function TrainingModulePage() {
         }
     };
 
-    const handleSign = async (role: "Trainer" | "Coordinator") => {
-        if (!currentUser) return;
+    const handleRemoveSignature = async (signatureId: string) => {
+        if (!training || !currentUser) return;
 
         try {
-            const res = await fetch(`/api/trainings/${params.id}/sign`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ role }),
+            // Find the signature to remove
+            const signatureToRemove = training.signatures.find(sig => sig._id === signatureId);
+            if (!signatureToRemove) return;
+
+            // Check if the current user can remove this signature
+            if (signatureToRemove.userId !== currentUser._id) {
+                alert('You can only remove your own signatures.');
+                return;
+            }
+
+            if (!confirm('Are you sure you want to remove your signature?')) return;
+
+            // Optimistic update: remove the signature
+            const updatedSignatures = training.signatures.filter(sig => sig._id !== signatureId);
+
+            // Recalculate signedOff status
+            const hasTrainer = updatedSignatures.some(sig => sig.role === 'Trainer');
+            const hasCoordinator = updatedSignatures.some(sig => sig.role === 'Coordinator');
+            const hasTrainee = updatedSignatures.some(sig => sig.role === 'Trainee');
+            const signedOff = hasTrainer && hasCoordinator && hasTrainee;
+
+            // Update state optimistically
+            setTraining(prev => prev ? {
+                ...prev,
+                signatures: updatedSignatures,
+                signedOff,
+                updatedAt: new Date().toISOString()
+            } : null);
+
+            // Prepare update payload for API
+            const updatePayload = {
+                signatures: updatedSignatures,
+                signedOff: signedOff
+            };
+
+            // API call
+            const res = await fetch(`/api/trainings/${params.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatePayload),
             });
 
-            if (!res.ok) throw new Error("Failed to sign");
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                throw new Error(errorData.message || `Failed to remove signature: ${res.status}`);
+            }
 
-            fetchData();
+            // Update with server data
+            const serverUpdated = await res.json();
+            setTraining(serverUpdated);
+
         } catch (err) {
-            alert(err instanceof Error ? err.message : "Failed to sign");
+            console.error('Failed to remove signature:', err);
+            // Revert optimistic update on error
+            fetchData();
+            alert(err instanceof Error ? err.message : 'Failed to remove signature');
         }
     };
 
-    const canSign = (role: "Trainer" | "Coordinator") => {
+    const handleSign = async (role: "Trainer" | "Coordinator" | "Trainee") => {
+        if (!currentUser || !training) return;
+
+        try {
+            // Prevent same user from signing multiple times for the same role
+            const existingUserSignatures = training.signatures.filter(
+                sig => sig.userId === currentUser._id && sig.role === role
+            );
+
+            if (existingUserSignatures.length > 0) {
+                alert('You have already signed this training in this role');
+                return;
+            }
+
+            // Prevent coordinator from signing both roles
+            if (currentUser.role === "Coordinator") {
+                const hasSignedAsTrainer = training.signatures.some(
+                    sig => sig.userId === currentUser._id && sig.role === "Trainer"
+                );
+                const hasSignedAsCoordinator = training.signatures.some(
+                    sig => sig.userId === currentUser._id && sig.role === "Coordinator"
+                );
+
+                if (role === "Trainer" && hasSignedAsCoordinator) {
+                    alert('You have already signed as Coordinator. You cannot sign as Trainer.');
+                    return;
+                }
+                if (role === "Coordinator" && hasSignedAsTrainer) {
+                    alert('You have already signed as Trainer. You cannot sign as Coordinator.');
+                    return;
+                }
+            }
+
+            const tempId = `temp-${Date.now()}`; // Temporary ID for optimistic update only
+            const newSignature = {
+                userId: currentUser._id,
+                userName: currentUser.name,
+                role,
+                signedAt: new Date().toISOString(),
+            };
+
+            // Optimistic update with temp ID (for React key only)
+            const updatedSignatures = [...training.signatures, { ...newSignature, _id: tempId }];
+
+            // Check if all required signatures are present
+            const hasTrainer = updatedSignatures.some(sig => sig.role === 'Trainer');
+            const hasCoordinator = updatedSignatures.some(sig => sig.role === 'Coordinator');
+            const hasTrainee = updatedSignatures.some(sig => sig.role === 'Trainee');
+            const signedOff = hasTrainer && hasCoordinator && hasTrainee;
+
+            // Update state optimistically
+            setTraining(prev => prev ? {
+                ...prev,
+                signatures: updatedSignatures,
+                signedOff,
+                updatedAt: new Date().toISOString()
+            } : null);
+
+            // Prepare update payload - remove temp IDs for API call
+            const apiSignatures = updatedSignatures.map(sig => {
+                const { _id, ...sigWithoutId } = sig;
+                return sigWithoutId;
+            });
+
+            const updatePayload = {
+                signatures: apiSignatures,
+                signedOff: signedOff
+            };
+
+            // API call
+            const res = await fetch(`/api/trainings/${params.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatePayload),
+            });
+
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                throw new Error(errorData.message || `Failed to add signature: ${res.status}`);
+            }
+
+            // Update with server data to get proper IDs
+            const serverUpdated = await res.json();
+            setTraining(serverUpdated);
+
+        } catch (err) {
+            console.error('Failed to add signature:', err);
+            // Revert optimistic update on error
+            fetchData();
+            alert(err instanceof Error ? err.message : 'Failed to add signature');
+        }
+    };
+
+    // Updated canSign function with coordinator restrictions
+    const canSign = (role: "Trainer" | "Coordinator" | "Trainee") => {
         if (!currentUser || !training) return false;
 
-        if (role === "Coordinator" && currentUser.role !== "Coordinator") return false;
-        if (role === "Trainer" && !["Trainer", "Coordinator"].includes(currentUser.role)) return false;
-
-        return !training.signatures.some(
+        // Check if user has already signed in this role
+        const hasSigned = training.signatures.some(
             sig => sig.userId === currentUser._id && sig.role === role
         );
+        if (hasSigned) return false;
+
+        // Role-based permission checks with coordinator restrictions
+        switch (role) {
+            case "Trainee":
+                // Only the trainee themselves can sign as trainee
+                return currentUser._id === training.user._id;
+
+            case "Trainer":
+                // Trainers and Coordinators can sign as trainer, but coordinators can't sign both
+                if (!["Trainer", "Coordinator"].includes(currentUser.role)) return false;
+
+                // Coordinator restriction: can't sign as trainer if already signed as coordinator
+                if (currentUser.role === "Coordinator") {
+                    const hasSignedAsCoordinator = training.signatures.some(
+                        sig => sig.userId === currentUser._id && sig.role === "Coordinator"
+                    );
+                    return !hasSignedAsCoordinator;
+                }
+                return true;
+
+            case "Coordinator":
+                // Only Coordinators can sign as coordinator
+                if (currentUser.role !== "Coordinator") return false;
+
+                // Coordinator restriction: can't sign as coordinator if already signed as trainer
+                const hasSignedAsTrainer = training.signatures.some(
+                    sig => sig.userId === currentUser._id && sig.role === "Trainer"
+                );
+                return !hasSignedAsTrainer;
+
+            default:
+                return false;
+        }
+    };
+
+    // Helper function to get available signing options for coordinator
+    const getCoordinatorSigningOptions = () => {
+        if (!currentUser || currentUser.role !== "Coordinator") return [];
+
+        const options = [];
+
+        if (canSign("Trainer")) {
+            options.push({ role: "Trainer", label: "Trainer", color: "blue" });
+        }
+
+        if (canSign("Coordinator")) {
+            options.push({ role: "Coordinator", label: "Coordinator", color: "purple" });
+        }
+
+        return options;
+    };
+
+    const getSigningRequirements = () => {
+        if (!training) return { trainer: false, coordinator: false, trainee: false };
+
+        const signatures = training.signatures;
+
+        return {
+            trainer: signatures.some(sig => sig.role === "Trainer"),
+            coordinator: signatures.some(sig => sig.role === "Coordinator"),
+            trainee: signatures.some(sig => sig.role === "Trainee")
+        };
+    };
+
+    const isFullySigned = () => {
+        const requirements = getSigningRequirements();
+        return requirements.trainer && requirements.coordinator && requirements.trainee;
     };
 
     const handleDeleteFile = async (fileId: string) => {
@@ -235,7 +438,7 @@ export default function TrainingModulePage() {
         let completed = 0;
         if (training.ojt) completed++;
         if (training.practical) completed++;
-        if (training.signedOff) completed++;
+        if (isFullySigned()) completed++;
         return Math.round((completed / 3) * 100);
     };
 
@@ -269,6 +472,8 @@ export default function TrainingModulePage() {
     }
 
     const progress = getProgressPercentage();
+    const signingRequirements = getSigningRequirements();
+    const fullySigned = isFullySigned();
 
     return (
         <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50">
@@ -299,7 +504,7 @@ export default function TrainingModulePage() {
                                     <p className="text-blue-50 mb-4">{training.module.description}</p>
                                 )}
                             </div>
-                            {training.signedOff && (
+                            {fullySigned && (
                                 <div className="bg-white/20 backdrop-blur-sm px-6 py-3 rounded-full flex items-center gap-2 border border-white/30">
                                     <Award className="w-6 h-6" />
                                     <span className="font-semibold text-lg">Certified</span>
@@ -526,18 +731,52 @@ export default function TrainingModulePage() {
                                 <h2 className="text-2xl font-bold text-gray-900">Certifications</h2>
                             </div>
 
+                            {/* Signature Requirements */}
+                            <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                                <h3 className="font-semibold text-gray-900 mb-3">Signature Requirements</h3>
+                                <div className="space-y-2 text-sm">
+                                    <div className="flex items-center gap-2">
+                                        <div className={`w-3 h-3 rounded-full ${signingRequirements.trainer ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                                        <span className={signingRequirements.trainer ? 'text-green-700 font-medium' : 'text-gray-600'}>
+                                            Trainer Signature
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <div className={`w-3 h-3 rounded-full ${signingRequirements.coordinator ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                                        <span className={signingRequirements.coordinator ? 'text-green-700 font-medium' : 'text-gray-600'}>
+                                            Coordinator Signature
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <div className={`w-3 h-3 rounded-full ${signingRequirements.trainee ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                                        <span className={signingRequirements.trainee ? 'text-green-700 font-medium' : 'text-gray-600'}>
+                                            Trainee Acknowledgement
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Coordinator Restriction Notice */}
+                                {currentUser?.role === "Coordinator" && (
+                                    <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                                        <p className="text-xs text-blue-700 text-center">
+                                            <strong>Note:</strong> As a coordinator, you can sign as either Trainer or Coordinator, but not both.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+
                             {training.signatures.length === 0 ? (
                                 <div className="text-center py-8 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 mb-6">
                                     <Award className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                                     <p className="text-gray-500 font-medium">No signatures yet</p>
-                                    <p className="text-sm text-gray-400 mt-1">Awaiting trainer approval</p>
+                                    <p className="text-sm text-gray-400 mt-1">Awaiting required signatures</p>
                                 </div>
                             ) : (
                                 <div className="space-y-3 mb-6">
                                     {training.signatures.map((sig) => (
                                         <div
                                             key={sig._id}
-                                            className="p-4 bg-linear-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200"
+                                            className="p-4 bg-linear-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200 relative group"
                                         >
                                             <div className="flex items-start gap-3">
                                                 <div className="shrink-0 w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
@@ -556,35 +795,79 @@ export default function TrainingModulePage() {
                                                         })}
                                                     </p>
                                                 </div>
+                                                {/* Delete button - only show if current user owns this signature */}
+                                                {currentUser && sig.userId === currentUser._id && (
+                                                    <button
+                                                        onClick={() => handleRemoveSignature(sig._id)}
+                                                        className="absolute top-3 right-3 p-1 text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        title="Remove your signature"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                )}
                                             </div>
+
+
                                         </div>
                                     ))}
                                 </div>
                             )}
 
-                            {currentUser && currentUser.role !== "Trainee" && (
+                            {currentUser && (
                                 <div className="space-y-3 pt-4 border-t border-gray-200">
                                     <p className="text-sm font-semibold text-gray-700 mb-3">Sign as:</p>
-                                    {canSign("Trainer") && (
-                                        <button
-                                            onClick={() => handleSign("Trainer")}
-                                            className="w-full px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-semibold shadow-md"
-                                        >
-                                            Trainer
-                                        </button>
-                                    )}
-                                    {canSign("Coordinator") && (
-                                        <button
-                                            onClick={() => handleSign("Coordinator")}
-                                            className="w-full px-4 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors font-semibold shadow-md"
-                                        >
-                                            Coordinator
-                                        </button>
-                                    )}
-                                    {!canSign("Trainer") && !canSign("Coordinator") && (
-                                        <p className="text-sm text-gray-500 text-center py-2">
-                                            You have already signed this module
-                                        </p>
+
+                                    {/* Special handling for coordinators */}
+                                    {currentUser.role === "Coordinator" ? (
+                                        <div className="space-y-3">
+                                            {getCoordinatorSigningOptions().map((option) => (
+                                                <button
+                                                    key={option.role}
+                                                    onClick={() => handleSign(option.role as "Trainer" | "Coordinator")}
+                                                    className={`w-full px-4 py-3 bg-${option.color}-600 text-white rounded-xl hover:bg-${option.color}-700 transition-colors font-semibold shadow-md`}
+                                                >
+                                                    {option.label}
+                                                </button>
+                                            ))}
+                                            {getCoordinatorSigningOptions().length === 0 && (
+                                                <p className="text-sm text-gray-500 text-center py-2">
+                                                    You have already signed this module
+                                                </p>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        /* Regular signing for non-coordinators */
+                                        <>
+                                            {canSign("Trainee") && (
+                                                <button
+                                                    onClick={() => handleSign("Trainee")}
+                                                    className="w-full px-4 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors font-semibold shadow-md"
+                                                >
+                                                    Trainee Acknowledgement
+                                                </button>
+                                            )}
+                                            {canSign("Trainer") && (
+                                                <button
+                                                    onClick={() => handleSign("Trainer")}
+                                                    className="w-full px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-semibold shadow-md"
+                                                >
+                                                    Trainer
+                                                </button>
+                                            )}
+                                            {canSign("Coordinator") && (
+                                                <button
+                                                    onClick={() => handleSign("Coordinator")}
+                                                    className="w-full px-4 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors font-semibold shadow-md"
+                                                >
+                                                    Coordinator
+                                                </button>
+                                            )}
+                                            {!canSign("Trainee") && !canSign("Trainer") && !canSign("Coordinator") && (
+                                                <p className="text-sm text-gray-500 text-center py-2">
+                                                    You have already signed this module
+                                                </p>
+                                            )}
+                                        </>
                                     )}
                                 </div>
                             )}

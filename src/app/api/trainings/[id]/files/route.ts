@@ -97,58 +97,5 @@ export async function GET(
   }
 }
 
-// export async function DELETE(
-//   req: NextRequest,
-//   { params }: { params: Promise<{ id: string; fileId: string }> }
-// ) {
-//   await connectToDatabase();
-
-//   try {
-//     const { id, fileId } = await params;
-
-//     // Find the file in database
-//     const file = await TrainingFile.findOne({
-//       _id: fileId,
-//       trainingId: id,
-//     });
-
-//     if (!file) {
-//       return NextResponse.json({ error: "File not found" }, { status: 404 });
-//     }
-
-//     // Extract S3 key from URL
-//     // URL format: https://bucket-name.s3.region.amazonaws.com/key
-//     const urlParts = file.url.split('/');
-//     const key = urlParts[urlParts.length - 1];
-
-//     // Delete from S3
-//     try {
-//       await s3.send(
-//         new DeleteObjectCommand({
-//           Bucket: process.env.AWS_BUCKET_NAME!,
-//           Key: key,
-//         })
-//       );
-//     } catch (s3Error) {
-//       console.error("S3 deletion error:", s3Error);
-//       // Continue with database deletion even if S3 fails
-//     }
-
-//     // Delete from MongoDB
-//     await TrainingFile.deleteOne({ _id: fileId });
-
-//     return NextResponse.json({ 
-//       success: true, 
-//       message: "File deleted successfully" 
-//     });
-//   } catch (err: any) {
-//     console.error(err);
-//     return NextResponse.json(
-//       { error: err.message || "Failed to delete file" },
-//       { status: 500 }
-//     );
-//   }
-// }
-
 
 export const dynamic = "force-dynamic";

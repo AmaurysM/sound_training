@@ -12,7 +12,7 @@ export interface IUser {
   _id?: string;
   username: string;
   password: string;
-  role: "Coordinator" | "Trainer" | "Trainee";
+  role: Role;
   name: string;
   archived: boolean;
   trainings?: ITraining[];
@@ -33,7 +33,7 @@ export interface ISignature {
   _id?: string;
   userId: string;
   userName: string;
-  role: "Trainer" | "Coordinator";
+  role: Role;
   signedAt: Date;
 }
 

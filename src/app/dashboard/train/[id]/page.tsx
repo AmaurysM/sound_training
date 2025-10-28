@@ -301,6 +301,7 @@ export default function TrainingPage() {
                     setShowHistoryModal={setShowHistoryModal}
                     setSaving={setSaving}
                     setError={setError}
+                    error={error}
                     setOriginalData={setOriginalData}
                     setSaveSuccess={setSaveSuccess}
                     saving={saving}
