@@ -121,11 +121,21 @@ export default function TrainingModulePage() {
         const file = e.target.files?.[0];
         if (!file) return;
 
+        // ⚡ Check that currentUser exists
+        if (!currentUser) {
+            alert("You must be logged in to upload files");
+            return;
+        }
+
         setUploading(true);
         try {
             const formData = new FormData();
             formData.append("file", file);
             formData.append("trainingId", params.id as string);
+
+            // Append uploader info safely
+            formData.append("uploadedBy", currentUser.name);
+            formData.append("uploadedById", currentUser._id.toString());
 
             const res = await fetch(`/api/trainings/${params.id}/files`, {
                 method: "POST",
@@ -142,6 +152,8 @@ export default function TrainingModulePage() {
             setUploading(false);
         }
     };
+
+
 
     const handleToggleCheckbox = async (field: "ojt" | "practical") => {
         if (!training) return;
