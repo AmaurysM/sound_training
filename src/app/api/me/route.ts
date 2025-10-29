@@ -23,12 +23,16 @@ export async function GET(req: Request) {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const user = await UserModel.findById(payload.id).lean<any>();
-    if (!user)
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
+    if (!user) {
+      // Delete invalid token if user no longer exists
+      const res = NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+      res.cookies.delete("token");
+      return res;
+    }
     const safeUser = {
       _id: user._id,
-      name: user.name, // ✅ TypeScript now recognizes this
+      name: user.name, 
       username: user.username,
       role: user.role,
       studentId: user.studentId,
