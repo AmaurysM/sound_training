@@ -82,7 +82,7 @@ export default function TrainingHistoryModal({
             </div>
 
             {/* Status */}
-            <div className="border-t border-gray-200 pt-4">
+            {/* <div className="border-t border-gray-200 pt-4">
               <p className="text-xs sm:text-sm font-medium text-gray-900 mb-3">
                 Current Status
               </p>
@@ -107,7 +107,7 @@ export default function TrainingHistoryModal({
                   </div>
                 ))}
               </div>
-            </div>
+            </div> */}
 
             {/* Notes */}
             {training.notes && (

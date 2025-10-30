@@ -1,3 +1,4 @@
+// src/models/TrainingModules.ts
 import mongoose, { Schema, Document, models } from "mongoose";
 import { ITrainingModule } from "./mongoTypes";
 

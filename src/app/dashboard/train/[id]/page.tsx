@@ -175,9 +175,9 @@ export default function TrainingPage() {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        ojt: training.ojt,
-                        practical: training.practical,
-                        signedOff: training.signedOff,
+                        // ojt: training.ojt,
+                        // practical: training.practical,
+                        // signedOff: training.signedOff,
                         notes: training.notes,
                     }),
                 });
@@ -209,9 +209,9 @@ export default function TrainingPage() {
     };
 
     const getProgressStats = () => {
-        const completed = trainingData.filter((m) => m.signedOff).length;
-        const inProgress = trainingData.filter((m) => (m.ojt || m.practical) && !m.signedOff).length;
-        const notStarted = trainingData.filter((m) => !m.ojt && !m.practical).length;
+        const completed = 0;
+        const inProgress = 0;
+        const notStarted = 0;
         const total = trainingData.length;
         const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
         return { completed, inProgress, notStarted, total, percentage };

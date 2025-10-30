@@ -64,12 +64,12 @@ const TrainingModulesView = ({
         }
 
         if (filterStatus !== 'all') {
-            filtered = filtered.filter(t => {
-                if (filterStatus === 'completed') return t.signedOff;
-                if (filterStatus === 'in-progress') return (t.ojt || t.practical) && !t.signedOff;
-                if (filterStatus === 'not-started') return !t.ojt && !t.practical;
-                return true;
-            });
+            // filtered = filtered.filter(t => {
+            //     if (filterStatus === 'completed') return t.signedOff;
+            //     if (filterStatus === 'in-progress') return (t.ojt || t.practical) && !t.signedOff;
+            //     if (filterStatus === 'not-started') return !t.ojt && !t.practical;
+            //     return true;
+            // });
         }
 
         return filtered;
@@ -77,102 +77,102 @@ const TrainingModulesView = ({
 
     const filteredData = getFilteredTrainingData();
 
-    const handleExportData = () => {
-        const csvContent = [
-            ['Module', 'OJT', 'Practical', 'Signed Off', 'Trainer Signature', 'Coordinator Signature', 'Trainee Signature', 'Notes', 'Created'],
-            ...trainingData.map(t => {
-                const moduleName = typeof t.module === 'object' ? t.module.name : 'Unknown';
-                const hasTrainerSig = (t.signatures || []).some(s => s.role === 'Trainer') ? 'Yes' : 'No';
-                const hasCoordSig = (t.signatures || []).some(s => s.role === 'Coordinator') ? 'Yes' : 'No';
-                const hasTraineeSig = (t.signatures || []).some(s => s.role === 'Trainee') ? 'Yes' : 'No';
-                return [
-                    moduleName,
-                    t.ojt ? 'Yes' : 'No',
-                    t.practical ? 'Yes' : 'No',
-                    t.signedOff ? 'Yes' : 'No',
-                    hasTrainerSig,
-                    hasCoordSig,
-                    hasTraineeSig,
-                    t.notes || '',
-                    t.createdAt ? new Date(t.createdAt).toLocaleDateString() : ''
-                ];
-            })
-        ].map(row => row.join(',')).join('\n');
+    // const handleExportData = () => {
+    //     const csvContent = [
+    //         ['Module', 'OJT', 'Practical', 'Signed Off', 'Trainer Signature', 'Coordinator Signature', 'Trainee Signature', 'Notes', 'Created'],
+    //         ...trainingData.map(t => {
+    //             const moduleName = typeof t.module === 'object' ? t.module.name : 'Unknown';
+    //             const hasTrainerSig = (t.signatures || []).some(s => s.role === 'Trainer') ? 'Yes' : 'No';
+    //             const hasCoordSig = (t.signatures || []).some(s => s.role === 'Coordinator') ? 'Yes' : 'No';
+    //             const hasTraineeSig = (t.signatures || []).some(s => s.role === 'Trainee') ? 'Yes' : 'No';
+    //             return [
+    //                 moduleName,
+    //                 t.ojt ? 'Yes' : 'No',
+    //                 t.practical ? 'Yes' : 'No',
+    //                 t.signedOff ? 'Yes' : 'No',
+    //                 hasTrainerSig,
+    //                 hasCoordSig,
+    //                 hasTraineeSig,
+    //                 t.notes || '',
+    //                 t.createdAt ? new Date(t.createdAt).toLocaleDateString() : ''
+    //             ];
+    //         })
+    //     ].map(row => row.join(',')).join('\n');
 
-        const blob = new Blob([csvContent], { type: 'text/csv' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${viewedUser?.name || 'training'}_data.csv`;
-        a.click();
-    };
+    //     const blob = new Blob([csvContent], { type: 'text/csv' });
+    //     const url = window.URL.createObjectURL(blob);
+    //     const a = document.createElement('a');
+    //     a.href = url;
+    //     a.download = `${viewedUser?.name || 'training'}_data.csv`;
+    //     a.click();
+    // };
 
-    const handleToggle = useCallback(async (index: number, field: keyof ITraining) => {
-        if (!isEditable) return;
+    // const handleToggle = useCallback(async (index: number, field: keyof ITraining) => {
+    //     if (!isEditable) return;
 
-        const training = trainingData[index];
-        if (!training._id) return;
+    //     const training = trainingData[index];
+    //     if (!training._id) return;
 
-        const newValue = !training[field as keyof typeof training];
-        setTrainingData((prev: ITraining[]) => {
-            const updated = [...prev];
-            const item = { ...updated[index] };
+    //     const newValue = !training[field as keyof typeof training];
+    //     setTrainingData((prev: ITraining[]) => {
+    //         const updated = [...prev];
+    //         const item = { ...updated[index] };
 
-            if (field === 'ojt' || field === 'practical') {
-                item[field] = newValue as boolean;
+    //         if (field === 'ojt' || field === 'practical') {
+    //             item[field] = newValue as boolean;
 
-                if (!newValue) {
-                    item.signedOff = false;
-                    item.signatures = [];
-                }
-            }
+    //             if (!newValue) {
+    //                 item.signedOff = false;
+    //                 item.signatures = [];
+    //             }
+    //         }
 
-            updated[index] = item;
-            return updated;
-        });
+    //         updated[index] = item;
+    //         return updated;
+    //     });
 
-        try {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const updatePayload: any = { [field]: newValue };
+    //     try {
+    //         // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    //         const updatePayload: any = { [field]: newValue };
 
-            if (!newValue && (field === 'ojt' || field === 'practical')) {
-                updatePayload.signatures = [];
-                updatePayload.signedOff = false;
-            }
+    //         if (!newValue && (field === 'ojt' || field === 'practical')) {
+    //             updatePayload.signatures = [];
+    //             updatePayload.signedOff = false;
+    //         }
 
-            const res = await fetch(`/api/trainings/${training._id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatePayload),
-            });
+    //         const res = await fetch(`/api/trainings/${training._id}`, {
+    //             method: 'PATCH',
+    //             headers: { 'Content-Type': 'application/json' },
+    //             body: JSON.stringify(updatePayload),
+    //         });
 
-            if (!res.ok) throw new Error('Failed to update training');
+    //         if (!res.ok) throw new Error('Failed to update training');
 
-            const updated = await res.json();
+    //         const updated = await res.json();
 
-            setTrainingData((prev) => {
-                const newData = [...prev];
-                newData[index] = updated;
-                return newData;
-            });
-            setOriginalData((prev) => {
-                const newData = [...prev];
-                newData[index] = updated;
-                return newData;
-            });
+    //         setTrainingData((prev) => {
+    //             const newData = [...prev];
+    //             newData[index] = updated;
+    //             return newData;
+    //         });
+    //         setOriginalData((prev) => {
+    //             const newData = [...prev];
+    //             newData[index] = updated;
+    //             return newData;
+    //         });
 
-        } catch (err) {
-            console.error('Failed to toggle field:', err);
-            setError('Failed to update training');
-            setTimeout(() => setError(null), 3000);
+    //     } catch (err) {
+    //         console.error('Failed to toggle field:', err);
+    //         setError('Failed to update training');
+    //         setTimeout(() => setError(null), 3000);
 
-            setTrainingData((prev) => {
-                const updated = [...prev];
-                updated[index] = training;
-                return updated;
-            });
-        }
-    }, [isEditable, trainingData, setTrainingData, setError, setOriginalData]);
+    //         setTrainingData((prev) => {
+    //             const updated = [...prev];
+    //             updated[index] = training;
+    //             return updated;
+    //         });
+    //     }
+    // }, [isEditable, trainingData, setTrainingData, setError, setOriginalData]);
 
     const handleOpenNoteModal = (index: number) => {
         const training = filteredData[index];
@@ -182,19 +182,19 @@ const TrainingModulesView = ({
         setShowNoteModal(true);
     };
 
-    const handleOpenSignatureModal = (index: number) => {
-        const training = filteredData[index];
-        const actualIndex = trainingData.indexOf(training);
+    // const handleOpenSignatureModal = (index: number) => {
+    //     const training = filteredData[index];
+    //     const actualIndex = trainingData.indexOf(training);
 
-        if (!training.ojt || !training.practical) {
-            setError('Complete OJT and Practical before signing off');
-            setTimeout(() => setError(null), 3000);
-            return;
-        }
+    //     if (!training.ojt || !training.practical) {
+    //         setError('Complete OJT and Practical before signing off');
+    //         setTimeout(() => setError(null), 3000);
+    //         return;
+    //     }
 
-        setSelectedSignatureIndex(actualIndex);
-        setShowSignatureModal(true);
-    };
+    //     setSelectedSignatureIndex(actualIndex);
+    //     setShowSignatureModal(true);
+    // };
 
     const handleSaveNote = async () => {
         if (selectedNoteIndex === null) return;
@@ -242,153 +242,153 @@ const TrainingModulesView = ({
         }
     };
 
-    const addSignature = async (role: Role) => {
-        if (selectedSignatureIndex === null || !currentUser) return;
+    // const addSignature = async (role: Role) => {
+    //     if (selectedSignatureIndex === null || !currentUser) return;
 
-        setSaving(true);
-        setError(null);
+    //     setSaving(true);
+    //     setError(null);
 
-        try {
-            const training = trainingData[selectedSignatureIndex];
-            if (!training._id) {
-                throw new Error('Training ID not found');
-            }
+    //     try {
+    //         const training = trainingData[selectedSignatureIndex];
+    //         if (!training._id) {
+    //             throw new Error('Training ID not found');
+    //         }
 
-            const existingSignatures = training.signatures || [];
-            const existingUserIds = existingSignatures.map(s => s.userId);
+    //         const existingSignatures = training.signatures || [];
+    //         const existingUserIds = existingSignatures.map(s => s.userId);
 
-            if (existingUserIds.includes(currentUser._id || '')) {
-                throw new Error('You have already signed this training');
-            }
+    //         if (existingUserIds.includes(currentUser._id || '')) {
+    //             throw new Error('You have already signed this training');
+    //         }
 
-            const newSignature: ISignature = {
-                userId: currentUser._id || '',
-                userName: currentUser.name,
-                role,
-                signedAt: new Date(),
-            };
+    //         const newSignature: ISignature = {
+    //             userId: currentUser._id || '',
+    //             userName: currentUser.name,
+    //             role,
+    //             signedAt: new Date(),
+    //         };
 
-            setTrainingData((prev) => {
-                const updated = [...prev];
-                const item = { ...updated[selectedSignatureIndex] };
+    //         setTrainingData((prev) => {
+    //             const updated = [...prev];
+    //             const item = { ...updated[selectedSignatureIndex] };
 
-                if (!item.signatures) item.signatures = [];
-                item.signatures = [...item.signatures, newSignature];
+    //             if (!item.signatures) item.signatures = [];
+    //             item.signatures = [...item.signatures, newSignature];
 
-                const trainerSig = item.signatures.some(s => s.role === 'Trainer');
-                const coordSig = item.signatures.some(s => s.role === 'Coordinator');
-                const traineeSig = item.signatures.some(s => s.role === 'Trainee');
+    //             const trainerSig = item.signatures.some(s => s.role === 'Trainer');
+    //             const coordSig = item.signatures.some(s => s.role === 'Coordinator');
+    //             const traineeSig = item.signatures.some(s => s.role === 'Trainee');
 
-                if (trainerSig && coordSig && traineeSig) {
-                    item.signedOff = true;
-                }
+    //             if (trainerSig && coordSig && traineeSig) {
+    //                 item.signedOff = true;
+    //             }
 
-                updated[selectedSignatureIndex] = item;
-                return updated;
-            });
+    //             updated[selectedSignatureIndex] = item;
+    //             return updated;
+    //         });
 
-            const updatedSignatures = [...(training.signatures || []), newSignature];
+    //         const updatedSignatures = [...(training.signatures || []), newSignature];
 
-            const trainerSig = updatedSignatures.some(s => s.role === 'Trainer');
-            const coordSig = updatedSignatures.some(s => s.role === 'Coordinator');
-            const traineeSig = updatedSignatures.some(s => s.role === 'Trainee');
-            const shouldSignOff = trainerSig && coordSig && traineeSig;
+    //         const trainerSig = updatedSignatures.some(s => s.role === 'Trainer');
+    //         const coordSig = updatedSignatures.some(s => s.role === 'Coordinator');
+    //         const traineeSig = updatedSignatures.some(s => s.role === 'Trainee');
+    //         const shouldSignOff = trainerSig && coordSig && traineeSig;
 
-            const updatePayload = {
-                signatures: updatedSignatures,
-                signedOff: shouldSignOff
-            };
+    //         const updatePayload = {
+    //             signatures: updatedSignatures,
+    //             signedOff: shouldSignOff
+    //         };
 
-            const res = await fetch(`/api/trainings/${training._id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatePayload),
-            });
+    //         const res = await fetch(`/api/trainings/${training._id}`, {
+    //             method: 'PATCH',
+    //             headers: { 'Content-Type': 'application/json' },
+    //             body: JSON.stringify(updatePayload),
+    //         });
 
-            if (!res.ok) {
-                const errorData = await res.json().catch(() => ({}));
-                throw new Error(errorData.message || `Failed to add signature: ${res.status}`);
-            }
+    //         if (!res.ok) {
+    //             const errorData = await res.json().catch(() => ({}));
+    //             throw new Error(errorData.message || `Failed to add signature: ${res.status}`);
+    //         }
 
-            const serverUpdated: ITraining = await res.json();
+    //         const serverUpdated: ITraining = await res.json();
 
-            setTrainingData(prev => {
-                const updated = [...prev];
-                if (updated[selectedSignatureIndex]) {
-                    updated[selectedSignatureIndex] = serverUpdated;
-                }
-                return updated;
-            });
+    //         setTrainingData(prev => {
+    //             const updated = [...prev];
+    //             if (updated[selectedSignatureIndex]) {
+    //                 updated[selectedSignatureIndex] = serverUpdated;
+    //             }
+    //             return updated;
+    //         });
 
-            setOriginalData(prev => {
-                const updated = [...prev];
-                if (updated[selectedSignatureIndex]) {
-                    updated[selectedSignatureIndex] = serverUpdated;
-                }
-                return updated;
-            });
+    //         setOriginalData(prev => {
+    //             const updated = [...prev];
+    //             if (updated[selectedSignatureIndex]) {
+    //                 updated[selectedSignatureIndex] = serverUpdated;
+    //             }
+    //             return updated;
+    //         });
 
-            setSaveSuccess(true);
-            setTimeout(() => setSaveSuccess(false), 3000);
+    //         setSaveSuccess(true);
+    //         setTimeout(() => setSaveSuccess(false), 3000);
 
-            if (shouldSignOff) {
-                setShowSignatureModal(false);
-            }
+    //         if (shouldSignOff) {
+    //             setShowSignatureModal(false);
+    //         }
 
-        } catch (err) {
-            console.error('Failed to add signature:', err);
-            setError(err instanceof Error ? err.message : 'Failed to add signature');
-            setTimeout(() => setError(null), 3000);
+    //     } catch (err) {
+    //         console.error('Failed to add signature:', err);
+    //         setError(err instanceof Error ? err.message : 'Failed to add signature');
+    //         setTimeout(() => setError(null), 3000);
 
-            fetchModules();
-        } finally {
-            setSaving(false);
-        }
-    };
+    //         fetchModules();
+    //     } finally {
+    //         setSaving(false);
+    //     }
+    // };
 
-    const removeSignature = async (signatureIndex: number) => {
-        if (selectedSignatureIndex === null) return;
+    // const removeSignature = async (signatureIndex: number) => {
+    //     if (selectedSignatureIndex === null) return;
 
-        const training = trainingData[selectedSignatureIndex];
-        if (!training._id) return;
+    //     const training = trainingData[selectedSignatureIndex];
+    //     if (!training._id) return;
 
-        try {
-            setSaving(true);
+    //     try {
+    //         setSaving(true);
 
-            const updatedSignatures = training.signatures.filter((_, i) => i !== signatureIndex);
+    //         const updatedSignatures = training.signatures.filter((_, i) => i !== signatureIndex);
 
-            const res = await fetch(`/api/trainings/${training._id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ signatures: updatedSignatures }),
-            });
+    //         const res = await fetch(`/api/trainings/${training._id}`, {
+    //             method: 'PATCH',
+    //             headers: { 'Content-Type': 'application/json' },
+    //             body: JSON.stringify({ signatures: updatedSignatures }),
+    //         });
 
-            if (!res.ok) throw new Error('Failed to remove signature');
+    //         if (!res.ok) throw new Error('Failed to remove signature');
 
-            const updated = await res.json();
+    //         const updated = await res.json();
 
-            setTrainingData((prev) => {
-                const newData = [...prev];
-                newData[selectedSignatureIndex] = updated;
-                return newData;
-            });
-            setOriginalData((prev) => {
-                const newData = [...prev];
-                newData[selectedSignatureIndex] = updated;
-                return newData;
-            });
+    //         setTrainingData((prev) => {
+    //             const newData = [...prev];
+    //             newData[selectedSignatureIndex] = updated;
+    //             return newData;
+    //         });
+    //         setOriginalData((prev) => {
+    //             const newData = [...prev];
+    //             newData[selectedSignatureIndex] = updated;
+    //             return newData;
+    //         });
 
-            setSaveSuccess(true);
-            setTimeout(() => setSaveSuccess(false), 3000);
+    //         setSaveSuccess(true);
+    //         setTimeout(() => setSaveSuccess(false), 3000);
 
-        } catch (err) {
-            console.error('Failed to remove signature:', err);
-            setError('Failed to remove signature');
-            setTimeout(() => setError(null), 3000);
-        } finally {
-            setSaving(false);
-        }
-    };
+    //     } catch (err) {
+    //         console.error('Failed to remove signature:', err);
+    //         setError('Failed to remove signature');
+    //         setTimeout(() => setError(null), 3000);
+    //     } finally {
+    //         setSaving(false);
+    //     }
+    // };
 
     const handleRemoveModule = useCallback(async (index: number) => {
         if (!isCoordinator) return;
@@ -424,30 +424,30 @@ const TrainingModulesView = ({
         fetchModules();
     }, [fetchModules]);
 
-    const getStatusBadge = (t: ITraining) => {
-        if (t.signedOff) {
-            return (
-                <span className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium whitespace-nowrap">
-                    <CheckCircle2 className="w-3 h-3" />
-                    <span>Completed</span>
-                </span>
-            );
-        }
-        if (t.ojt || t.practical) {
-            return (
-                <span className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-medium whitespace-nowrap">
-                    <Clock className="w-3 h-3" />
-                    <span>In Progress</span>
-                </span>
-            );
-        }
-        return (
-            <span className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium whitespace-nowrap">
-                <AlertCircle className="w-3 h-3" />
-                <span>Not Started</span>
-            </span>
-        );
-    };
+    // const getStatusBadge = (t: ITraining) => {
+    //     if (t.signedOff) {
+    //         return (
+    //             <span className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium whitespace-nowrap">
+    //                 <CheckCircle2 className="w-3 h-3" />
+    //                 <span>Completed</span>
+    //             </span>
+    //         );
+    //     }
+    //     if (t.ojt || t.practical) {
+    //         return (
+    //             <span className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-medium whitespace-nowrap">
+    //                 <Clock className="w-3 h-3" />
+    //                 <span>In Progress</span>
+    //             </span>
+    //         );
+    //     }
+    //     return (
+    //         <span className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium whitespace-nowrap">
+    //             <AlertCircle className="w-3 h-3" />
+    //             <span>Not Started</span>
+    //         </span>
+    //     );
+    // };
 
     return (
         <>
@@ -481,14 +481,14 @@ const TrainingModulesView = ({
                                 </button>
                             )}
 
-                            <button
+                            {/* <button
                                 onClick={handleExportData}
                                 disabled={trainingData.length === 0}
                                 className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                             >
                                 <Download className="w-4 h-4" />
                                 <span className="hidden sm:inline">Export</span>
-                            </button>
+                            </button> */}
 
                             {isCoordinator && (
                                 <button
@@ -566,23 +566,12 @@ const TrainingModulesView = ({
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
                                             Module
                                         </th>
-                                        <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase">
-                                            OJT
-                                        </th>
-                                        <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase">
-                                            Practical
-                                        </th>
-                                        <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase">
-                                            Signatures
-                                        </th>
                                         {!isTrainee && (
                                             <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase">
                                                 Notes
                                             </th>
                                         )}
-                                        <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase">
-                                            Status
-                                        </th>
+                                        
                                         {isCoordinator && (
                                             <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase">
                                                 Actions
@@ -597,9 +586,9 @@ const TrainingModulesView = ({
                                             ? t.module.name
                                             : 'Unknown Module';
 
-                                        const trainerSignatures = (t.signatures || []).filter(s => s.role === 'Trainer').length;
-                                        const hasCoordinatorSignature = (t.signatures || []).some(s => s.role === 'Coordinator');
-                                        const hasTraineeSignature = (t.signatures || []).some(s => s.role === 'Trainee');
+                                        // const trainerSignatures = (t.signatures || []).filter(s => s.role === 'Trainer').length;
+                                        // const hasCoordinatorSignature = (t.signatures || []).some(s => s.role === 'Coordinator');
+                                        // const hasTraineeSignature = (t.signatures || []).some(s => s.role === 'Trainee');
 
                                         return (
                                             <tr key={t._id?.toString() || idx} className="hover:bg-gray-50 transition-colors">
@@ -614,7 +603,7 @@ const TrainingModulesView = ({
                                                         <p className="text-xs text-gray-500 mt-0.5">{t.module.description}</p>
                                                     )}
                                                 </td>
-                                                <td className="px-4 py-3 text-center">
+                                                {/* <td className="px-4 py-3 text-center">
                                                     <input
                                                         type="checkbox"
                                                         checked={t.ojt}
@@ -647,7 +636,7 @@ const TrainingModulesView = ({
                                                             T:{trainerSignatures > 0 ? '✓' : '✗'} C:{hasCoordinatorSignature ? '✓' : '✗'} S:{hasTraineeSignature ? '✓' : '✗'}
                                                         </span>
                                                     )}
-                                                </td>
+                                                </td> */}
                                                 {!isTrainee && (
                                                     <td className="px-4 py-3 text-center">
                                                         <button
@@ -662,9 +651,9 @@ const TrainingModulesView = ({
                                                         </button>
                                                     </td>
                                                 )}
-                                                <td className="px-4 py-3 text-center">
+                                                {/* <td className="px-4 py-3 text-center">
                                                     {getStatusBadge(t)}
-                                                </td>
+                                                </td> */}
                                                 {isCoordinator && (
                                                     <td className="px-4 py-3 text-center">
                                                         <div className="flex items-center justify-center gap-2">
@@ -707,9 +696,9 @@ const TrainingModulesView = ({
                                     ? t.module.description
                                     : '';
 
-                                const trainerSignatures = (t.signatures || []).filter(s => s.role === 'Trainer').length;
-                                const hasCoordinatorSignature = (t.signatures || []).some(s => s.role === 'Coordinator');
-                                const hasTraineeSignature = (t.signatures || []).some(s => s.role === 'Trainee');
+                                // const trainerSignatures = (t.signatures || []).filter(s => s.role === 'Trainer').length;
+                                // const hasCoordinatorSignature = (t.signatures || []).some(s => s.role === 'Coordinator');
+                                // const hasTraineeSignature = (t.signatures || []).some(s => s.role === 'Trainee');
 
                                 return (
                                     <div key={t._id?.toString() || idx} className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all overflow-hidden">
@@ -724,7 +713,7 @@ const TrainingModulesView = ({
                                                         {moduleName}
                                                     </h3>
                                                 </button>
-                                                {getStatusBadge(t)}
+                                                {/* {getStatusBadge(t)} */}
                                             </div>
                                             {moduleDescription && (
                                                 <p className="text-xs text-gray-500 leading-relaxed line-clamp-2">{moduleDescription}</p>
@@ -734,7 +723,7 @@ const TrainingModulesView = ({
                                         {/* Content Section */}
                                         <div className="p-4 space-y-3">
                                             {/* Progress Checkboxes - Compact */}
-                                            <div className="flex items-center gap-4">
+                                            {/* <div className="flex items-center gap-4">
                                                 <label className="flex items-center gap-2 cursor-pointer">
                                                     <input
                                                         type="checkbox"
@@ -755,10 +744,10 @@ const TrainingModulesView = ({
                                                     />
                                                     <span className="text-sm font-medium text-gray-700">Practical</span>
                                                 </label>
-                                            </div>
+                                            </div> */}
 
                                             {/* Signatures - Compact Inline */}
-                                            <div className="flex items-center justify-between">
+                                            {/* <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-3">
                                                     <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Signatures</span>
                                                     <div className="flex items-center gap-2">
@@ -788,7 +777,7 @@ const TrainingModulesView = ({
                                                         Manage
                                                     </button>
                                                 )}
-                                            </div>
+                                            </div> */}
 
                                             {/* Show notes preview for trainees */}
                                             {isTrainee && t.notes && (
@@ -930,7 +919,7 @@ const TrainingModulesView = ({
                             </div>
 
                             {/* Current Signatures */}
-                            <div>
+                            {/* <div>
                                 <h4 className="text-sm font-semibold text-gray-900 mb-3">Current Signatures</h4>
                                 {(() => {
                                     const training = trainingData[selectedSignatureIndex];
@@ -966,10 +955,10 @@ const TrainingModulesView = ({
                                         <p className="text-sm text-gray-500 text-center py-4">No signatures yet</p>
                                     );
                                 })()}
-                            </div>
+                            </div> */}
 
                             {/* Add Signature Buttons */}
-                            {isEditable && (
+                            {/* {isEditable && (
                                 <div>
                                     {error && (
                                         <div className="mb-3 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm flex items-center gap-2">
@@ -1048,7 +1037,7 @@ const TrainingModulesView = ({
                                         })()}
                                     </div>
                                 </div>
-                            )}
+                            )} */}
                         </div>
 
                         <div className="flex justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50">

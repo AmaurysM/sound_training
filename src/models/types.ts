@@ -28,7 +28,13 @@ export interface ITrainingSubModule {
   code: string;
   title: string;
   requiresPractical: boolean;
+  ojt: boolean;
+  practical: boolean;
+  signedOff: boolean;
+  signatures: ISignature[];
   description?: string;
+  createdAt?: Date; 
+  updatedAt?: Date; 
 }
 
 export interface ITrainingModule {
@@ -52,10 +58,6 @@ export interface ITraining {
   _id?: string;
   user: string; // Id of user or the user object.
   module: string | ITrainingModule; // Id of module or ItrainingModule object.
-  ojt: boolean;
-  practical: boolean;
-  signedOff: boolean;
-  signatures: ISignature[];
   notes: string;
   createdAt?: Date;
   updatedAt?: Date;

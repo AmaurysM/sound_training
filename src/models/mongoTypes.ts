@@ -15,6 +15,10 @@ export interface ITrainingSubModule extends Document {
   code: string;
   title: string;
   requiresPractical: boolean;
+  ojt: boolean;
+  practical: boolean; // was practical completed?
+  signedOff: boolean;
+  signatures: mongoose.Types.ObjectId[] | ISignature[]; // Can be IDs or populated
   description?: string;
 }
 
@@ -31,10 +35,10 @@ export interface ISignature extends Document {
 export interface ITraining extends Document {
   user: mongoose.Types.ObjectId;
   module: mongoose.Types.ObjectId | ITrainingModule;
-  ojt: boolean;
-  practical: boolean;
-  signedOff: boolean;
-  signatures: mongoose.Types.ObjectId[] | ISignature[]; // Can be IDs or populated
+  // ojt: boolean;
+  // practical: boolean;
+  // signedOff: boolean;
+  // signatures: mongoose.Types.ObjectId[] | ISignature[]; // Can be IDs or populated
   notes: string;
   createdAt?: Date;
   updatedAt?: Date;

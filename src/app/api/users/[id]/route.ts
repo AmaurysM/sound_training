@@ -23,11 +23,11 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
             path: "module",
             model: "TrainingModule",
           },
-          {
-            path: "signatures",
-            model: "Signature",
-            select: "userId userName role signedAt",
-          },
+          // {
+          //   path: "signatures",
+          //   model: "Signature",
+          //   select: "userId userName role signedAt",
+          // },
         ],
       })
       .lean();

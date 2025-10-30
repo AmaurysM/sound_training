@@ -10,10 +10,10 @@ const TrainingSchema = new Schema<ITraining>(
       ref: "TrainingModule",
       required: true,
     },
-    ojt: { type: Boolean, default: false },
-    practical: { type: Boolean, default: false },
-    signedOff: { type: Boolean, default: false },
-    signatures: [{ type: Schema.Types.ObjectId, ref: "Signature" }], // Array of IDs
+    // ojt: { type: Boolean, default: false },
+    // practical: { type: Boolean, default: false },
+    // signedOff: { type: Boolean, default: false },
+    // signatures: [{ type: Schema.Types.ObjectId, ref: "Signature" }], // Array of IDs
     notes: { type: String, default: "" },
   },
   { timestamps: true }

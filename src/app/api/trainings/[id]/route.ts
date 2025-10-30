@@ -1,9 +1,9 @@
-// src/app/api/trainings/[id]/route.ts
+// api/trainings/[id]/route.ts
+
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
-import { Training, Signature, ISignature } from "@/models";
-import mongoose from "mongoose";
-import TrainingSubmodule from "@/models/TrainingSubModule"; // ✅ ADD THIS LINE
+import { Training } from "@/models";
+import TrainingSubModule from "@/models/TrainingSubModule";
 
 // GET training by ID
 export async function GET(
@@ -20,19 +20,18 @@ export async function GET(
         path: "module",
         select: "name description submodules",
         populate: {
-          path: "submodules", // ✅ matches the field in the schema
-          model: "TrainingSubModule", // ✅ matches the model name
-          select: "title code description requiresPractical", // fields you want
+          path: "submodules",
+          model: "TrainingSubModule",
+          select: "title code description requiresPractical practical ojt signedOff",
+          populate: {
+            path: "signatures",
+            model: "Signature",
+            select: "userId userName role signedAt",
+          },
         },
-      })
-      .populate({
-        path: "signatures",
-        model: "Signature",
-        select: "userId userName role signedAt",
       })
       .lean();
 
-    // console.log({...training})
     if (!training)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -46,7 +45,7 @@ export async function GET(
   }
 }
 
-// PATCH - add signature or update training
+// PATCH - update training (no signatures here)
 export async function PATCH(
   req: Request,
   context: { params: Promise<{ id: string }> }
@@ -60,72 +59,30 @@ export async function PATCH(
     if (!training)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    // 1️⃣ Handle full signatures array update
-    if (updates.signatures && Array.isArray(updates.signatures)) {
-      const updatedSignatureIds: mongoose.Types.ObjectId[] = [];
-
-      for (const sig of updates.signatures) {
-        let signatureDoc;
-
-        if ((sig as ISignature)._id) {
-          // Update existing signature by _id
-          signatureDoc = await Signature.findByIdAndUpdate(
-            (sig as ISignature)._id,
-            {
-              userId: sig.userId,
-              userName: sig.userName,
-              role: sig.role,
-              signedAt: sig.signedAt,
-            },
-            { new: true }
-          );
-        } else {
-          // Create new signature if _id not provided
-          signatureDoc = await Signature.create({
-            userId: sig.userId,
-            userName: sig.userName,
-            role: sig.role,
-            signedAt: sig.signedAt || new Date(),
-            trainingId: id,
-          });
-        }
-
-        if (signatureDoc) updatedSignatureIds.push(signatureDoc._id);
-      }
-
-      training.signatures = updatedSignatureIds;
-    }
-
-    // 2️⃣ Handle single signature add (legacy)
-    if (updates.addSignature) {
-      const newSig = await Signature.create({
-        userId: updates.addSignature.userId,
-        userName: updates.addSignature.userName,
-        role: updates.addSignature.role,
-        signedAt: new Date(),
-        trainingId: id,
-      });
-
-      training.signatures.push(newSig._id);
-    }
-
-    // 3️⃣ Apply other updates
+    // Apply updates
+    if (updates.notes !== undefined) training.notes = updates.notes;
     if (updates.signedOff !== undefined) training.signedOff = updates.signedOff;
     if (updates.ojt !== undefined) training.ojt = updates.ojt;
     if (updates.practical !== undefined) training.practical = updates.practical;
-    if (updates.notes !== undefined) training.notes = updates.notes;
 
-    // Save training
     await training.save();
 
-    // Populate and return
+    // Return updated training with populated module + submodules
     const finalTraining = await Training.findById(id)
       .populate("user", "name username role")
-      .populate("module", "name description")
       .populate({
-        path: "signatures",
-        model: "Signature",
-        select: "userId userName role signedAt",
+        path: "module",
+        select: "name description submodules",
+        populate: {
+          path: "submodules",
+          model: "TrainingSubModule",
+          select: "title code description requiresPractical practical ojt signedOff",
+          populate: {
+            path: "signatures",
+            model: "Signature",
+            select: "userId userName role signedAt",
+          },
+        },
       })
       .lean();
 
@@ -142,32 +99,36 @@ export async function PATCH(
   }
 }
 
-// ✅ DELETE training (and its signatures)
+// DELETE training (and its submodules & signatures)
 export async function DELETE(
   _: Request,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectToDatabase();
-
     const { id } = await context.params;
 
-    // Delete all associated signatures first
-    await Signature.deleteMany({ trainingId: id });
-
-    // Then delete the training
-    const deleted = await Training.findByIdAndDelete(id);
-
-    if (!deleted)
+    // Find the training and module first
+    const training = await Training.findById(id).populate("module", "_id");
+    if (!training)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    const moduleId =
+      typeof training.module === "string"
+        ? training.module
+        : training.module?._id;
+
+    // Delete all submodules for this module (signatures cascade via schema if needed)
+    await TrainingSubModule.deleteMany({ moduleId });
+
+    // Delete the training itself
+    await Training.findByIdAndDelete(id);
 
     return NextResponse.json({ message: "Deleted successfully" });
   } catch (err) {
     console.error("Delete error:", err);
     return NextResponse.json(
-      {
-        error: "Delete failed",
-      },
+      { error: "Delete failed" },
       { status: 500 }
     );
   }
