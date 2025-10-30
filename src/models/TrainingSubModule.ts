@@ -14,10 +14,6 @@ const TrainingSubModuleSchema = new Schema<ITrainingSubModule>(
     code: { type: String, required: true },
     title: { type: String, required: true },
     requiresPractical: { type: Boolean, default: false },
-    ojt: { type: Boolean, default: false },
-    practical: { type: Boolean, default: false },
-    signedOff: { type: Boolean, default: false },
-    signatures: [{ type: Schema.Types.ObjectId, ref: "Signature" }], // Array of IDs
     description: { type: String, required: false },
   },
   { timestamps: true }

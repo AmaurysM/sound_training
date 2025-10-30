@@ -1,3 +1,4 @@
+import { Signature } from '@/models';
 // src/models/mongoTypes.ts
 import mongoose, { Document } from "mongoose";
 import { Role } from "./types";
@@ -10,47 +11,56 @@ export interface ITrainingModule extends Document {
   updatedAt?: Date;
 }
 
+export interface IUserModule extends Document {
+  user: mongoose.Types.ObjectId | IUser;
+  tModule: mongoose.Types.ObjectId | ITrainingModule;
+  submodules: mongoose.Types.ObjectId[] | IUserSubmodule[];
+  notes: string;
+  deleted: boolean,
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
 export interface ITrainingSubModule extends Document {
   moduleId: mongoose.Types.ObjectId;
   code: string;
   title: string;
   requiresPractical: boolean;
-  ojt: boolean;
-  practical: boolean; // was practical completed?
-  signedOff: boolean;
-  signatures: mongoose.Types.ObjectId[] | ISignature[]; // Can be IDs or populated
   description?: string;
 }
 
+export interface IUserSubmodule extends Document {
+  module: mongoose.Types.ObjectId | IUserModule;
+  tSubmodule: mongoose.Types.ObjectId | ITrainingSubModule;
+  ojt: boolean;
+  practical: boolean;
+  signedOff: boolean;
+  signatures: mongoose.Types.ObjectId[] | ISignature[];
+}
+
 export interface ISignature extends Document {
-  userId: mongoose.Types.ObjectId;
-  userName: string;
-  role: Role;
-  signedAt: Date;
-  trainingId: mongoose.Types.ObjectId;
+  user: mongoose.Types.ObjectId | IUser;
+  attachedTo: mongoose.Types.ObjectId;
+  deleted: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
-export interface ITraining extends Document {
-  user: mongoose.Types.ObjectId;
-  module: mongoose.Types.ObjectId | ITrainingModule;
-  // ojt: boolean;
-  // practical: boolean;
-  // signedOff: boolean;
-  // signatures: mongoose.Types.ObjectId[] | ISignature[]; // Can be IDs or populated
-  notes: string;
-  createdAt?: Date;
-  updatedAt?: Date;
-}
+// export interface ITraining extends Document {
+//   user: mongoose.Types.ObjectId;
+//   module: mongoose.Types.ObjectId | ITrainingModule;
+//   notes: string;
+//   createdAt?: Date;
+//   updatedAt?: Date;
+// }
 
 export interface IUser extends Document {
   username: string;
-  password: string;
-  role: "Coordinator" | "Trainer" | "Trainee";
+  password?: string;
+  role: Role;
   name: string;
   archived: boolean;
-  trainings?: mongoose.Types.ObjectId[] | ITraining[];
+  modules?: mongoose.Types.ObjectId[] | IUserModule[];
   createdAt?: Date;
   updatedAt?: Date;
 }

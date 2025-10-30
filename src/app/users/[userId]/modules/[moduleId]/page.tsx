@@ -209,7 +209,6 @@ export default function SubmodulesPage() {
             return;
         }
 
-        // Check if user's role matches the role they're trying to sign
         if (currentUser.role !== role) {
             alert(`You cannot sign as ${role}. Your role is ${currentUser.role}.`);
             return;
@@ -229,24 +228,21 @@ export default function SubmodulesPage() {
                 return;
             }
 
-
-            // Ensure _id is undefined so Mongoose will create one automatically
-            const newSig: ISignature = {
-                user: currentUser._id,
-                attachedTo: signOffModal.submodule._id,
-            };
-
-            const updatedSigs = [...currentSigs, newSig];
-
-            const res = await fetch(`/api/users/${userId}/modules/${moduleId}/submodules/${signOffModal.submodule._id}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ signatures: updatedSigs }),
-            });
+            // Call backend to create signature
+            const res = await fetch(
+                `/api/users/${userId}/modules/${moduleId}/submodules/${signOffModal.submodule._id}`,
+                {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ addSignature: { userId: currentUser._id } }),
+                }
+            );
 
             if (!res.ok) throw new Error("Failed to add signature");
 
             const response = await res.json();
+
+            // Update local state with populated submodule
             setSubmodules(prev =>
                 prev.map(s => (s._id === signOffModal.submodule?._id ? response.data : s))
             );
@@ -257,30 +253,51 @@ export default function SubmodulesPage() {
         }
     };
 
+
     const removeSignature = async (sigId: string) => {
         if (!signOffModal.submodule?._id) return;
 
         try {
-            const updatedSigs = signOffModal.submodule.signatures.filter(s => s._id !== sigId);
-
-            const res = await fetch(`/api/users/${userId}/modules/${moduleId}/submodules/${signOffModal.submodule._id}`, {
+            // Call the soft-delete API
+            const res = await fetch(`/api/signature/${sigId}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ signatures: updatedSigs }),
             });
 
             if (!res.ok) throw new Error("Failed to remove signature");
 
             const response = await res.json();
+
+            // Update local state to remove the signature from the UI
             setSubmodules(prev =>
-                prev.map(s => (s._id === signOffModal.submodule?._id ? response.data : s))
+                prev.map(s => {
+                    if (s._id === signOffModal.submodule?._id) {
+                        return {
+                            ...s,
+                            signatures: s.signatures.filter(sig => sig._id !== sigId),
+                        };
+                    }
+                    return s;
+                })
             );
-            setSignOffModal({ open: true, submodule: response.data });
+
+            // Update the modal if open
+            setSignOffModal(prev => {
+                if (!prev.submodule) return prev;
+                return {
+                    ...prev,
+                    submodule: {
+                        ...prev.submodule,
+                        signatures: prev.submodule.signatures.filter(sig => sig._id !== sigId),
+                    },
+                };
+            });
         } catch (err) {
             console.error(err);
             alert("Failed to remove signature");
         }
     };
+
 
     const canUserSignRole = (role: "Coordinator" | "Trainer" | "Trainee") => {
         if (!currentUser) return false;

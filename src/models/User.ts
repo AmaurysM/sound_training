@@ -9,10 +9,11 @@ const UserSchema = new Schema<IUser>(
       type: String,
       enum: ["Coordinator", "Trainer", "Trainee"],
       required: true,
+      default: "Trainee"
     },
     name: { type: String, required: true },
     archived: { type: Boolean, default: false },
-    trainings: [{ type: Schema.Types.ObjectId, ref: "Training" }],
+    modules: [{ type: Schema.Types.ObjectId, ref: "UserModule" }],
   },
   { timestamps: true }
 );

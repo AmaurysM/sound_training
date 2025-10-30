@@ -4,10 +4,8 @@ import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import TrainingSubmodule from "@/models/TrainingSubModule";
 import Signature from '@/models/Signature';
+import UserSubmodule from '@/models/UserSubmodule';
 
-interface Params {
-  id: string;
-}
 
 // GET a specific submodule
 export async function GET(
@@ -18,11 +16,21 @@ export async function GET(
     await connectToDatabase();
     const { id } = await context.params;
 
-    const submodule = await TrainingSubmodule.findById(id)
+    const submodule = await UserSubmodule.findById(id)
       .populate({
         path: "signatures",
         model: "Signature",
-        select: "userId userName role signedAt",
+        select: "attatchedTo createdAt",
+        populate: {
+          path: "user",
+          model: "User",
+          select: "name role archived"
+        }
+      })
+      .populate({
+        path: "tSubmodules",
+        model: "TrainingSubModule",
+        select: "code title requiresPractical description"
       })
       .lean();
 
@@ -66,11 +74,8 @@ export async function PATCH(
       const newSigIds = await Promise.all(
         sigs.map(async (sig) => {
           const newSig = new Signature({
-            userId: sig.userId,
-            userName: sig.userName,
-            role: sig.role,
-            signedAt: new Date(sig.signedAt),
-            trainingId: submodule.moduleId, // reference the training
+            user: sig.user,
+            attachedTo: submodule.moduleId,
           });
           await newSig.save();
           return newSig._id;

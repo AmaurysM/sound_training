@@ -13,11 +13,11 @@ export interface Stat {
 export interface IUser {
   _id?: string;
   username: string;
-  password: string;
+  password?: string;
   role: Role;
   name: string;
   archived: boolean;
-  trainings?: ITraining[];
+  modules: string[] | IUserModule[];
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -28,37 +28,55 @@ export interface ITrainingSubModule {
   code: string;
   title: string;
   requiresPractical: boolean;
+  description?: string;
+  createdAt?: Date; 
+  updatedAt?: Date; 
+}
+
+export interface IUserSubmodule extends Document {
+  _id?: string;
+  module: string | IUserModule;
+  tSubmodule: ITrainingSubModule;
   ojt: boolean;
   practical: boolean;
   signedOff: boolean;
   signatures: ISignature[];
-  description?: string;
-  createdAt?: Date; 
-  updatedAt?: Date; 
 }
 
 export interface ITrainingModule {
   _id?: string;
   name: string;
   description?: string;
-  submodules: ITrainingSubModule[];
+  submodules: string[] | ITrainingSubModule[];
   createdAt?: Date;
   updatedAt?: Date;
+}
+
+export interface IUserModule {
+    _id?: string;
+    user: string | IUser;
+    tModule: string | ITrainingModule;
+    submodules: string[] | IUserSubmodule[];
+    notes: string;
+    deleted: boolean;
+    createdAt?: Date;
+    updatedAt?: Date;
 }
 
 export interface ISignature {
   _id?: string;
-  userId: string;
-  userName: string;
-  role: Role;
-  signedAt: Date;
-}
-
-export interface ITraining {
-  _id?: string;
-  user: string; // Id of user or the user object.
-  module: string | ITrainingModule; // Id of module or ItrainingModule object.
-  notes: string;
+  user: string | IUser;
+  attachedTo: string;
+  deleted: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }
+
+// export interface ITraining {
+//   _id?: string;
+//   user: string; // Id of user or the user object.
+//   module: string | ITrainingModule; // Id of module or ItrainingModule object.
+//   notes: string;
+//   createdAt?: Date;
+//   updatedAt?: Date;
+// }

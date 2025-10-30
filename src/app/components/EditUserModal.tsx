@@ -12,7 +12,7 @@ interface EditUserModalProps {
     onSave: () => void;
 }
 
-type UserUpdate = Omit<IUser, 'archived' | 'password'> & { password?: string };
+type UserUpdate = Omit<IUser, 'archived' | 'password' | 'modules'> & { password?: string };
 
 export default function EditUserModal({ show, user, onClose, onSave }: EditUserModalProps) {
     const [formData, setFormData] = useState({
@@ -65,7 +65,7 @@ export default function EditUserModal({ show, user, onClose, onSave }: EditUserM
                 name: formData.name.trim(),
                 username: formData.username.trim(),
                 role: formData.role,
-
+                password: formData.password
             };
 
             if (formData.changePassword && formData.password) {

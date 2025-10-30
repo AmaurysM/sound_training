@@ -8,28 +8,14 @@ import mongoose from "mongoose";
 import { User, Training, TrainingModule } from "@/models";
 import bcrypt from "bcrypt";
 
-export async function GET(req: Request, context: { params: Promise<{ id: string }> }) {
+export async function GET(req: Request, context: { params: Promise<{ userId: string }> }) {
   try {
     await connectToDatabase();
     
-    const { id } = await context.params;
+    const { userId } = await context.params;
 
-    const user = await User.findById(id)
-      .populate({
-        path: "trainings",
-        model: "Training",
-        populate: [
-          {
-            path: "module",
-            model: "TrainingModule",
-          },
-          // {
-          //   path: "signatures",
-          //   model: "Signature",
-          //   select: "userId userName role signedAt",
-          // },
-        ],
-      })
+    const user = await User.findById(userId)
+      .populate('modules')
       .lean();
 
     if (!user) {
@@ -48,14 +34,14 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
 
 
 
-export async function PATCH(req: Request, context: { params: Promise<{ id: string }> }) {
+export async function PATCH(req: Request, context: { params: Promise<{ userId: string }> }) {
   try {
     await connectToDatabase();
-    const { id } = await context.params;
+    const { userId } = await context.params;
     const updates = await req.json();
 
     // Find user first
-    const user = await User.findById(id);
+    const user = await User.findById(userId);
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     // Update base fields
@@ -93,11 +79,11 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
   }
 }
 
-export async function DELETE(_: Request, context: { params: Promise<{ id: string }> }) {
+export async function DELETE(_: Request, context: { params: Promise<{ userId: string }> }) {
   try {
     await connectToDatabase();
-    const { id } = await context.params;
-    const updated = await User.findByIdAndUpdate(id, { archived: true }, { new: true });
+    const { userId } = await context.params;
+    const updated = await User.findByIdAndUpdate(userId, { archived: true }, { new: true });
     if (!updated) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json({ message: "User archived" });
   } catch {
