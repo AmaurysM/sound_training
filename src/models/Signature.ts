@@ -1,28 +1,16 @@
 // src/models/Signature.ts
-import { Role } from "aws-sdk/clients/codedeploy";
 import mongoose, { Schema, models, Document } from "mongoose";
-
-export interface ISignature extends Document {
-  userId: mongoose.Types.ObjectId;
-  userName: string;
-  role: Role;
-  signedAt: Date;
-  trainingId: mongoose.Types.ObjectId; 
-  createdAt?: Date;
-  updatedAt?: Date;
-}
+import { ISignature } from "./mongoTypes";
 
 const SignatureSchema = new Schema<ISignature>(
   {
-    userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    userName: { type: String, required: true },
+    user: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    attachedTo: { type: Schema.Types.ObjectId },
+    deleted: { type: Boolean, default: false },
     role: {
       type: String,
-      enum: ["Trainer", "Coordinator", "Trainee"],
-      required: true,
+      enum: ["Coordinator", "Trainer", "Trainee"],
     },
-    signedAt: { type: Date, default: Date.now, required: true },
-    trainingId: { type: Schema.Types.ObjectId, ref: "Training", required: true },
   },
   { timestamps: true }
 );

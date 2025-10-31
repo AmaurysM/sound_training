@@ -1,5 +1,3 @@
-// app/api/training-modules/[id]/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import TrainingModule from "@/models/TrainingModule";

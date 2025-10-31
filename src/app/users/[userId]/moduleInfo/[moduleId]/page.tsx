@@ -18,7 +18,7 @@ import {
     ChevronRight,
     Clock,
 } from "lucide-react";
-import { IUserModule, IUser } from "@/models/types";
+import { IUserModule, IUser, IUserSubmodule } from "@/models/types";
 
 interface UploadedFile {
     _id: string;
@@ -87,6 +87,29 @@ export default function UserModulePage() {
         } finally {
             setLoading(false);
         }
+    };
+
+    // FIXED: Updated completion logic to check OJT, signatures, and practical (if required)
+    const isSubmoduleComplete = (submodule: IUserSubmodule) => {
+        // Must have OJT completed
+        if (!submodule.ojt) return false;
+        
+        // Must have all 3 signatures (Coordinator, Trainer, Trainee)
+        const sigs = submodule.signatures || [];
+        const hasCoordinator = sigs.some(s => s.role === "Coordinator");
+        const hasTrainer = sigs.some(s => s.role === "Trainer");
+        const hasTrainee = sigs.some(s => s.role === "Trainee");
+        
+        if (!hasCoordinator || !hasTrainer || !hasTrainee) return false;
+        
+        // If practical is required, it must be completed
+        if (submodule.tSubmodule && typeof submodule.tSubmodule !== "string") {
+            if (submodule.tSubmodule.requiresPractical && !submodule.practical) {
+                return false;
+            }
+        }
+        
+        return true;
     };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -190,8 +213,12 @@ export default function UserModulePage() {
             </div>
         );
     }
-//userModule.submodules?.filter(s => s.signedOff).length ||
-    const completedSubmodules =  0;
+
+    // FIXED: Use the new completion logic instead of checking signedOff
+    const completedSubmodules =
+        userModule.submodules?.filter(
+            (s): s is IUserSubmodule => typeof s !== "string" && isSubmoduleComplete(s)
+        ).length || 0;
     const totalSubmodules = userModule.submodules?.length || 0;
     const progressPercentage = totalSubmodules > 0 ? Math.round((completedSubmodules / totalSubmodules) * 100) : 0;
 
@@ -212,34 +239,34 @@ export default function UserModulePage() {
                 {/* Header Card */}
                 <div className="bg-white rounded-3xl shadow-xl overflow-hidden mb-8 border border-slate-200">
                     <div className="bg-gradient-to-r from-slate-900 via-blue-900 to-slate-900 p-4 sm:p-6 lg:p-10 text-white relative overflow-hidden">
-    <div className="absolute inset-0 bg-grid-white/[0.05] bg-[size:20px_20px]"></div>
-    <div className="relative z-10">
-        <div className="flex items-start justify-between gap-3 sm:gap-4">
-            <div className="flex-1 min-w-0">
-                <div className="inline-flex items-center gap-2 px-3 py-1 sm:px-4 sm:py-1.5 bg-white/10 backdrop-blur-sm rounded-full border border-white/20 mb-3 sm:mb-4">
-                    <Shield className="w-3 h-3 sm:w-4 sm:h-4" />
-                    <span className="text-xs sm:text-sm font-medium">NATA Certified Training</span>
-                </div>
+                        <div className="absolute inset-0 bg-grid-white/[0.05] bg-[size:20px_20px]"></div>
+                        <div className="relative z-10">
+                            <div className="flex items-start justify-between gap-3 sm:gap-4">
+                                <div className="flex-1 min-w-0">
+                                    <div className="inline-flex items-center gap-2 px-3 py-1 sm:px-4 sm:py-1.5 bg-white/10 backdrop-blur-sm rounded-full border border-white/20 mb-3 sm:mb-4">
+                                        <Shield className="w-3 h-3 sm:w-4 sm:h-4" />
+                                        <span className="text-xs sm:text-sm font-medium">NATA Certified Training</span>
+                                    </div>
 
-                <h1 className="text-2xl sm:text-3xl lg:text-5xl font-bold mb-2 sm:mb-3 leading-tight break-words">
-                    {typeof userModule.tModule !== "string"
-                        ? userModule.tModule?.name
-                        : "Unknown Module"}
-                </h1>
+                                    <h1 className="text-2xl sm:text-3xl lg:text-5xl font-bold mb-2 sm:mb-3 leading-tight break-words">
+                                        {typeof userModule.tModule !== "string"
+                                            ? userModule.tModule?.name
+                                            : "Unknown Module"}
+                                    </h1>
 
-                <p className="text-slate-200 text-sm sm:text-base lg:text-lg mb-2">
-                    National Aviation Training Association Module
-                </p>
+                                    <p className="text-slate-200 text-sm sm:text-base lg:text-lg mb-2">
+                                        National Aviation Training Association Module
+                                    </p>
 
-                {typeof userModule.tModule !== "string" && userModule.tModule?.description && (
-                    <p className="text-slate-300 text-sm sm:text-base max-w-3xl leading-relaxed">
-                        {userModule.tModule.description}
-                    </p>
-                )}
-            </div>
-        </div>
-    </div>
-</div>
+                                    {typeof userModule.tModule !== "string" && userModule.tModule?.description && (
+                                        <p className="text-slate-300 text-sm sm:text-base max-w-3xl leading-relaxed">
+                                            {userModule.tModule.description}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
 
                     {/* Trainee Info */}
@@ -294,7 +321,7 @@ export default function UserModulePage() {
                         </div>
                     </div>
 
-                    {/* Submodules Section */}
+                    {/* Submodules Section - FIXED: Shows accurate progress */}
                     {userModule.submodules && userModule.submodules.length > 0 && (
                         <div className="border-t border-slate-200">
                             <div className="w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex items-center justify-between hover:bg-slate-50 transition-colors">
@@ -322,7 +349,7 @@ export default function UserModulePage() {
 
                                 {/* Button to navigate */}
                                 <button
-                                    onClick={() => router.push(`/users/${params.userId}/modules/${params.moduleId}/submodules`)}
+                                    onClick={() => router.push(`/users/${params.userId}/modules/${params.moduleId}`)}
                                     className="p-2 sm:p-3 rounded-lg hover:bg-purple-100 transition-colors"
                                 >
                                     <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />

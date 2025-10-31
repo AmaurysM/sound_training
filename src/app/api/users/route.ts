@@ -41,6 +41,7 @@ export async function POST(req: Request) {
   await newUser.save();
 
   // Exclude password in response
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { password: _, ...userWithoutPassword } = newUser.toObject();
   return NextResponse.json(userWithoutPassword, { status: 201 });
 }

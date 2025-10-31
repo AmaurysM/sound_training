@@ -1,5 +1,8 @@
+// src/models/TrainingSubModules.ts
+
 import mongoose, { Schema, Document } from "mongoose";
 import { ITrainingSubModule } from "./mongoTypes";
+import "./Signature";
 
 const TrainingSubModuleSchema = new Schema<ITrainingSubModule>(
   {
