@@ -50,6 +50,29 @@ const TrainingModulesView = ({
     const [selectedNoteIndex, setSelectedNoteIndex] = useState<number | null>(null);
     const [noteText, setNoteText] = useState('');
 
+    // FIXED: Updated completion logic to check OJT, signatures, and practical (if required)
+    const isSubmoduleComplete = (submodule: IUserSubmodule) => {
+        // Must have OJT completed
+        if (!submodule.ojt) return false;
+        
+        // Must have all 3 signatures (Coordinator, Trainer, Trainee)
+        const sigs = submodule.signatures || [];
+        const hasCoordinator = sigs.some(s => s.role === "Coordinator");
+        const hasTrainer = sigs.some(s => s.role === "Trainer");
+        const hasTrainee = sigs.some(s => s.role === "Trainee");
+        
+        if (!hasCoordinator || !hasTrainer || !hasTrainee) return false;
+        
+        // If practical is required, it must be completed
+        if (submodule.tSubmodule && typeof submodule.tSubmodule !== "string") {
+            if (submodule.tSubmodule.requiresPractical && !submodule.practical) {
+                return false;
+            }
+        }
+        
+        return true;
+    };
+
     const getFilteredTrainingData = () => {
         let filtered = trainingData;
 
@@ -75,7 +98,8 @@ const TrainingModulesView = ({
                 );
 
                 const totalSubmodules = populatedSubmodules.length;
-                const completedSubmodules = populatedSubmodules.filter(s => s.signedOff).length;
+                // FIXED: Use new completion logic
+                const completedSubmodules = populatedSubmodules.filter(s => isSubmoduleComplete(s)).length;
 
                 if (filterStatus === "completed") {
                     return totalSubmodules > 0 && completedSubmodules === totalSubmodules;
@@ -183,6 +207,7 @@ const TrainingModulesView = ({
         fetchModules();
     }, [fetchModules]);
 
+    // FIXED: Use new completion logic
     const getModuleProgress = (module: IUserModule) => {
         const submodules = module.submodules || [];
 
@@ -192,7 +217,8 @@ const TrainingModulesView = ({
         );
 
         const totalSubmodules = populatedSubmodules.length;
-        const completedSubmodules = populatedSubmodules.filter(s => s.signedOff).length;
+        // FIXED: Use new completion logic instead of checking signedOff
+        const completedSubmodules = populatedSubmodules.filter(s => isSubmoduleComplete(s)).length;
 
         const percentage =
             totalSubmodules > 0

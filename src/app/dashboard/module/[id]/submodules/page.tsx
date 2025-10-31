@@ -234,6 +234,8 @@ export default function SubmodulesPage() {
             const newSig: ISignature = {
                 user: currentUser._id,
                 attachedTo: signOffModal.submodule._id,
+                deleted: false,
+                role: role
             };
 
             const updatedSigs = [...currentSigs, newSig];

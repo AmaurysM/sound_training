@@ -35,6 +35,29 @@ export default function UserTrainingPage() {
     const [showMobileMenu, setShowMobileMenu] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
 
+    // FIXED: Added completion logic to check OJT, signatures, and practical (if required)
+    const isSubmoduleComplete = (submodule: IUserSubmodule) => {
+        // Must have OJT completed
+        if (!submodule.ojt) return false;
+        
+        // Must have all 3 signatures (Coordinator, Trainer, Trainee)
+        const sigs = submodule.signatures || [];
+        const hasCoordinator = sigs.some(s => s.role === "Coordinator");
+        const hasTrainer = sigs.some(s => s.role === "Trainer");
+        const hasTrainee = sigs.some(s => s.role === "Trainee");
+        
+        if (!hasCoordinator || !hasTrainer || !hasTrainee) return false;
+        
+        // If practical is required, it must be completed
+        if (submodule.tSubmodule && typeof submodule.tSubmodule !== "string") {
+            if (submodule.tSubmodule.requiresPractical && !submodule.practical) {
+                return false;
+            }
+        }
+        
+        return true;
+    };
+
     useEffect(() => {
         const fetchCurrentUser = async () => {
             try {
@@ -209,38 +232,40 @@ export default function UserTrainingPage() {
         await fetchModules();
     };
 
-const getProgressStats = () => {
-    let completed = 0;
-    let inProgress = 0;
-    let notStarted = 0;
+    // FIXED: Updated stats calculation to use proper completion logic
+    const getProgressStats = () => {
+        let completed = 0;
+        let inProgress = 0;
+        let notStarted = 0;
 
-    userModules.forEach(module => {
-        const submodules = module.submodules || [];
+        userModules.forEach(module => {
+            const submodules = module.submodules || [];
 
-        // Only count real submodule objects, not string IDs
-        const populatedSubmodules = submodules.filter(
-            (s): s is IUserSubmodule => typeof s !== "string"
-        );
+            // Only count real submodule objects, not string IDs
+            const populatedSubmodules = submodules.filter(
+                (s): s is IUserSubmodule => typeof s !== "string"
+            );
 
-        const totalSubmodules = populatedSubmodules.length;
-        const completedSubmodules = populatedSubmodules.filter(s => s.signedOff).length;
+            const totalSubmodules = populatedSubmodules.length;
+            // FIXED: Use new completion logic instead of checking signedOff
+            const completedSubmodules = populatedSubmodules.filter(s => isSubmoduleComplete(s)).length;
 
-        if (totalSubmodules === 0) {
-            notStarted++;
-        } else if (completedSubmodules === totalSubmodules) {
-            completed++;
-        } else if (completedSubmodules > 0) {
-            inProgress++;
-        } else {
-            notStarted++;
-        }
-    });
+            if (totalSubmodules === 0) {
+                notStarted++;
+            } else if (completedSubmodules === totalSubmodules) {
+                completed++;
+            } else if (completedSubmodules > 0) {
+                inProgress++;
+            } else {
+                notStarted++;
+            }
+        });
 
-    const total = userModules.length;
-    const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+        const total = userModules.length;
+        const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-    return { completed, inProgress, notStarted, total, percentage };
-};
+        return { completed, inProgress, notStarted, total, percentage };
+    };
 
 
     const getUnassignedModules = () => {
