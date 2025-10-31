@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 // src/app/api/users/[userId]/modules/[moduleId]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import UserModule from "@/models/UserModule";
@@ -14,14 +13,32 @@ export async function GET(
   try {
     await connectToDatabase();
 
-    const resolvedParams = await params;
+    // Add timeout protection
+    const resolvedParams = await Promise.race([
+      params,
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Params timeout')), 5000)
+      )
+    ]) as { userId: string; moduleId: string };
+
     const { userId, moduleId } = resolvedParams;
+
+    // Validate params exist
+    if (!userId || !moduleId) {
+      return NextResponse.json(
+        { success: false, error: "Missing required parameters" },
+        { status: 400 }
+      );
+    }
 
     if (
       !mongoose.Types.ObjectId.isValid(userId) ||
       !mongoose.Types.ObjectId.isValid(moduleId)
     ) {
-      return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: "Invalid ID format" },
+        { status: 400 }
+      );
     }
 
     const mod = await UserModule.findOne({
@@ -75,6 +92,7 @@ export async function PATCH(
     }
 
     // Only allow updating specific fields
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const allowedUpdates: any = {};
     if (body.notes !== undefined) allowedUpdates.notes = body.notes;
     if (body.submodules !== undefined)

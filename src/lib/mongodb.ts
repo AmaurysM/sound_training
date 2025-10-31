@@ -1,7 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import mongoose from 'mongoose';
-import dotenv from "dotenv";
-
-//dotenv.config();
 
 const MONGODB_URI = process.env.MONGODB_URI as string;
 
@@ -9,16 +7,34 @@ if (!MONGODB_URI) {
   throw new Error('Please define the MONGODB_URI environment variable');
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const cached = (global as any).mongoose || { conn: null, promise: null };
+
+if (!(global as any).mongoose) {
+  (global as any).mongoose = cached;
+}
 
 export async function connectToDatabase() {
   if (cached.conn) return cached.conn;
 
   if (!cached.promise) {
-    cached.promise = mongoose.connect(MONGODB_URI).then((mongoose) => mongoose);
+    const opts = {
+      bufferCommands: false, 
+      maxPoolSize: 10,       
+      serverSelectionTimeoutMS: 5000, 
+      socketTimeoutMS: 45000, 
+    };
+
+    cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
+      return mongoose;
+    });
   }
 
-  cached.conn = await cached.promise;
+  try {
+    cached.conn = await cached.promise;
+  } catch (e) {
+    cached.promise = null;
+    throw e;
+  }
+
   return cached.conn;
 }
