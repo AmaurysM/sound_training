@@ -2,10 +2,9 @@
 
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
-import mongoose from "mongoose";
 
 // Import all models at once to ensure registration
-import { User, Training, TrainingModule } from "@/models";
+import { User } from "@/models";
 import bcrypt from "bcrypt";
 
 export async function GET(req: Request, context: { params: Promise<{ userId: string }> }) {

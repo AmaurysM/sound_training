@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import UserModule from "@/models/UserModule";
 import User from "@/models/User";
 import { connectToDatabase } from "@/lib/mongodb";
-import { TrainingModule, UserSubmodule } from "@/models";
+import { ITrainingSubModule, TrainingModule, UserSubmodule } from "@/models";
 
 // GET all modules for a user
 export async function GET(
@@ -34,9 +34,9 @@ export async function GET(
       });
 
     return NextResponse.json({ success: true, data: modules });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: error },
       { status: 400 }
     );
   }
@@ -89,7 +89,7 @@ export async function POST(
 
     // 3️⃣ For each training submodule, create a matching user submodule
     const createdUserSubmodules = await Promise.all(
-      trainingModule.submodules.map(async (tSub) => {
+      trainingModule.submodules.map(async (tSub: ITrainingSubModule) => {
         const newUserSub = await UserSubmodule.create(
           [
             {
@@ -136,12 +136,12 @@ export async function POST(
       });
 
     return NextResponse.json({ success: true, data: populated }, { status: 201 });
-  } catch (error: any) {
+  } catch (error) {
     await dbSession.abortTransaction();
     dbSession.endSession();
     console.error("Error creating user module:", error);
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: error },
       { status: 400 }
     );
   }

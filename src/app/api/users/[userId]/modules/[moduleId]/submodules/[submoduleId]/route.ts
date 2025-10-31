@@ -40,9 +40,9 @@ export async function GET(
     }
 
     return NextResponse.json({ success: true, data: submodule });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: error },
       { status: 400 }
     );
   }
@@ -104,9 +104,9 @@ export async function PATCH(
       });
 
     return NextResponse.json({ success: true, data: populatedSubmodule });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: error },
       { status: 400 }
     );
   }
@@ -147,9 +147,9 @@ export async function DELETE(
       success: true,
       message: "Submodule soft-deleted successfully",
     });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: error },
       { status: 400 }
     );
   }

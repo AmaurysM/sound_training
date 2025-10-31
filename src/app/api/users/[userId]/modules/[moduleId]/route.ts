@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // src/app/api/users/[userId]/modules/[moduleId]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import UserModule from "@/models/UserModule";
@@ -41,9 +42,9 @@ export async function GET(
     }
 
     return NextResponse.json({ success: true, data: mod });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: error },
       { status: 400 }
     );
   }
@@ -93,9 +94,9 @@ export async function PATCH(
     }
 
     return NextResponse.json({ success: true, data: mod });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: error },
       { status: 400 }
     );
   }
@@ -126,9 +127,9 @@ export async function DELETE(
       success: true,
       message: "Module soft-deleted successfully",
     });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: error },
       { status: 400 }
     );
   }

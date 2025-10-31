@@ -30,9 +30,9 @@ export async function PATCH(
       message: "Signature soft deleted",
       data: signature,
     });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: error },
       { status: 400 }
     );
   }

@@ -27,9 +27,9 @@ export async function GET(
       });
 
     return NextResponse.json({ success: true, data: submodules });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: error },
       { status: 400 }
     );
   }
@@ -86,9 +86,9 @@ export async function POST(
       });
 
     return NextResponse.json({ success: true, data: populated }, { status: 201 });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: error },
       { status: 400 }
     );
   }
