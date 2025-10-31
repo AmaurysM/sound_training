@@ -7,15 +7,19 @@ import { connectToDatabase } from "@/lib/mongodb";
 import { User } from "@/models";
 import bcrypt from "bcrypt";
 
-export async function GET(req: Request, context: { params: Promise<{ userId: string }> }) {
+export async function GET(
+  req: Request,
+  context: { params: Promise<{ userId: string }> }
+) {
   try {
-    await connectToDatabase();
-    
     const { userId } = await context.params;
 
-    const user = await User.findById(userId)
-      .populate('modules')
-      .lean();
+    if (!userId) {
+      return NextResponse.json({ error: "Missing User ID" }, { status: 400 });
+    }
+    await connectToDatabase();
+
+    const user = await User.findById(userId).populate("modules").lean();
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
@@ -24,24 +28,34 @@ export async function GET(req: Request, context: { params: Promise<{ userId: str
     return NextResponse.json(user, { status: 200 });
   } catch (err) {
     console.error("Error fetching user:", err);
-    return NextResponse.json({ 
-      error: "Error fetching user", 
-      details: err instanceof Error ? err.message : 'Unknown error'
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: "Error fetching user",
+        details: err instanceof Error ? err.message : "Unknown error",
+      },
+      { status: 500 }
+    );
   }
 }
 
-
-
-export async function PATCH(req: Request, context: { params: Promise<{ userId: string }> }) {
+export async function PATCH(
+  req: Request,
+  context: { params: Promise<{ userId: string }> }
+) {
   try {
-    await connectToDatabase();
     const { userId } = await context.params;
     const updates = await req.json();
 
+    if (!userId) {
+      return NextResponse.json({ error: "Missing User ID" }, { status: 400 });
+    }
+
+    await connectToDatabase();
+
     // Find user first
     const user = await User.findById(userId);
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+    if (!user)
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     // Update base fields
     if (updates.name) user.name = updates.name.trim();
@@ -72,18 +86,36 @@ export async function PATCH(req: Request, context: { params: Promise<{ userId: s
   } catch (err) {
     console.error("Error updating user:", err);
     return NextResponse.json(
-      { error: "Update failed", details: err instanceof Error ? err.message : err },
+      {
+        error: "Update failed",
+        details: err instanceof Error ? err.message : err,
+      },
       { status: 400 }
     );
   }
 }
 
-export async function DELETE(_: Request, context: { params: Promise<{ userId: string }> }) {
+export async function DELETE(
+  _: Request,
+  context: { params: Promise<{ userId: string }> }
+) {
   try {
-    await connectToDatabase();
+    
     const { userId } = await context.params;
-    const updated = await User.findByIdAndUpdate(userId, { archived: true }, { new: true });
-    if (!updated) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    if (!userId) {
+      return NextResponse.json({ error: "Missing User ID" }, { status: 400 });
+    }
+    
+    await connectToDatabase();
+
+    const updated = await User.findByIdAndUpdate(
+      userId,
+      { archived: true },
+      { new: true }
+    );
+    if (!updated)
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json({ message: "User archived" });
   } catch {
     return NextResponse.json({ error: "Archive failed" }, { status: 500 });

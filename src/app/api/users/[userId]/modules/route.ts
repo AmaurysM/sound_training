@@ -5,18 +5,25 @@ import User from "@/models/User";
 import { connectToDatabase } from "@/lib/mongodb";
 import { ITrainingSubModule, TrainingModule, UserSubmodule } from "@/models";
 
-// GET all modules for a user
+// ✅ GET all modules for a user
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ userId: string }> }
+  { params }: { params: Promise<{ userId?: string }> }
 ) {
   try {
     await connectToDatabase();
 
+    // ✅ Safely unwrap and validate params
     const resolvedParams = await params;
-    const { userId } = resolvedParams;
+    const { userId } = resolvedParams || {};
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: "Missing userId in request parameters." },
+        { status: 400 }
+      );
+    }
 
-    // Only fetch modules that are not soft-deleted
+    // ✅ Fetch all active (non-deleted) user modules
     const modules = await UserModule.find({
       user: userId,
       deleted: { $ne: true },
@@ -29,50 +36,69 @@ export async function GET(
           {
             path: "signatures",
             match: { deleted: { $ne: true } }, // ✅ exclude soft-deleted signatures
+            populate: { path: "user", select: "_id name role" },
           },
         ],
       });
 
     return NextResponse.json({ success: true, data: modules });
   } catch (error) {
+    console.error("GET /modules error:", error);
     return NextResponse.json(
-      { success: false, error: error },
+      { success: false, error: (error as Error).message },
       { status: 400 }
     );
   }
 }
 
-// POST - Create new module for user
+// ✅ POST - Create new user module from training module
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ userId: string }> }
+  { params }: { params: Promise<{ userId?: string }> }
 ) {
-  const session = await connectToDatabase(); // assuming this returns mongoose connection
+  const session = await connectToDatabase();
   const dbSession = await session.startSession();
 
   try {
     dbSession.startTransaction();
 
-    const body = await req.json();
-    const { tModule, notes } = body;
-
     const resolvedParams = await params;
-    const { userId } = resolvedParams;
+    const { userId } = resolvedParams || {};
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: "Missing userId in request parameters." },
+        { status: 400 }
+      );
+    }
 
-    // 1️⃣ Find the training module and its submodules
+    const body = await req.json();
+    const { tModule, notes } = body || {};
+
+    // ✅ Validate body input
+    if (!tModule) {
+      await dbSession.abortTransaction();
+      dbSession.endSession();
+      return NextResponse.json(
+        { success: false, error: "Missing required field: tModule." },
+        { status: 400 }
+      );
+    }
+
+    // ✅ Find training module and its submodules
     const trainingModule = await TrainingModule.findById(tModule)
       .populate("submodules")
       .session(dbSession);
+
     if (!trainingModule) {
       await dbSession.abortTransaction();
       dbSession.endSession();
       return NextResponse.json(
-        { success: false, error: "Training module not found" },
+        { success: false, error: "Training module not found." },
         { status: 404 }
       );
     }
 
-    // 2️⃣ Create the user module (empty submodules for now)
+    // ✅ Create user module (no submodules yet)
     const userModule = await UserModule.create(
       [
         {
@@ -87,7 +113,7 @@ export async function POST(
 
     const userModuleDoc = userModule[0];
 
-    // 3️⃣ For each training submodule, create a matching user submodule
+    // ✅ Create corresponding user submodules
     const createdUserSubmodules = await Promise.all(
       trainingModule.submodules.map(async (tSub: ITrainingSubModule) => {
         const newUserSub = await UserSubmodule.create(
@@ -107,11 +133,11 @@ export async function POST(
       })
     );
 
-    // 4️⃣ Attach all user submodules to the user module
+    // ✅ Attach user submodules to the user module
     userModuleDoc.submodules = createdUserSubmodules;
     await userModuleDoc.save({ session: dbSession });
 
-    // 5️⃣ Add user module to user's list of modules
+    // ✅ Add module to the user’s record
     await User.findByIdAndUpdate(
       userId,
       { $push: { modules: userModuleDoc._id } },
@@ -121,7 +147,7 @@ export async function POST(
     await dbSession.commitTransaction();
     dbSession.endSession();
 
-    // 6️⃣ Populate result for response
+    // ✅ Populate the final response (exclude deleted)
     const populated = await UserModule.findById(userModuleDoc._id)
       .populate("tModule")
       .populate({
@@ -130,7 +156,8 @@ export async function POST(
           { path: "tSubmodule" },
           {
             path: "signatures",
-            match: { deleted: { $ne: true } }, // ✅ also exclude soft-deleted here
+            match: { deleted: { $ne: true } },
+            populate: { path: "user", select: "_id name role" },
           },
         ],
       });
@@ -139,9 +166,9 @@ export async function POST(
   } catch (error) {
     await dbSession.abortTransaction();
     dbSession.endSession();
-    console.error("Error creating user module:", error);
+    console.error("POST /modules error:", error);
     return NextResponse.json(
-      { success: false, error: error },
+      { success: false, error: (error as Error).message },
       { status: 400 }
     );
   }

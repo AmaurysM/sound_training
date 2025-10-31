@@ -8,9 +8,13 @@ export async function PATCH(
   { params }: { params: Promise<{ signatureId: string}> }
 ) {
   try {
-    await connectToDatabase();
     const resolvedParams = await params; // <-- unwrap the Promise
     const { signatureId } = resolvedParams;
+
+    if (!signatureId) {
+      return NextResponse.json({ error: "Missing Traing Module ID" }, { status: 400 });
+    }
+    await connectToDatabase();
 
     // Find the signature
     const signature = await Signature.findById(signatureId);

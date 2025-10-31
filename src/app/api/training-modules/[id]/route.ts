@@ -8,12 +8,15 @@ export async function GET(
 ) {
   try {
     const { id } = await context.params;
+    if (!id) {
+      return NextResponse.json({ error: "Missing Traing Module ID" }, { status: 400 });
+    }
     await connectToDatabase();
 
     // ✅ Populate submodules
     const mod = await TrainingModule.findById(id)
       .populate({
-        path: "submodules",       // field to populate
+        path: "submodules", // field to populate
         select: "code title requiresPractical", // optional: select specific fields
       })
       .lean();
@@ -22,7 +25,10 @@ export async function GET(
     return NextResponse.json(mod);
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "Error fetching module" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Error fetching module" },
+      { status: 500 }
+    );
   }
 }
 
@@ -32,10 +38,16 @@ export async function PATCH(
 ) {
   try {
     const { id } = await context.params;
+    if (!id) {
+      return NextResponse.json({ error: "Missing Traing Module ID" }, { status: 400 });
+    }
     await connectToDatabase();
     const updates = await req.json();
-    const updated = await TrainingModule.findByIdAndUpdate(id, updates, { new: true });
-    if (!updated) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const updated = await TrainingModule.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+    if (!updated)
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(updated);
   } catch (err) {
     console.error(err);
@@ -49,6 +61,9 @@ export async function DELETE(
 ) {
   try {
     const { id } = await context.params;
+    if (!id) {
+      return NextResponse.json({ error: "Missing Traing Module ID" }, { status: 400 });
+    }
     await connectToDatabase();
     await TrainingModule.findByIdAndDelete(id);
     return NextResponse.json({ message: "Deleted successfully" });

@@ -10,6 +10,8 @@ export async function GET(
 ) {
   try {
     await connectToDatabase();
+
+    
     const { id } = await context.params;
 
     const submodule = await UserModule.findById(id)

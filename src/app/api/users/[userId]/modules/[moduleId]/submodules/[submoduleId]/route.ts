@@ -1,11 +1,22 @@
 // src/app/api/users/[userId]/modules/[moduleId]/submodules/[submoduleId]/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import mongoose from "mongoose";
 import UserSubmodule from "@/models/UserSubmodule";
 import UserModule from "@/models/UserModule";
 import Signature from "@/models/Signature";
 import { connectToDatabase } from "@/lib/mongodb";
 
-// ✅ GET single submodule (ignore deleted submodules and signatures)
+// 🔒 Helper for ID validation
+function validateObjectIds(ids: Record<string, string>) {
+  for (const [key, value] of Object.entries(ids)) {
+    if (!mongoose.Types.ObjectId.isValid(value)) {
+      return { valid: false, error: `Invalid ${key}` };
+    }
+  }
+  return { valid: true };
+}
+
+// ✅ GET single submodule
 export async function GET(
   req: NextRequest,
   {
@@ -17,18 +28,26 @@ export async function GET(
   try {
     await connectToDatabase();
 
-    const resolvedParams = await params;
-    const { moduleId, submoduleId } = resolvedParams;
+    const { userId, moduleId, submoduleId } = await params;
+
+    // 🧩 Validate IDs
+    const validation = validateObjectIds({ userId, moduleId, submoduleId });
+    if (!validation.valid) {
+      return NextResponse.json(
+        { success: false, error: validation.error },
+        { status: 400 }
+      );
+    }
 
     const submodule = await UserSubmodule.findOne({
       _id: submoduleId,
       module: moduleId,
-      deleted: { $ne: true }, // ✅ skip soft-deleted submodules
+      deleted: { $ne: true },
     })
       .populate("tSubmodule")
       .populate({
         path: "signatures",
-        match: { deleted: { $ne: true } }, // ✅ skip soft-deleted signatures
+        match: { deleted: { $ne: true } },
         populate: { path: "user", select: "_id name role" },
       });
 
@@ -41,14 +60,15 @@ export async function GET(
 
     return NextResponse.json({ success: true, data: submodule });
   } catch (error) {
+    console.error("GET /submodule error:", error);
     return NextResponse.json(
-      { success: false, error: error },
+      { success: false, error: error instanceof Error ? error.message : error },
       { status: 400 }
     );
   }
 }
 
-// ✅ PATCH - Update submodule (and filter deleted signatures in response)
+// ✅ PATCH - Update submodule
 export async function PATCH(
   req: NextRequest,
   {
@@ -60,10 +80,17 @@ export async function PATCH(
   try {
     await connectToDatabase();
     const body = await req.json();
-    const resolvedParams = await params;
-    const { moduleId, submoduleId } = resolvedParams;
+    const { userId, moduleId, submoduleId } = await params;
 
-    // Only allow updates to active (non-deleted) submodules
+    // 🧩 Validate IDs
+    const validation = validateObjectIds({ userId, moduleId, submoduleId });
+    if (!validation.valid) {
+      return NextResponse.json(
+        { success: false, error: validation.error },
+        { status: 400 }
+      );
+    }
+
     const submodule = await UserSubmodule.findOne({
       _id: submoduleId,
       module: moduleId,
@@ -77,24 +104,32 @@ export async function PATCH(
       );
     }
 
-    // Update allowed fields
-    if (body.ojt !== undefined) submodule.ojt = body.ojt;
-    if (body.practical !== undefined) submodule.practical = body.practical;
-    if (body.signedOff !== undefined) submodule.signedOff = body.signedOff;
+    // ✏️ Update allowed fields
+    if (typeof body.ojt === "boolean") submodule.ojt = body.ojt;
+    if (typeof body.practical === "boolean") submodule.practical = body.practical;
+    if (typeof body.signedOff === "boolean") submodule.signedOff = body.signedOff;
 
-    // Add new signature if requested
+    // ✍️ Add new signature if requested
     if (body.addSignature?.userId) {
+      const { userId: signerId, signAsRole } = body.addSignature;
+
+      if (!mongoose.Types.ObjectId.isValid(signerId)) {
+        return NextResponse.json(
+          { success: false, error: "Invalid signature userId" },
+          { status: 400 }
+        );
+      }
+
       const newSignature = await Signature.create({
-        user: body.addSignature.userId,
+        user: signerId,
         attachedTo: submodule._id,
-        role: body.addSignature.signAsRole
+        role: signAsRole,
       });
       submodule.signatures.push(newSignature._id);
     }
 
     await submodule.save();
 
-    // ✅ Populate filtered result
     const populatedSubmodule = await UserSubmodule.findById(submodule._id)
       .populate("tSubmodule")
       .populate({
@@ -105,14 +140,15 @@ export async function PATCH(
 
     return NextResponse.json({ success: true, data: populatedSubmodule });
   } catch (error) {
+    console.error("PATCH /submodule error:", error);
     return NextResponse.json(
-      { success: false, error: error },
+      { success: false, error: error instanceof Error ? error.message : error },
       { status: 400 }
     );
   }
 }
 
-// ✅ DELETE - Soft delete submodule instead of full removal
+// ✅ DELETE - Soft delete submodule
 export async function DELETE(
   req: NextRequest,
   {
@@ -124,10 +160,17 @@ export async function DELETE(
   try {
     await connectToDatabase();
 
-    const resolvedParams = await params;
-    const { moduleId, submoduleId } = resolvedParams;
+    const { userId, moduleId, submoduleId } = await params;
 
-    // Mark the submodule as deleted
+    // 🧩 Validate IDs
+    const validation = validateObjectIds({ userId, moduleId, submoduleId });
+    if (!validation.valid) {
+      return NextResponse.json(
+        { success: false, error: validation.error },
+        { status: 400 }
+      );
+    }
+
     const submodule = await UserSubmodule.findByIdAndUpdate(submoduleId, {
       deleted: true,
     });
@@ -139,8 +182,7 @@ export async function DELETE(
       );
     }
 
-    // Optional: Keep reference in module but mark as deleted
-    // (if you prefer removing it, uncomment below)
+    // Optional: remove reference from module
     // await UserModule.findByIdAndUpdate(moduleId, { $pull: { submodules: submoduleId } });
 
     return NextResponse.json({
@@ -148,8 +190,9 @@ export async function DELETE(
       message: "Submodule soft-deleted successfully",
     });
   } catch (error) {
+    console.error("DELETE /submodule error:", error);
     return NextResponse.json(
-      { success: false, error: error },
+      { success: false, error: error instanceof Error ? error.message : error },
       { status: 400 }
     );
   }

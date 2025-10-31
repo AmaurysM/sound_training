@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import UserModule from "@/models/UserModule";
 import User from "@/models/User";
 import { connectToDatabase } from "@/lib/mongodb";
+import mongoose from "mongoose";
 
 // GET single module
 export async function GET(
@@ -15,6 +16,13 @@ export async function GET(
 
     const resolvedParams = await params;
     const { userId, moduleId } = resolvedParams;
+
+    if (
+      !mongoose.Types.ObjectId.isValid(userId) ||
+      !mongoose.Types.ObjectId.isValid(moduleId)
+    ) {
+      return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
+    }
 
     const mod = await UserModule.findOne({
       _id: moduleId,
@@ -43,10 +51,7 @@ export async function GET(
 
     return NextResponse.json({ success: true, data: mod });
   } catch (error) {
-    return NextResponse.json(
-      { success: false, error: error },
-      { status: 400 }
-    );
+    return NextResponse.json({ success: false, error: error }, { status: 400 });
   }
 }
 
@@ -61,6 +66,13 @@ export async function PATCH(
 
     const resolvedParams = await params;
     const { userId, moduleId } = resolvedParams;
+
+    if (
+      !mongoose.Types.ObjectId.isValid(userId) ||
+      !mongoose.Types.ObjectId.isValid(moduleId)
+    ) {
+      return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
+    }
 
     // Only allow updating specific fields
     const allowedUpdates: any = {};
@@ -95,10 +107,7 @@ export async function PATCH(
 
     return NextResponse.json({ success: true, data: mod });
   } catch (error) {
-    return NextResponse.json(
-      { success: false, error: error },
-      { status: 400 }
-    );
+    return NextResponse.json({ success: false, error: error }, { status: 400 });
   }
 }
 
@@ -128,9 +137,6 @@ export async function DELETE(
       message: "Module soft-deleted successfully",
     });
   } catch (error) {
-    return NextResponse.json(
-      { success: false, error: error },
-      { status: 400 }
-    );
+    return NextResponse.json({ success: false, error: error }, { status: 400 });
   }
 }
