@@ -18,7 +18,7 @@ import {
     ChevronRight,
     Clock,
 } from "lucide-react";
-import { IUserModule, IUser } from "@/models/types";
+import { IUserModule, IUser, IUserSubmodule } from "@/models/types";
 
 interface UploadedFile {
     _id: string;
@@ -87,6 +87,29 @@ export default function UserModulePage() {
         } finally {
             setLoading(false);
         }
+    };
+
+    // FIXED: Updated completion logic to check OJT, signatures, and practical (if required)
+    const isSubmoduleComplete = (submodule: IUserSubmodule) => {
+        // Must have OJT completed
+        if (!submodule.ojt) return false;
+        
+        // Must have all 3 signatures (Coordinator, Trainer, Trainee)
+        const sigs = submodule.signatures || [];
+        const hasCoordinator = sigs.some(s => s.role === "Coordinator");
+        const hasTrainer = sigs.some(s => s.role === "Trainer");
+        const hasTrainee = sigs.some(s => s.role === "Trainee");
+        
+        if (!hasCoordinator || !hasTrainer || !hasTrainee) return false;
+        
+        // If practical is required, it must be completed
+        if (submodule.tSubmodule && typeof submodule.tSubmodule !== "string") {
+            if (submodule.tSubmodule.requiresPractical && !submodule.practical) {
+                return false;
+            }
+        }
+        
+        return true;
     };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -190,8 +213,12 @@ export default function UserModulePage() {
             </div>
         );
     }
-    //userModule.submodules?.filter(s => s.signedOff).length ||
-    const completedSubmodules = 0;
+
+    // FIXED: Use the new completion logic instead of checking signedOff
+    const completedSubmodules =
+        userModule.submodules?.filter(
+            (s): s is IUserSubmodule => typeof s !== "string" && isSubmoduleComplete(s)
+        ).length || 0;
     const totalSubmodules = userModule.submodules?.length || 0;
     const progressPercentage = totalSubmodules > 0 ? Math.round((completedSubmodules / totalSubmodules) * 100) : 0;
 
@@ -294,7 +321,7 @@ export default function UserModulePage() {
                         </div>
                     </div>
 
-                    {/* Submodules Section */}
+                    {/* Submodules Section - FIXED: Shows accurate progress */}
                     {userModule.submodules && userModule.submodules.length > 0 && (
                         <div className="border-t border-slate-200">
                             <div className="w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex items-center justify-between hover:bg-slate-50 transition-colors">

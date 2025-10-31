@@ -17,11 +17,20 @@ export async function GET(
     const { userId } = resolvedParams;
 
     // Only fetch modules that are not soft-deleted
-    const modules = await UserModule.find({ user: userId, deleted: { $ne: true } })
+    const modules = await UserModule.find({
+      user: userId,
+      deleted: { $ne: true },
+    })
       .populate("tModule")
       .populate({
         path: "submodules",
-        populate: [{ path: "tSubmodule" }, { path: "signatures" }],
+        populate: [
+          { path: "tSubmodule" },
+          {
+            path: "signatures",
+            match: { deleted: { $ne: true } }, // ✅ exclude soft-deleted signatures
+          },
+        ],
       });
 
     return NextResponse.json({ success: true, data: modules });
@@ -32,7 +41,6 @@ export async function GET(
     );
   }
 }
-
 
 // POST - Create new module for user
 export async function POST(
@@ -77,7 +85,6 @@ export async function POST(
       { session: dbSession }
     );
 
-    // Mongoose create returns an array when passing array
     const userModuleDoc = userModule[0];
 
     // 3️⃣ For each training submodule, create a matching user submodule
@@ -114,12 +121,18 @@ export async function POST(
     await dbSession.commitTransaction();
     dbSession.endSession();
 
-    // 6️⃣ Populate the result for response
+    // 6️⃣ Populate result for response
     const populated = await UserModule.findById(userModuleDoc._id)
       .populate("tModule")
       .populate({
         path: "submodules",
-        populate: [{ path: "tSubmodule" }, { path: "signatures" }],
+        populate: [
+          { path: "tSubmodule" },
+          {
+            path: "signatures",
+            match: { deleted: { $ne: true } }, // ✅ also exclude soft-deleted here
+          },
+        ],
       });
 
     return NextResponse.json({ success: true, data: populated }, { status: 201 });
@@ -127,7 +140,9 @@ export async function POST(
     await dbSession.abortTransaction();
     dbSession.endSession();
     console.error("Error creating user module:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 400 }
+    );
   }
 }
-

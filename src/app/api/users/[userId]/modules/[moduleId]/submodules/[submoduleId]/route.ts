@@ -3,11 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 import UserSubmodule from "@/models/UserSubmodule";
 import UserModule from "@/models/UserModule";
 import Signature from "@/models/Signature";
-
 import { connectToDatabase } from "@/lib/mongodb";
 
-// GET single submodule
-// GET single submodule
+// ✅ GET single submodule (ignore deleted submodules and signatures)
 export async function GET(
   req: NextRequest,
   {
@@ -25,26 +23,32 @@ export async function GET(
     const submodule = await UserSubmodule.findOne({
       _id: submoduleId,
       module: moduleId,
+      deleted: { $ne: true }, // ✅ skip soft-deleted submodules
     })
       .populate("tSubmodule")
       .populate({
         path: "signatures",
-        populate: { path: "user", select: "_id name role" }, // <-- populate user
+        match: { deleted: { $ne: true } }, // ✅ skip soft-deleted signatures
+        populate: { path: "user", select: "_id name role" },
       });
 
     if (!submodule) {
-      return NextResponse.json({ success: false, error: "Submodule not found" }, { status: 404 });
+      return NextResponse.json(
+        { success: false, error: "Submodule not found" },
+        { status: 404 }
+      );
     }
 
     return NextResponse.json({ success: true, data: submodule });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 400 }
+    );
   }
 }
 
-
-// PATCH - Update submodule
-// PATCH - Update submodule
+// ✅ PATCH - Update submodule (and filter deleted signatures in response)
 export async function PATCH(
   req: NextRequest,
   {
@@ -59,11 +63,18 @@ export async function PATCH(
     const resolvedParams = await params;
     const { moduleId, submoduleId } = resolvedParams;
 
-    // Find the submodule first
-    const submodule = await UserSubmodule.findOne({ _id: submoduleId, module: moduleId });
+    // Only allow updates to active (non-deleted) submodules
+    const submodule = await UserSubmodule.findOne({
+      _id: submoduleId,
+      module: moduleId,
+      deleted: { $ne: true },
+    });
 
     if (!submodule) {
-      return NextResponse.json({ success: false, error: "Submodule not found" }, { status: 404 });
+      return NextResponse.json(
+        { success: false, error: "Submodule not found" },
+        { status: 404 }
+      );
     }
 
     // Update allowed fields
@@ -76,28 +87,32 @@ export async function PATCH(
       const newSignature = await Signature.create({
         user: body.addSignature.userId,
         attachedTo: submodule._id,
+        role: body.addSignature.signAsRole
       });
       submodule.signatures.push(newSignature._id);
     }
 
     await submodule.save();
 
-    // Populate tSubmodule and signatures with user info
+    // ✅ Populate filtered result
     const populatedSubmodule = await UserSubmodule.findById(submodule._id)
       .populate("tSubmodule")
       .populate({
         path: "signatures",
-        populate: { path: "user", select: "_id name role" }, // <-- this is key
+        match: { deleted: { $ne: true } },
+        populate: { path: "user", select: "_id name role" },
       });
 
     return NextResponse.json({ success: true, data: populatedSubmodule });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 400 }
+    );
   }
 }
 
-
-// DELETE - Remove submodule reference from module (soft delete)
+// ✅ DELETE - Soft delete submodule instead of full removal
 export async function DELETE(
   req: NextRequest,
   {
@@ -110,16 +125,27 @@ export async function DELETE(
     await connectToDatabase();
 
     const resolvedParams = await params;
-    const { userId, moduleId, submoduleId } = resolvedParams;
+    const { moduleId, submoduleId } = resolvedParams;
 
-    // Remove from module's submodules array
-    await UserModule.findByIdAndUpdate(moduleId, {
-      $pull: { submodules: submoduleId },
+    // Mark the submodule as deleted
+    const submodule = await UserSubmodule.findByIdAndUpdate(submoduleId, {
+      deleted: true,
     });
+
+    if (!submodule) {
+      return NextResponse.json(
+        { success: false, error: "Submodule not found" },
+        { status: 404 }
+      );
+    }
+
+    // Optional: Keep reference in module but mark as deleted
+    // (if you prefer removing it, uncomment below)
+    // await UserModule.findByIdAndUpdate(moduleId, { $pull: { submodules: submoduleId } });
 
     return NextResponse.json({
       success: true,
-      message: "Submodule reference removed from module",
+      message: "Submodule soft-deleted successfully",
     });
   } catch (error: any) {
     return NextResponse.json(

@@ -68,6 +68,7 @@ export interface ISignature {
   user: string | IUser;
   attachedTo: string;
   deleted: boolean;
+  role: Role;
   createdAt?: Date;
   updatedAt?: Date;
 }

@@ -16,8 +16,8 @@ async function seedSignatures() {
 
     // Update all existing signatures that don't have `deleted` field
     const result = await Signature.updateMany(
-      { deleted: { $exists: false } },
-      { $set: { deleted: false } }
+      { role: { $exists: false } },
+      { $set: { role: "Trainee" } }
     );
 
     console.log(`Updated ${result.modifiedCount} signatures`);

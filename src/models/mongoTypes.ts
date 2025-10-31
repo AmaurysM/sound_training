@@ -41,18 +41,11 @@ export interface IUserSubmodule extends Document {
 export interface ISignature extends Document {
   user: mongoose.Types.ObjectId | IUser;
   attachedTo: mongoose.Types.ObjectId;
+  role: Role;
   deleted: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }
-
-// export interface ITraining extends Document {
-//   user: mongoose.Types.ObjectId;
-//   module: mongoose.Types.ObjectId | ITrainingModule;
-//   notes: string;
-//   createdAt?: Date;
-//   updatedAt?: Date;
-// }
 
 export interface IUser extends Document {
   username: string;

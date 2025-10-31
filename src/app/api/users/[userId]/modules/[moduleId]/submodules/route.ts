@@ -12,14 +12,17 @@ export async function GET(
   try {
     await connectToDatabase();
 
-    const resolvedParams = await params; // <-- unwrap the Promise
+    const resolvedParams = await params;
     const { userId, moduleId } = resolvedParams;
 
-    const submodules = await UserSubmodule.find({ module: moduleId })
+    const submodules = await UserSubmodule.find({
+      module: moduleId,
+      deleted: { $ne: true }, // ✅ exclude deleted submodules
+    })
       .populate("tSubmodule")
       .populate({
         path: "signatures",
-        match: { deleted: { $ne: true } },
+        match: { deleted: { $ne: true } }, // ✅ exclude deleted signatures
         populate: { path: "user", select: "_id name role" },
       });
 
@@ -41,12 +44,14 @@ export async function POST(
     await connectToDatabase();
     const body = await req.json();
 
-    const resolvedParams = await params; // <-- unwrap the Promise
+    const resolvedParams = await params;
     const { userId, moduleId } = resolvedParams;
+
     // Verify the module exists and belongs to the user
     const mod = await UserModule.findOne({
       _id: moduleId,
       user: userId,
+      deleted: { $ne: true }, // ✅ ensure module isn’t deleted
     });
 
     if (!mod) {
@@ -71,14 +76,16 @@ export async function POST(
       $push: { submodules: submodule._id },
     });
 
+    // ✅ Populate the new submodule while filtering deleted signatures
     const populated = await UserSubmodule.findById(submodule._id)
       .populate("tSubmodule")
-      .populate("signatures");
+      .populate({
+        path: "signatures",
+        match: { deleted: { $ne: true } },
+        populate: { path: "user", select: "_id name role" },
+      });
 
-    return NextResponse.json(
-      { success: true, data: populated },
-      { status: 201 }
-    );
+    return NextResponse.json({ success: true, data: populated }, { status: 201 });
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error.message },

@@ -12,17 +12,25 @@ export async function GET(
   try {
     await connectToDatabase();
 
-    const resolvedParams = await params; // <-- unwrap the Promise
+    const resolvedParams = await params;
     const { userId, moduleId } = resolvedParams;
 
     const mod = await UserModule.findOne({
       _id: moduleId,
       user: userId,
+      deleted: { $ne: true }, // ✅ ignore deleted modules
     })
       .populate("tModule")
       .populate({
         path: "submodules",
-        populate: [{ path: "tSubmodule" }, { path: "signatures" }],
+        match: { deleted: { $ne: true } }, // ✅ exclude deleted submodules too, if any
+        populate: [
+          { path: "tSubmodule" },
+          {
+            path: "signatures",
+            match: { deleted: { $ne: true } }, // ✅ exclude deleted signatures
+          },
+        ],
       });
 
     if (!mod) {
@@ -50,7 +58,7 @@ export async function PATCH(
     await connectToDatabase();
     const body = await req.json();
 
-    const resolvedParams = await params; // <-- unwrap the Promise
+    const resolvedParams = await params;
     const { userId, moduleId } = resolvedParams;
 
     // Only allow updating specific fields
@@ -60,14 +68,21 @@ export async function PATCH(
       allowedUpdates.submodules = body.submodules;
 
     const mod = await UserModule.findOneAndUpdate(
-      { _id: moduleId, user: userId },
+      { _id: moduleId, user: userId, deleted: { $ne: true } },
       allowedUpdates,
       { new: true, runValidators: true }
     )
       .populate("tModule")
       .populate({
         path: "submodules",
-        populate: [{ path: "tSubmodule" }, { path: "signatures" }],
+        match: { deleted: { $ne: true } }, // ✅ exclude deleted submodules
+        populate: [
+          { path: "tSubmodule" },
+          {
+            path: "signatures",
+            match: { deleted: { $ne: true } }, // ✅ exclude deleted signatures
+          },
+        ],
       });
 
     if (!mod) {
@@ -99,7 +114,7 @@ export async function DELETE(
 
     // 1️⃣ Mark the user module as deleted
     await UserModule.findByIdAndUpdate(moduleId, {
-      deleted: true, // or use deletedAt: new Date()
+      deleted: true,
     });
 
     // 2️⃣ Optionally remove from user's modules array
@@ -118,4 +133,3 @@ export async function DELETE(
     );
   }
 }
-

@@ -3,10 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import Signature from "@/models/Signature";
 import { connectToDatabase } from "@/lib/mongodb";
 
-// interface Params {
-//   signatureId: string;
-// }
-
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ signatureId: string}> }
@@ -15,7 +11,7 @@ export async function PATCH(
     await connectToDatabase();
     const resolvedParams = await params; // <-- unwrap the Promise
     const { signatureId } = resolvedParams;
-    console.log(signatureId)
+
     // Find the signature
     const signature = await Signature.findById(signatureId);
     if (!signature) {
@@ -24,7 +20,6 @@ export async function PATCH(
         { status: 404 }
       );
     }
-    console.log(signature)
 
     // Soft delete
     signature.deleted = true;
