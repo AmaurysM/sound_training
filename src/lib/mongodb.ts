@@ -15,7 +15,12 @@ if (!(global as any).mongoose) {
 
 export async function connectToDatabase() {
   if (cached.conn) return cached.conn;
-
+  console.log('Connection state:', {
+  readyState: mongoose.connection.readyState,
+  // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
+  host: mongoose.connection.host,
+  name: mongoose.connection.name,
+});
   if (!cached.promise) {
     const opts = {
       bufferCommands: false, 
@@ -28,6 +33,8 @@ export async function connectToDatabase() {
       return mongoose;
     });
   }
+
+
 
   try {
     cached.conn = await cached.promise;

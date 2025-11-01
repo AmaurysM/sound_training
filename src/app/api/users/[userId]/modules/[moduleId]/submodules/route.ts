@@ -16,6 +16,8 @@ export async function GET(
     const resolvedParams = await params;
     const { userId, moduleId } = resolvedParams || {};
 
+    console.log(userId, moduleId)
+
     // ✅ Validate params
     if (!userId || !moduleId) {
       return NextResponse.json(

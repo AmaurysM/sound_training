@@ -1,4 +1,4 @@
-// src/models/TrainingFile.ts
+// src/models/TrainingFiles.ts
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface ITrainingFile extends Document {
