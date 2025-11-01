@@ -14,8 +14,15 @@ export interface IUser {
   _id?: string;
   username: string;
   password?: string;
+
+  email?: string;
+  isVerified: boolean;
+  registrationToken?: string;
+  tokenExpires?: Date;
+
   role: Role;
   name: string;
+  nickname: string;
   archived: boolean;
   modules: string[] | IUserModule[];
   createdAt?: Date;
@@ -29,8 +36,8 @@ export interface ITrainingSubModule {
   title: string;
   requiresPractical: boolean;
   description?: string;
-  createdAt?: Date; 
-  updatedAt?: Date; 
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface IUserSubmodule extends Document {
@@ -53,14 +60,14 @@ export interface ITrainingModule {
 }
 
 export interface IUserModule {
-    _id?: string;
-    user: string | IUser;
-    tModule: string | ITrainingModule;
-    submodules: string[] | IUserSubmodule[];
-    notes: string;
-    deleted: boolean;
-    createdAt?: Date;
-    updatedAt?: Date;
+  _id?: string;
+  user: string | IUser;
+  tModule: string | ITrainingModule;
+  submodules: string[] | IUserSubmodule[];
+  notes: string;
+  deleted: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface ISignature {

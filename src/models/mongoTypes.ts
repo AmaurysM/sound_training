@@ -1,4 +1,4 @@
-import { Signature } from '@/models';
+import { Signature } from "@/models";
 // src/models/mongoTypes.ts
 import mongoose, { Document } from "mongoose";
 import { Role } from "./types";
@@ -16,7 +16,7 @@ export interface IUserModule extends Document {
   tModule: mongoose.Types.ObjectId | ITrainingModule;
   submodules: mongoose.Types.ObjectId[] | IUserSubmodule[];
   notes: string;
-  deleted: boolean,
+  deleted: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -50,8 +50,15 @@ export interface ISignature extends Document {
 export interface IUser extends Document {
   username: string;
   password?: string;
+
+  email?: string;
+  isVerified: boolean;
+  registrationToken?: string;
+  tokenExpires?: Date;
+
   role: Role;
   name: string;
+  nickname: string;
   archived: boolean;
   modules?: mongoose.Types.ObjectId[] | IUserModule[];
   createdAt?: Date;

@@ -1,16 +1,16 @@
-// src/app/dashboard/page.tsx
-
 'use client';
 import React, { useEffect, useState, startTransition, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, UserPlus, Archive, ArchiveRestore, Users, LogOut, User as UserIcon, BookOpen, Settings, ChevronDown, Menu, X } from 'lucide-react';
+import { Search, UserPlus, Archive, ArchiveRestore, Users, LogOut, User as UserIcon, BookOpen, Settings, ChevronDown, Menu, X, Mail, CheckCircle, Clock } from 'lucide-react';
 
 interface User {
     _id: string;
     name: string;
     username: string;
     role: 'Coordinator' | 'Trainer' | 'Trainee';
+    email?: string;
     archived?: boolean;
+    isVerified?: boolean;
     createdAt?: string;
 }
 
@@ -32,6 +32,8 @@ export default function DashboardPage() {
     const [searchRoleDropdownOpen, setSearchRoleDropdownOpen] = useState(false);
     const [settingsDropdownOpen, setSettingsDropdownOpen] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const roleDropdownRef = useRef<HTMLDivElement>(null);
     const searchRoleDropdownRef = useRef<HTMLDivElement>(null);
@@ -39,9 +41,9 @@ export default function DashboardPage() {
     const mobileMenuRef = useRef<HTMLDivElement>(null);
 
     const [newUserForm, setNewUserForm] = useState({
-        name: '',
+        fullName: '',
         username: '',
-        password: '',
+        email: '',
         role: 'Trainee' as 'Trainee' | 'Trainer' | 'Coordinator',
     });
 
@@ -103,10 +105,19 @@ export default function DashboardPage() {
     };
 
     const handleAddUser = async () => {
-        if (!newUserForm.name.trim() || !newUserForm.username.trim() || !newUserForm.password.trim()) {
+        if (!newUserForm.fullName.trim() || !newUserForm.username.trim() || !newUserForm.email.trim()) {
             alert('Please fill in all fields');
             return;
         }
+
+        // Basic email validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(newUserForm.email)) {
+            alert('Please enter a valid email address');
+            return;
+        }
+
+        setIsSubmitting(true);
 
         try {
             const res = await fetch('/api/users', {
@@ -115,17 +126,26 @@ export default function DashboardPage() {
                 body: JSON.stringify(newUserForm),
             });
 
+            const data = await res.json();
+
             if (res.ok) {
-                setNewUserForm({ name: '', username: '', password: '', role: 'Trainee' });
+                setNewUserForm({ fullName: '', username: '', email: '', role: 'Trainee' });
                 setShowAddUserForm(false);
+                setShowSuccessMessage(true);
                 fetchUsers();
+                
+                // Hide success message after 5 seconds
+                setTimeout(() => {
+                    setShowSuccessMessage(false);
+                }, 5000);
             } else {
-                const error = await res.json();
-                alert(error.message || 'Failed to add user');
+                alert(data.error || 'Failed to add user');
             }
         } catch (err) {
             console.error('Failed to add user', err);
             alert('Failed to add user');
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -196,7 +216,8 @@ export default function DashboardPage() {
         if (u._id === currentUser._id) return false;
 
         const matchesSearch = u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            u.username?.toLowerCase().includes(searchQuery.toLowerCase());
+            u.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            u.email?.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesArchive = showArchived ? u.archived : !u.archived;
         const matchesRole = selectedRole ? u.role === selectedRole : true;
         const matchesPermission = currentUser.role === 'Coordinator' || u.role === 'Trainee';
@@ -206,9 +227,10 @@ export default function DashboardPage() {
 
     const stats = {
         total: users.filter(u => !u.archived).length,
-        trainees: users.filter(u => u.role === 'Trainee' && !u.archived ).length,
-        trainers: users.filter(u => u.role === 'Trainer' && !u.archived ).length,
-        coordinators: users.filter(u => u.role === 'Coordinator' && !u.archived ).length,
+        trainees: users.filter(u => u.role === 'Trainee' && !u.archived).length,
+        trainers: users.filter(u => u.role === 'Trainer' && !u.archived).length,
+        coordinators: users.filter(u => u.role === 'Coordinator' && !u.archived).length,
+        pending: users.filter(u => !u.isVerified && !u.archived).length,
     };
 
     return (
@@ -254,8 +276,8 @@ export default function DashboardPage() {
                                         <p className="text-xl font-semibold text-gray-900">{stats.trainers}</p>
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-gray-500 text-xs">Coordinators</p>
-                                        <p className="text-xl font-semibold text-gray-900">{stats.coordinators}</p>
+                                        <p className="text-gray-500 text-xs">Pending</p>
+                                        <p className="text-xl font-semibold text-amber-600">{stats.pending}</p>
                                     </div>
                                 </>
                             )}
@@ -336,8 +358,8 @@ export default function DashboardPage() {
                                         <p className="text-lg font-semibold text-gray-900">{stats.trainers}</p>
                                     </div>
                                     <div className="text-center">
-                                        <p className="text-gray-500 text-xs">Coordinators</p>
-                                        <p className="text-lg font-semibold text-gray-900">{stats.coordinators}</p>
+                                        <p className="text-gray-500 text-xs">Pending</p>
+                                        <p className="text-lg font-semibold text-amber-600">{stats.pending}</p>
                                     </div>
                                 </>
                             )}
@@ -381,34 +403,58 @@ export default function DashboardPage() {
                     </div>
                 )}
 
+                {/* Success Message */}
+                {showSuccessMessage && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
+                        <CheckCircle className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                            <h3 className="text-sm font-semibold text-green-900 mb-1">Registration Email Sent!</h3>
+                            <p className="text-sm text-green-700">
+                                An email with registration instructions has been sent to the user. They will have 24 hours to complete their registration.
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => setShowSuccessMessage(false)}
+                            className="text-green-600 hover:text-green-900"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
+                )}
+
                 {/* Add New User Form */}
                 {showAddUserForm && currentUser.role === 'Coordinator' && (
-                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
                         <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-sm font-semibold text-gray-900">Add New User</h3>
+                            <div>
+                                <h3 className="text-base font-semibold text-gray-900">Invite New User</h3>
+                                <p className="text-sm text-gray-500 mt-1">Send a registration email to the new user</p>
+                            </div>
                             <button
                                 onClick={() => setShowAddUserForm(false)}
-                                className="text-sm text-gray-500 hover:text-gray-900"
+                                className="text-sm text-gray-500 hover:text-gray-900 font-medium"
                             >
                                 Cancel
                             </button>
                         </div>
 
                         <div className="space-y-4">
-                            <div className="grid grid-cols-1 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-xs font-medium text-gray-700 mb-1.5">Full Name</label>
                                     <input
                                         type="text"
+                                        placeholder="John Doe"
                                         className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                                        value={newUserForm.name}
-                                        onChange={(e) => setNewUserForm({ ...newUserForm, name: e.target.value })}
+                                        value={newUserForm.fullName}
+                                        onChange={(e) => setNewUserForm({ ...newUserForm, fullName: e.target.value })}
                                     />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-medium text-gray-700 mb-1.5">Username</label>
                                     <input
                                         type="text"
+                                        placeholder="johndoe"
                                         className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
                                         value={newUserForm.username}
                                         onChange={(e) => setNewUserForm({ ...newUserForm, username: e.target.value })}
@@ -416,15 +462,20 @@ export default function DashboardPage() {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-700 mb-1.5">Password</label>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1.5 flex items-center gap-1">
+                                        <Mail className="w-3.5 h-3.5" />
+                                        Email Address
+                                    </label>
                                     <input
-                                        type="password"
+                                        type="email"
+                                        placeholder="john@example.com"
                                         className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                                        value={newUserForm.password}
-                                        onChange={(e) => setNewUserForm({ ...newUserForm, password: e.target.value })}
+                                        value={newUserForm.email}
+                                        onChange={(e) => setNewUserForm({ ...newUserForm, email: e.target.value })}
                                     />
+                                    <p className="text-xs text-gray-500 mt-1">Registration link will be sent here</p>
                                 </div>
 
                                 <div ref={searchRoleDropdownRef} className="relative">
@@ -467,11 +518,36 @@ export default function DashboardPage() {
                                 </div>
                             </div>
 
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                <div className="flex items-start gap-2">
+                                    <Mail className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                                    <div className="text-xs text-blue-800">
+                                        <p className="font-medium mb-1">How it works:</p>
+                                        <ul className="list-disc list-inside space-y-0.5 text-blue-700">
+                                            <li>User receives an email with a secure registration link</li>
+                                            <li>Link is valid for 24 hours</li>
+                                            <li>User creates their own password during registration</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+
                             <button
                                 onClick={handleAddUser}
-                                className="w-full px-4 py-2 bg-gray-900 text-white rounded hover:bg-gray-800 text-sm font-medium transition"
+                                disabled={isSubmitting}
+                                className="w-full px-4 py-2.5 bg-gray-900 text-white rounded hover:bg-gray-800 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                             >
-                                Add User
+                                {isSubmitting ? (
+                                    <>
+                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                        Sending Email...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Mail className="w-4 h-4" />
+                                        Send Registration Email
+                                    </>
+                                )}
                             </button>
                         </div>
                     </div>
@@ -577,7 +653,13 @@ export default function DashboardPage() {
                                         Username
                                     </th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Email
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Role
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Status
                                     </th>
                                     {currentUser.role === 'Coordinator' && (
                                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -594,8 +676,8 @@ export default function DashboardPage() {
                                     return (
                                         <tr
                                             key={user._id}
-                                            onClick={() => canAccess && handleUserClick(user)}
-                                            className={canAccess ? 'hover:bg-gray-50 cursor-pointer' : 'opacity-50'}
+                                            onClick={() => canAccess && user.isVerified && handleUserClick(user)}
+                                            className={canAccess && user.isVerified ? 'hover:bg-gray-50 cursor-pointer' : 'opacity-50'}
                                         >
                                             <td className="px-4 py-3 whitespace-nowrap">
                                                 <div className="text-sm font-medium text-gray-900">{user.name}</div>
@@ -604,9 +686,25 @@ export default function DashboardPage() {
                                                 <div className="text-sm text-gray-500">{user.username}</div>
                                             </td>
                                             <td className="px-4 py-3 whitespace-nowrap">
+                                                <div className="text-sm text-gray-500">{user.email || 'N/A'}</div>
+                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap">
                                                 <span className="inline-flex px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded">
                                                     {user.role}
                                                 </span>
+                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap">
+                                                {user.isVerified ? (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-50 rounded">
+                                                        <CheckCircle className="w-3 h-3" />
+                                                        Active
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-amber-700 bg-amber-50 rounded">
+                                                        <Clock className="w-3 h-3" />
+                                                        Pending
+                                                    </span>
+                                                )}
                                             </td>
                                             {currentUser.role === 'Coordinator' && (
                                                 <td className="px-4 py-3 whitespace-nowrap text-right">
@@ -637,18 +735,35 @@ export default function DashboardPage() {
                             return (
                                 <div
                                     key={user._id}
-                                    onClick={() => canAccess && handleUserClick(user)}
-                                    className={`p-4 border-b border-gray-200 last:border-b-0 ${canAccess ? 'hover:bg-gray-50 cursor-pointer' : 'opacity-50'}`}
+                                    onClick={() => canAccess && user.isVerified && handleUserClick(user)}
+                                    className={`p-4 border-b border-gray-200 last:border-b-0 ${canAccess && user.isVerified ? 'hover:bg-gray-50 cursor-pointer' : 'opacity-50'}`}
                                 >
                                     <div className="flex justify-between items-start">
                                         <div className="flex-1">
-                                            <div className="flex items-center gap-2 mb-2">
+                                            <div className="flex items-center gap-2 mb-2 flex-wrap">
                                                 <div className="text-sm font-medium text-gray-900">{user.name}</div>
                                                 <span className="inline-flex px-2 py-0.5 text-xs font-medium text-gray-700 bg-gray-100 rounded">
                                                     {user.role}
                                                 </span>
+                                                {user.isVerified ? (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-green-700 bg-green-50 rounded">
+                                                        <CheckCircle className="w-3 h-3" />
+                                                        Active
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-amber-700 bg-amber-50 rounded">
+                                                        <Clock className="w-3 h-3" />
+                                                        Pending
+                                                    </span>
+                                                )}
                                             </div>
-                                            <div className="text-sm text-gray-500 mb-2">@{user.username}</div>
+                                            <div className="text-sm text-gray-500 mb-1">@{user.username}</div>
+                                            {user.email && (
+                                                <div className="text-xs text-gray-400 flex items-center gap-1">
+                                                    <Mail className="w-3 h-3" />
+                                                    {user.email}
+                                                </div>
+                                            )}
                                         </div>
                                         {currentUser.role === 'Coordinator' && (
                                             <button
@@ -677,20 +792,6 @@ export default function DashboardPage() {
                             </p>
                         </div>
                     )}
-                </div>
-
-                {/* Mobile Stats Footer */}
-                <div className="sm:hidden bg-white border border-gray-200 rounded-lg p-4">
-                    <div className="grid grid-cols-2 gap-4 text-center">
-                        <div>
-                            <p className="text-gray-500 text-xs">Total Users</p>
-                            <p className="text-lg font-semibold text-gray-900">{stats.total}</p>
-                        </div>
-                        <div>
-                            <p className="text-gray-500 text-xs">Trainees</p>
-                            <p className="text-lg font-semibold text-gray-900">{stats.trainees}</p>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
