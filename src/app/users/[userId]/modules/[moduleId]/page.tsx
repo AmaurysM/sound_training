@@ -186,6 +186,15 @@ export default function SubmodulesPage() {
         };
     }, [userId, moduleId]);
 
+    const getSignatureStatus = (submodule: IUserSubmodule) => {
+        const sigs = submodule.signatures || [];
+        const coordinator = sigs.some(s => s.role === "Coordinator");
+        const trainer = sigs.some(s => s.role === "Trainer");
+        const trainee = sigs.some(s => s.role === "Trainee");
+        const count = [coordinator, trainer, trainee].filter(Boolean).length;
+        return { coordinator, trainer, trainee, count };
+    };
+
     const downloadCSV = () => {
         if (submodules.length === 0) {
             alert("No data to download");
@@ -209,6 +218,7 @@ export default function SubmodulesPage() {
             "Trainee Signed At",
             "Total Signatures",
         ];
+
 
         const rows = submodules.map(submodule => {
             const signatureStatus = getSignatureStatus(submodule);
@@ -466,14 +476,7 @@ export default function SubmodulesPage() {
     const hasRole = (sigs: ISignature[], role: string) =>
         sigs.some(s => s.role === role);
 
-    const getSignatureStatus = (submodule: IUserSubmodule) => {
-        const sigs = submodule.signatures || [];
-        const coordinator = sigs.some(s => s.role === "Coordinator");
-        const trainer = sigs.some(s => s.role === "Trainer");
-        const trainee = sigs.some(s => s.role === "Trainee");
-        const count = [coordinator, trainer, trainee].filter(Boolean).length;
-        return { coordinator, trainer, trainee, count };
-    };
+
 
     const getSignedRoles = () => {
         if (!signOffModal.submodule)
@@ -645,61 +648,86 @@ export default function SubmodulesPage() {
 
 
 
-                {/* Stats Cards - Improved for mobile */}
+                {/* Stats Cards - Clickable Filters */}
+                {/* Stats Cards - Clickable Filters */}
+                {/* Stats Cards - Clickable Filters */}
                 <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6">
-                    <div className="bg-white rounded-lg p-3 sm:p-4 shadow-sm border border-slate-200">
-                        <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                                <ClipboardList className="w-4 h-4 text-blue-600" />
+                    {[
+                        {
+                            key: "all",
+                            label: "Total",
+                            color: "blue",
+                            icon: ClipboardList,
+                            count: submodules.length,
+                            clickable: true,
+                        },
+                        {
+                            key: "completed",
+                            label: "Completed",
+                            color: "green",
+                            icon: CheckCircle,
+                            count: submodules.filter(s => isSubmoduleComplete(s)).length,
+                            clickable: true,
+                        },
+                        {
+                            key: "incomplete",
+                            label: "Remaining",
+                            color: "amber",
+                            icon: Award,
+                            count: submodules.filter(s => !isSubmoduleComplete(s)).length,
+                            clickable: true,
+                        },
+                        {
+                            key: "showing",
+                            label: "Showing",
+                            color: "purple",
+                            icon: Filter,
+                            count: filteredAndSortedSubmodules.length,
+                            clickable: false,
+                        },
+                    ].map(({ key, label, color, icon: Icon, count, clickable }) =>
+                        clickable ? (
+                            <button
+                                key={key}
+                                onClick={() => {
+                                    setStatusFilter(prev => {
+                                        if (key === "all") return "all";
+                                        return prev === key ? "all" : (key as "completed" | "incomplete");
+                                    });
+                                }}
+                                className={`bg-white rounded-lg p-3 sm:p-4 shadow-sm border transition-all
+                    border-slate-200 flex items-center gap-2 text-left
+                    hover:shadow-md active:scale-[0.98]
+                    ${statusFilter === key ? `ring-2 ring-${color}-400` : ""}
+                `}
+                            >
+                                <div className={`w-8 h-8 bg-${color}-100 rounded-lg flex items-center justify-center flex-shrink-0`}>
+                                    <Icon className={`w-4 h-4 text-${color}-600`} />
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-xs text-slate-600 font-medium truncate">{label}</p>
+                                    <p className={`text-base sm:text-lg font-bold text-${color}-600`}>{count}</p>
+                                </div>
+                            </button>
+                        ) : (
+                            <div
+                                key={key}
+                                className={`bg-slate-50 rounded-lg p-3 sm:p-4 border border-slate-200 flex items-center gap-2 text-left cursor-default opacity-70`}
+                            >
+                                <div className={`w-8 h-8 bg-${color}-100 rounded-lg flex items-center justify-center flex-shrink-0`}>
+                                    <Icon className={`w-4 h-4 text-${color}-600`} />
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-xs text-slate-600 font-medium truncate">{label}</p>
+                                    <p className={`text-base sm:text-lg font-bold text-${color}-600`}>{count}</p>
+                                </div>
                             </div>
-                            <div className="min-w-0">
-                                <p className="text-xs text-slate-600 font-medium truncate">Total</p>
-                                <p className="text-base sm:text-lg font-bold text-slate-900">{submodules.length}</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="bg-white rounded-lg p-3 sm:p-4 shadow-sm border border-slate-200">
-                        <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                                <CheckCircle className="w-4 h-4 text-green-600" />
-                            </div>
-                            <div className="min-w-0">
-                                <p className="text-xs text-slate-600 font-medium truncate">Completed</p>
-                                <p className="text-base sm:text-lg font-bold text-green-600">
-                                    {submodules.filter(s => isSubmoduleComplete(s)).length}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="bg-white rounded-lg p-3 sm:p-4 shadow-sm border border-slate-200">
-                        <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                                <Award className="w-4 h-4 text-amber-600" />
-                            </div>
-                            <div className="min-w-0">
-                                <p className="text-xs text-slate-600 font-medium truncate">Remaining</p>
-                                <p className="text-base sm:text-lg font-bold text-amber-600">
-                                    {submodules.filter(s => !isSubmoduleComplete(s)).length}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="bg-white rounded-lg p-3 sm:p-4 shadow-sm border border-slate-200">
-                        <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                                <Filter className="w-4 h-4 text-purple-600" />
-                            </div>
-                            <div className="min-w-0">
-                                <p className="text-xs text-slate-600 font-medium truncate">Showing</p>
-                                <p className="text-base sm:text-lg font-bold text-purple-600">
-                                    {filteredAndSortedSubmodules.length}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
+                        )
+                    )}
                 </div>
 
-                {/* Search and Filters - Improved for mobile */}
+
+                {/* Search and Filters */}
                 <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-3 sm:p-4 mb-4 sm:mb-6">
                     <div className="flex flex-col gap-3">
                         {/* Search Bar */}
@@ -730,8 +758,7 @@ export default function SubmodulesPage() {
                             <div className={`${showFilters ? 'flex' : 'hidden'} sm:flex flex-col sm:flex-row gap-2 w-full`}>
                                 <select
                                     value={statusFilter}
-                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                    onChange={e => setStatusFilter(e.target.value as any)}
+                                    onChange={e => setStatusFilter(e.target.value as "all" | "completed" | "incomplete")}
                                     className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-white text-sm"
                                 >
                                     <option value="all">All Status</option>
