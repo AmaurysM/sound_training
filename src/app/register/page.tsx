@@ -12,6 +12,7 @@ export default function RegisterPage() {
     const [validating, setValidating] = useState(true);
     const [tokenValid, setTokenValid] = useState(false);
     const [tokenExpired, setTokenExpired] = useState(false);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [userData, setUserData] = useState<any>(null);
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
