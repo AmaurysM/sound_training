@@ -8,7 +8,9 @@ const UserModuleSchema = new Schema<IUserModule>(
     tModule: {type: Schema.Types.ObjectId, ref: "TrainingModule"},
     submodules: [{ type: Schema.Types.ObjectId, ref: "UserSubmodule" }],
     notes: {type: String},
-    deleted: {type: Boolean, default: false}    
+    deleted: {type: Boolean, default: false},    
+    trainingYear: {type: Number},
+    activeCycle: {type: Boolean, default: true}
   },
   { timestamps: true }
 );

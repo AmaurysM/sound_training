@@ -1,4 +1,4 @@
-import { Search, Filter, Plus, FileText, History, X, MessageSquare, Save } from "lucide-react";
+import { Search, Filter, Plus, FileText, History, X, MessageSquare, Save, Archive, AlertCircle } from "lucide-react";
 import { IUser, IUserModule, IUserSubmodule, Stat } from "@/models/types";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -19,7 +19,8 @@ const TrainingModulesView = ({
     error,
     setOriginalData,
     setSaveSuccess,
-    saving
+    saving,
+    isArchived = false
 }: {
     currentUser: IUser
     viewedUser: IUser
@@ -37,6 +38,7 @@ const TrainingModulesView = ({
     setOriginalData: React.Dispatch<React.SetStateAction<IUserModule[]>>
     setSaveSuccess: React.Dispatch<React.SetStateAction<boolean>>
     saving: boolean
+    isArchived?: boolean
 }) => {
     const router = useRouter();
 
@@ -50,26 +52,22 @@ const TrainingModulesView = ({
     const [selectedNoteIndex, setSelectedNoteIndex] = useState<number | null>(null);
     const [noteText, setNoteText] = useState('');
 
-    // FIXED: Updated completion logic to check OJT, signatures, and practical (if required)
     const isSubmoduleComplete = (submodule: IUserSubmodule) => {
-        // Must have OJT completed
         if (!submodule.ojt) return false;
-        
-        // Must have all 3 signatures (Coordinator, Trainer, Trainee)
+
         const sigs = submodule.signatures || [];
         const hasCoordinator = sigs.some(s => s.role === "Coordinator");
         const hasTrainer = sigs.some(s => s.role === "Trainer");
         const hasTrainee = sigs.some(s => s.role === "Trainee");
-        
+
         if (!hasCoordinator || !hasTrainer || !hasTrainee) return false;
-        
-        // If practical is required, it must be completed
+
         if (submodule.tSubmodule && typeof submodule.tSubmodule !== "string") {
             if (submodule.tSubmodule.requiresPractical && !submodule.practical) {
                 return false;
             }
         }
-        
+
         return true;
     };
 
@@ -92,13 +90,11 @@ const TrainingModulesView = ({
             filtered = filtered.filter(m => {
                 const submodules = m.submodules || [];
 
-                // Keep only populated submodules (exclude string IDs)
                 const populatedSubmodules = submodules.filter(
                     (s): s is IUserSubmodule => typeof s !== "string"
                 );
 
                 const totalSubmodules = populatedSubmodules.length;
-                // FIXED: Use new completion logic
                 const completedSubmodules = populatedSubmodules.filter(s => isSubmoduleComplete(s)).length;
 
                 if (filterStatus === "completed") {
@@ -114,7 +110,6 @@ const TrainingModulesView = ({
 
         return filtered;
     };
-
 
     const filteredData = getFilteredTrainingData();
 
@@ -207,17 +202,14 @@ const TrainingModulesView = ({
         fetchModules();
     }, [fetchModules]);
 
-    // FIXED: Use new completion logic
     const getModuleProgress = (module: IUserModule) => {
         const submodules = module.submodules || [];
 
-        // Keep only populated submodules (exclude string IDs)
         const populatedSubmodules = submodules.filter(
             (s): s is IUserSubmodule => typeof s !== "string"
         );
 
         const totalSubmodules = populatedSubmodules.length;
-        // FIXED: Use new completion logic instead of checking signedOff
         const completedSubmodules = populatedSubmodules.filter(s => isSubmoduleComplete(s)).length;
 
         const percentage =
@@ -227,7 +219,6 @@ const TrainingModulesView = ({
 
         return { total: totalSubmodules, completed: completedSubmodules, percentage };
     };
-
 
     return (
         <>
@@ -261,7 +252,7 @@ const TrainingModulesView = ({
                                 </button>
                             )}
 
-                            {isCoordinator && (
+                            {isCoordinator && !isArchived && (
                                 <button
                                     onClick={() => setShowAddModal(true)}
                                     disabled={loadingModules}
@@ -299,6 +290,19 @@ const TrainingModulesView = ({
                 </div>
             </div>
 
+            {/* Archived Notice for Coordinators/Trainers */}
+            {isArchived && !isTrainee && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                        <p className="text-sm font-semibold text-amber-900">Viewing Archived Training Cycle</p>
+                        <p className="text-xs text-amber-700 mt-1">
+                            These modules are from a past training cycle. {isCoordinator ? 'You can view history but cannot assign new modules or make changes.' : 'Changes cannot be made to archived modules.'}
+                        </p>
+                    </div>
+                </div>
+            )}
+
             {/* Training Data Display */}
             <div className="overflow-show">
                 {filteredData.length === 0 ? (
@@ -308,11 +312,13 @@ const TrainingModulesView = ({
                             {trainingData.length === 0 ? 'No training modules assigned' : 'No modules match your filters'}
                         </p>
                         <p className="text-sm text-gray-500 mb-4">
-                            {trainingData.length === 0 && isCoordinator
+                            {trainingData.length === 0 && isCoordinator && !isArchived
                                 ? 'Click "Assign" to get started'
-                                : trainingData.length === 0 && isTrainee
-                                    ? 'Your trainer will assign modules to you soon'
-                                    : 'Try adjusting your search or filters'}
+                                : trainingData.length === 0 && isCoordinator && isArchived
+                                    ? 'No archived modules for this training cycle'
+                                    : trainingData.length === 0 && isTrainee
+                                        ? 'Your trainer will assign modules to you soon'
+                                        : 'Try adjusting your search or filters'}
                         </p>
                         {searchQuery || filterStatus !== 'all' ? (
                             <button
@@ -360,23 +366,40 @@ const TrainingModulesView = ({
                                         const progress = getModuleProgress(m);
 
                                         return (
-                                            <tr key={m._id?.toString() || idx} className="hover:bg-gray-50 transition-colors">
+                                            <tr 
+                                                key={m._id?.toString() || idx} 
+                                                className={`hover:bg-gray-50 transition-colors ${isArchived ? 'opacity-75' : ''}`}
+                                            >
                                                 <td className="px-4 py-3">
-                                                    <button
-                                                        onClick={() => router.push(`/users/${viewedUser._id}/moduleInfo/${m._id}`)}
-                                                        className="text-sm font-medium text-gray-900 hover:underline hover:text-blue-800 transition-colors text-left"
-                                                    >
-                                                        {moduleName}
-                                                    </button>
-                                                    {typeof m.tModule === 'object' && m.tModule.description && (
-                                                        <p className="text-xs text-gray-500 mt-0.5">{m.tModule.description}</p>
-                                                    )}
+                                                    <div className="flex items-center gap-2">
+                                                        {isArchived && (
+                                                            <Archive className="w-4 h-4 text-amber-500 shrink-0" />
+                                                        )}
+                                                        <div className="flex-1 min-w-0">
+                                                            <button
+                                                                onClick={() => router.push(`/users/${viewedUser._id}/moduleInfo/${m._id}`)}
+                                                                className="text-sm font-medium text-gray-900 hover:underline hover:text-blue-800 transition-colors text-left"
+                                                            >
+                                                                {moduleName}
+                                                            </button>
+                                                            {typeof m.tModule === 'object' && m.tModule.description && (
+                                                                <p className="text-xs text-gray-500 mt-0.5">{m.tModule.description}</p>
+                                                            )}
+                                                            {isArchived && m.trainingYear && (
+                                                                <p className="text-xs text-amber-600 mt-1 font-medium">
+                                                                    Training Year: {m.trainingYear}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </div>
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <div className="flex flex-col items-center gap-1">
                                                         <div className="w-full max-w-[120px] bg-gray-200 rounded-full h-2 overflow-hidden">
                                                             <div
-                                                                className="bg-blue-600 h-2 rounded-full transition-all"
+                                                                className={`h-2 rounded-full transition-all ${
+                                                                    isArchived ? 'bg-amber-500' : 'bg-blue-600'
+                                                                }`}
                                                                 style={{ width: `${progress.percentage}%` }}
                                                             />
                                                         </div>
@@ -389,11 +412,15 @@ const TrainingModulesView = ({
                                                     <td className="px-4 py-3 text-center">
                                                         <button
                                                             onClick={() => handleOpenNoteModal(idx)}
-                                                            className={`p-2 rounded-lg transition-colors ${m.notes
-                                                                ? 'bg-blue-50 text-blue-700 hover:bg-blue-100'
-                                                                : 'bg-gray-50 text-gray-400 hover:bg-gray-100'
-                                                                }`}
-                                                            title={m.notes || 'Add note'}
+                                                            disabled={isArchived}
+                                                            className={`p-2 rounded-lg transition-colors ${
+                                                                isArchived 
+                                                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                                                    : m.notes
+                                                                        ? 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                                                                        : 'bg-gray-50 text-gray-400 hover:bg-gray-100'
+                                                            }`}
+                                                            title={isArchived ? 'Cannot edit archived module' : m.notes || 'Add note'}
                                                         >
                                                             <MessageSquare className="w-4 h-4" />
                                                         </button>
@@ -412,14 +439,16 @@ const TrainingModulesView = ({
                                                             >
                                                                 <History className="w-4 h-4" />
                                                             </button>
-                                                            <button
-                                                                onClick={() => handleRemoveModule(actualIndex)}
-                                                                disabled={saving}
-                                                                className="text-red-600 hover:text-red-800 p-1.5 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                                                                title="Remove module"
-                                                            >
-                                                                <X className="w-4 h-4" />
-                                                            </button>
+                                                            {!isArchived && (
+                                                                <button
+                                                                    onClick={() => handleRemoveModule(actualIndex)}
+                                                                    disabled={saving}
+                                                                    className="text-red-600 hover:text-red-800 p-1.5 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                                                                    title="Remove module"
+                                                                >
+                                                                    <X className="w-4 h-4" />
+                                                                </button>
+                                                            )}
                                                         </div>
                                                     </td>
                                                 )}
@@ -443,17 +472,36 @@ const TrainingModulesView = ({
                                 const progress = getModuleProgress(m);
 
                                 return (
-                                    <div key={m._id?.toString() || idx} className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all overflow-hidden">
+                                    <div 
+                                        key={m._id?.toString() || idx} 
+                                        className={`bg-white rounded-xl border shadow-sm hover:shadow-md transition-all overflow-hidden ${
+                                            isArchived 
+                                                ? 'border-amber-200 bg-amber-50/30' 
+                                                : 'border-gray-200'
+                                        }`}
+                                    >
                                         {/* Header Section */}
-                                        <div className="p-4 border-b border-gray-100">
+                                        <div className={`p-4 border-b ${
+                                            isArchived ? 'border-amber-100 bg-amber-50/50' : 'border-gray-100'
+                                        }`}>
                                             <div className="flex items-start justify-between gap-3 mb-2">
                                                 <button
                                                     onClick={() => router.push(`/users/${viewedUser._id}/moduleInfo/${m._id}`)}
                                                     className="flex-1 min-w-0 text-left"
                                                 >
-                                                    <h3 className="text-base font-bold text-gray-900 hover:text-blue-600 transition-colors leading-tight">
-                                                        {moduleName}
-                                                    </h3>
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        {isArchived && (
+                                                            <Archive className="w-4 h-4 text-amber-500 shrink-0" />
+                                                        )}
+                                                        <h3 className="text-base font-bold text-gray-900 hover:text-blue-600 transition-colors leading-tight">
+                                                            {moduleName}
+                                                        </h3>
+                                                    </div>
+                                                    {isArchived && (
+                                                        <span className="inline-block px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-medium rounded-full">
+                                                            Archived {m.trainingYear && `• ${m.trainingYear}`}
+                                                        </span>
+                                                    )}
                                                 </button>
                                             </div>
                                             {moduleDescription && (
@@ -471,20 +519,36 @@ const TrainingModulesView = ({
                                                 </div>
                                                 <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
                                                     <div
-                                                        className="bg-blue-600 h-2 rounded-full transition-all"
+                                                        className={`h-2 rounded-full transition-all ${
+                                                            isArchived ? 'bg-amber-500' : 'bg-blue-600'
+                                                        }`}
                                                         style={{ width: `${progress.percentage}%` }}
                                                     />
                                                 </div>
                                             </div>
 
-                                            {/* Show notes preview for trainees */}
-                                            {isTrainee && m.notes && (
-                                                <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                                            {/* Show notes preview for trainees or view-only for archived */}
+                                            {m.notes && (isTrainee || isArchived) && (
+                                                <div className={`p-3 rounded-lg border ${
+                                                    isArchived 
+                                                        ? 'bg-amber-50 border-amber-100' 
+                                                        : 'bg-blue-50 border-blue-100'
+                                                }`}>
                                                     <div className="flex items-start gap-2">
-                                                        <MessageSquare className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                                                        <MessageSquare className={`w-4 h-4 shrink-0 mt-0.5 ${
+                                                            isArchived ? 'text-amber-600' : 'text-blue-600'
+                                                        }`} />
                                                         <div className="flex-1 min-w-0">
-                                                            <p className="text-xs font-semibold text-blue-900 mb-1">Trainer Notes</p>
-                                                            <p className="text-xs text-blue-700 leading-relaxed line-clamp-3">{m.notes}</p>
+                                                            <p className={`text-xs font-semibold mb-1 ${
+                                                                isArchived ? 'text-amber-900' : 'text-blue-900'
+                                                            }`}>
+                                                                Trainer Notes
+                                                            </p>
+                                                            <p className={`text-xs leading-relaxed line-clamp-3 ${
+                                                                isArchived ? 'text-amber-700' : 'text-blue-700'
+                                                            }`}>
+                                                                {m.notes}
+                                                            </p>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -492,14 +556,22 @@ const TrainingModulesView = ({
                                         </div>
 
                                         {/* Actions Footer */}
-                                        <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+                                        <div className={`px-4 py-3 border-t flex items-center justify-between ${
+                                            isArchived 
+                                                ? 'bg-amber-50/50 border-amber-100' 
+                                                : 'bg-gray-50 border-gray-100'
+                                        }`}>
                                             {!isTrainee && (
                                                 <button
                                                     onClick={() => handleOpenNoteModal(idx)}
-                                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${m.notes
-                                                        ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                                                        : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
-                                                        }`}
+                                                    disabled={isArchived}
+                                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                                                        isArchived
+                                                            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                                            : m.notes
+                                                                ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                                                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+                                                    }`}
                                                 >
                                                     <MessageSquare className="w-3.5 h-3.5" />
                                                     <span>{m.notes ? 'View Note' : 'Add Note'}</span>
@@ -518,14 +590,16 @@ const TrainingModulesView = ({
                                                     >
                                                         <History className="w-4 h-4" />
                                                     </button>
-                                                    <button
-                                                        onClick={() => handleRemoveModule(actualIndex)}
-                                                        disabled={saving}
-                                                        className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                                                        title="Remove module"
-                                                    >
-                                                        <X className="w-4 h-4" />
-                                                    </button>
+                                                    {!isArchived && (
+                                                        <button
+                                                            onClick={() => handleRemoveModule(actualIndex)}
+                                                            disabled={saving}
+                                                            className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                                                            title="Remove module"
+                                                        >
+                                                            <X className="w-4 h-4" />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             )}
 
@@ -544,7 +618,12 @@ const TrainingModulesView = ({
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
                     <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
                         <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                            <h3 className="text-lg font-semibold text-gray-900">Training Notes</h3>
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-900">Training Notes</h3>
+                                {isArchived && (
+                                    <p className="text-xs text-amber-600 mt-1">Read-only • Archived module</p>
+                                )}
+                            </div>
                             <button
                                 onClick={() => {
                                     setShowNoteModal(false);
@@ -562,8 +641,8 @@ const TrainingModulesView = ({
                                 value={noteText}
                                 onChange={(e) => setNoteText(e.target.value)}
                                 placeholder="Add notes about this training module..."
-                                className="w-full h-48 border border-gray-300 rounded-lg p-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                                disabled={!isEditable}
+                                className="w-full h-48 border border-gray-300 rounded-lg p-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none disabled:bg-gray-50 disabled:text-gray-500"
+                                disabled={!isEditable || isArchived}
                             />
                         </div>
 
@@ -576,12 +655,13 @@ const TrainingModulesView = ({
                                 }}
                                 className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
                             >
-                                Cancel
+                                {isArchived ? 'Close' : 'Cancel'}
                             </button>
-                            {isEditable && (
+                            {isEditable && !isArchived && (
                                 <button
                                     onClick={handleSaveNote}
-                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+                                    disabled={saving}
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50"
                                 >
                                     <Save className="w-4 h-4" />
                                     Save Note

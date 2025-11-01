@@ -39,7 +39,8 @@ export async function GET(
             populate: { path: "user", select: "_id name role" },
           },
         ],
-      });
+      })
+      .sort({ trainingYear: -1, createdAt: -1 }); // ✅ Sort by year and date
 
     return NextResponse.json({ success: true, data: modules });
   } catch (error) {
@@ -72,7 +73,7 @@ export async function POST(
     }
 
     const body = await req.json();
-    const { tModule, notes } = body || {};
+    const { tModule, notes, trainingYear, activeCycle } = body || {};
 
     // ✅ Validate body input
     if (!tModule) {
@@ -81,6 +82,32 @@ export async function POST(
       return NextResponse.json(
         { success: false, error: "Missing required field: tModule." },
         { status: 400 }
+      );
+    }
+
+    // ✅ Set defaults for training cycle fields
+    const currentYear = new Date().getFullYear();
+    const moduleTrainingYear = trainingYear ?? currentYear;
+    const moduleActiveCycle = activeCycle ?? true;
+
+    // ✅ Check for duplicate module in same training cycle
+    const existingModule = await UserModule.findOne({
+      user: userId,
+      tModule,
+      trainingYear: moduleTrainingYear,
+      activeCycle: moduleActiveCycle,
+      deleted: { $ne: true },
+    }).session(dbSession);
+
+    if (existingModule) {
+      await dbSession.abortTransaction();
+      dbSession.endSession();
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: "This module is already assigned for this training cycle." 
+        },
+        { status: 409 }
       );
     }
 
@@ -98,7 +125,7 @@ export async function POST(
       );
     }
 
-    // ✅ Create user module (no submodules yet)
+    // ✅ Create user module with training cycle fields
     const userModule = await UserModule.create(
       [
         {
@@ -106,6 +133,8 @@ export async function POST(
           tModule,
           submodules: [],
           notes: notes || "",
+          trainingYear: moduleTrainingYear,
+          activeCycle: moduleActiveCycle,
         },
       ],
       { session: dbSession }
@@ -137,7 +166,7 @@ export async function POST(
     userModuleDoc.submodules = createdUserSubmodules;
     await userModuleDoc.save({ session: dbSession });
 
-    // ✅ Add module to the user’s record
+    // ✅ Add module to the user's record
     await User.findByIdAndUpdate(
       userId,
       { $push: { modules: userModuleDoc._id } },

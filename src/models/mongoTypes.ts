@@ -17,6 +17,10 @@ export interface IUserModule extends Document {
   submodules: mongoose.Types.ObjectId[] | IUserSubmodule[];
   notes: string;
   deleted: boolean;
+
+  trainingYear: number;
+  activeCycle: boolean;
+  
   createdAt?: Date;
   updatedAt?: Date;
 }

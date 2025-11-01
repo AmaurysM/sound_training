@@ -55,6 +55,7 @@ export async function GET(
           {
             path: "signatures",
             match: { deleted: { $ne: true } }, // ✅ exclude deleted signatures
+            populate: { path: "user", select: "_id name role" },
           },
         ],
       });
@@ -91,12 +92,13 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
     }
 
-    // Only allow updating specific fields
+    // ✅ Allow updating specific fields including activeCycle and trainingYear
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const allowedUpdates: any = {};
     if (body.notes !== undefined) allowedUpdates.notes = body.notes;
-    if (body.submodules !== undefined)
-      allowedUpdates.submodules = body.submodules;
+    if (body.submodules !== undefined) allowedUpdates.submodules = body.submodules;
+    if (body.activeCycle !== undefined) allowedUpdates.activeCycle = body.activeCycle;
+    if (body.trainingYear !== undefined) allowedUpdates.trainingYear = body.trainingYear;
 
     const mod = await UserModule.findOneAndUpdate(
       { _id: moduleId, user: userId, deleted: { $ne: true } },
@@ -112,6 +114,7 @@ export async function PATCH(
           {
             path: "signatures",
             match: { deleted: { $ne: true } }, // ✅ exclude deleted signatures
+            populate: { path: "user", select: "_id name role" },
           },
         ],
       });
@@ -125,7 +128,8 @@ export async function PATCH(
 
     return NextResponse.json({ success: true, data: mod });
   } catch (error) {
-    return NextResponse.json({ success: false, error: error }, { status: 400 });
+    console.error("PATCH /modules/[moduleId] error:", error);
+    return NextResponse.json({ success: false, error: (error as Error).message }, { status: 400 });
   }
 }
 
@@ -139,6 +143,13 @@ export async function DELETE(
 
     const resolvedParams = await params;
     const { userId, moduleId } = resolvedParams;
+
+    if (
+      !mongoose.Types.ObjectId.isValid(userId) ||
+      !mongoose.Types.ObjectId.isValid(moduleId)
+    ) {
+      return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
+    }
 
     // 1️⃣ Mark the user module as deleted
     await UserModule.findByIdAndUpdate(moduleId, {
@@ -155,6 +166,7 @@ export async function DELETE(
       message: "Module soft-deleted successfully",
     });
   } catch (error) {
-    return NextResponse.json({ success: false, error: error }, { status: 400 });
+    console.error("DELETE /modules/[moduleId] error:", error);
+    return NextResponse.json({ success: false, error: (error as Error).message }, { status: 400 });
   }
 }

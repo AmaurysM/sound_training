@@ -44,7 +44,7 @@ const TrainingHeader = ({
     };
 
     return (
-        <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6 shadow-sm">
+        <div className="bg-white border border-gray-200 shadow-sm shadow-gray-200/60 rounded-xl p-4 sm:p-6">
             <div className="flex justify-between items-start gap-4">
                 <div className="flex items-start gap-2 sm:gap-4 flex-1 min-w-0">
                     {!isTrainee && currentUser._id && (

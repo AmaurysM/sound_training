@@ -66,6 +66,10 @@ export interface IUserModule {
   submodules: string[] | IUserSubmodule[];
   notes: string;
   deleted: boolean;
+  
+  trainingYear: number;
+  activeCycle: boolean;
+  
   createdAt?: Date;
   updatedAt?: Date;
 }
