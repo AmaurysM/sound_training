@@ -1,12 +1,12 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { CheckCircle, AlertCircle, Eye, EyeOff, Mail, Lock, User, Clock } from 'lucide-react';
 
-export default function RegisterPage() {
-    const searchParams = useSearchParams();
+function RegisterForm() {
+    const [token, setToken] = useState<string | null>(null);
     const router = useRouter();
-    const token = searchParams.get('token');
+    const searchParams = useSearchParams();
 
     const [loading, setLoading] = useState(true);
     const [validating, setValidating] = useState(true);
@@ -30,6 +30,10 @@ export default function RegisterPage() {
         password: '',
         confirmPassword: '',
     });
+
+    useEffect(() => {
+        setToken(searchParams.get('token'));
+    }, [searchParams]);
 
     useEffect(() => {
         if (!token) {
@@ -114,7 +118,7 @@ export default function RegisterPage() {
     const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const password = e.target.value;
         setFormData({ ...formData, password });
-        
+
         const error = validatePassword(password);
         setErrors({ ...errors, password: error });
     };
@@ -122,7 +126,7 @@ export default function RegisterPage() {
     const handleConfirmPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const confirmPassword = e.target.value;
         setFormData({ ...formData, confirmPassword });
-        
+
         const error = confirmPassword !== formData.password ? 'Passwords do not match' : '';
         setErrors({ ...errors, confirmPassword: error });
     };
@@ -343,9 +347,8 @@ export default function RegisterPage() {
                                 type={showPassword ? 'text' : 'password'}
                                 value={formData.password}
                                 onChange={handlePasswordChange}
-                                className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 ${
-                                    errors.password ? 'border-red-500' : 'border-gray-300'
-                                }`}
+                                className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 ${errors.password ? 'border-red-500' : 'border-gray-300'
+                                    }`}
                                 placeholder="Enter your password"
                                 required
                             />
@@ -389,9 +392,8 @@ export default function RegisterPage() {
                                 type={showConfirmPassword ? 'text' : 'password'}
                                 value={formData.confirmPassword}
                                 onChange={handleConfirmPasswordChange}
-                                className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 ${
-                                    errors.confirmPassword ? 'border-red-500' : 'border-gray-300'
-                                }`}
+                                className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 ${errors.confirmPassword ? 'border-red-500' : 'border-gray-300'
+                                    }`}
                                 placeholder="Confirm your password"
                                 required
                             />
@@ -435,5 +437,20 @@ export default function RegisterPage() {
                 </p>
             </div>
         </div>
+    );
+}
+
+export default function RegisterPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+                <div className="text-center">
+                    <div className="w-12 h-12 border-4 border-gray-900 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-gray-600">Loading...</p>
+                </div>
+            </div>
+        }>
+            <RegisterForm />
+        </Suspense>
     );
 }
