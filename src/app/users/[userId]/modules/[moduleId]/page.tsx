@@ -1,4 +1,4 @@
-// src/app/users/[userId]/modules/[moduleId]
+// src/app/users/[userId]/modules/[moduleId]/page.tsx
 
 "use client";
 
@@ -16,6 +16,7 @@ import {
     Filter,
     ArrowLeft,
     Download,
+    Menu,
 } from "lucide-react";
 import { ISignature, IUserSubmodule } from "@/models/types";
 
@@ -49,10 +50,25 @@ export default function SubmodulesPage() {
     const [isMobile, setIsMobile] = useState(false);
     const [isSignatureLoading, setIsSignatureLoading] = useState(false);
     const [moduleOwner, setModuleOwner] = useState<{ name: string; username: string; studentId?: string } | null>(null);
+    const [showFilters, setShowFilters] = useState(false);
 
     const router = useRouter();
 
-    // ✅ FIXED: Fetch current user with abort controller
+    // Check for mobile screen size
+    useEffect(() => {
+        const checkScreenSize = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+
+        checkScreenSize();
+        window.addEventListener('resize', checkScreenSize);
+
+        return () => {
+            window.removeEventListener('resize', checkScreenSize);
+        };
+    }, []);
+
+    // Rest of your existing useEffect hooks remain the same...
     useEffect(() => {
         const abortController = new AbortController();
 
@@ -86,7 +102,6 @@ export default function SubmodulesPage() {
         };
     }, []);
 
-    // ✅ Fetch module owner information
     useEffect(() => {
         const abortController = new AbortController();
 
@@ -120,7 +135,6 @@ export default function SubmodulesPage() {
         };
     }, [userId]);
 
-    // ✅ FIXED: Fetch submodules with abort controller
     useEffect(() => {
         const abortController = new AbortController();
 
@@ -172,14 +186,12 @@ export default function SubmodulesPage() {
         };
     }, [userId, moduleId]);
 
-    // ✅ CSV Download Function
     const downloadCSV = () => {
         if (submodules.length === 0) {
             alert("No data to download");
             return;
         }
 
-        // CSV Headers
         const headers = [
             "Submodule Code",
             "Submodule Title",
@@ -198,12 +210,10 @@ export default function SubmodulesPage() {
             "Total Signatures",
         ];
 
-        // Build CSV rows
         const rows = submodules.map(submodule => {
             const signatureStatus = getSignatureStatus(submodule);
             const isComplete = isSubmoduleComplete(submodule);
-            
-            // Find signatures by role
+
             const coordSig = submodule.signatures?.find(s => s.role === "Coordinator");
             const trainerSig = submodule.signatures?.find(s => s.role === "Trainer");
             const traineeSig = submodule.signatures?.find(s => s.role === "Trainee");
@@ -222,10 +232,10 @@ export default function SubmodulesPage() {
             return [
                 submodule.tSubmodule?.code || "",
                 submodule.tSubmodule?.title || "",
-                (submodule.tSubmodule?.description || "").replace(/"/g, '""'), // Escape quotes
+                (submodule.tSubmodule?.description || "").replace(/"/g, '""'),
                 submodule.tSubmodule?.requiresPractical ? "Practical" : "Theory",
                 submodule.ojt ? "Completed" : "Pending",
-                submodule.tSubmodule?.requiresPractical 
+                submodule.tSubmodule?.requiresPractical
                     ? (submodule.practical ? "Completed" : "Pending")
                     : "N/A",
                 submodule.tSubmodule?.requiresPractical ? "Yes" : "No",
@@ -240,20 +250,18 @@ export default function SubmodulesPage() {
             ];
         });
 
-        // Combine headers and rows
         const csvContent = [
             headers.map(h => `"${h}"`).join(","),
             ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
         ].join("\n");
 
-        // Create blob and download
         const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
         const link = document.createElement("a");
         const url = URL.createObjectURL(blob);
-        
+
         const timestamp = new Date().toISOString().split('T')[0];
         const filename = `submodules_${moduleOwner?.username || userId}_${timestamp}.csv`;
-        
+
         link.setAttribute("href", url);
         link.setAttribute("download", filename);
         link.style.visibility = "hidden";
@@ -262,7 +270,6 @@ export default function SubmodulesPage() {
         document.body.removeChild(link);
     };
 
-    // ✅ FIXED: openSignOffModal with abort controller
     const openSignOffModal = async (submodule: IUserSubmodule) => {
         try {
             const res = await fetch(
@@ -287,7 +294,6 @@ export default function SubmodulesPage() {
         }
     };
 
-    // FIXED: Updated completion logic to check OJT, signatures, and practical (if required)
     const isSubmoduleComplete = (submodule: IUserSubmodule) => {
         if (!submodule.ojt) return false;
 
@@ -448,12 +454,12 @@ export default function SubmodulesPage() {
         }
     };
 
-    const hasCurrentUserSigned = () => {
+    const hasCurrentUserSignedForRole = (role: string) => {
         if (!signOffModal.submodule || !currentUser) return false;
 
         return signOffModal.submodule.signatures?.some(sig => {
             if (typeof sig.user === "string") return false;
-            return sig.user._id === currentUser._id;
+            return sig.user._id === currentUser._id && sig.role === role;
         }) ?? false;
     };
 
@@ -470,7 +476,8 @@ export default function SubmodulesPage() {
     };
 
     const getSignedRoles = () => {
-        if (!signOffModal.submodule) return { coordinator: false, trainer: false, trainee: false };
+        if (!signOffModal.submodule)
+            return { coordinator: false, trainer: false, trainee: false };
 
         const sigs = signOffModal.submodule.signatures || [];
         return {
@@ -481,39 +488,44 @@ export default function SubmodulesPage() {
     };
 
     const canUserSignRole = (role: "Coordinator" | "Trainer" | "Trainee") => {
-        if (!currentUser) return false;
+        if (!currentUser || !signOffModal.submodule) return false;
+
+        // ✅ Check if OJT is completed
+        if (!signOffModal.submodule.ojt) return false;
+
+        // ✅ Check if practical is completed (if required)
+        if (signOffModal.submodule.tSubmodule?.requiresPractical && !signOffModal.submodule.practical) {
+            return false;
+        }
 
         const isViewingOwnModules = currentUser._id === userId;
         const signedRoles = getSignedRoles();
-        const userHasAlreadySigned = hasCurrentUserSigned();
 
         if (isViewingOwnModules) {
             return role === "Trainee" && !signedRoles.trainee;
         }
 
         switch (currentUser.role) {
-            case "Coordinator":
-                if (role === "Coordinator") {
-                    return !signedRoles.coordinator && !userHasAlreadySigned;
-                }
-                if (role === "Trainer") {
-                    return !signedRoles.trainer && !userHasAlreadySigned;
-                }
-                return false;
+            case "Coordinator": {
+                const hasSignedThisRole = hasCurrentUserSignedForRole(role);
 
-            case "Trainer":
-                if (role === "Trainer") {
-                    return !signedRoles.trainer && !userHasAlreadySigned;
-                }
+                if (role === "Coordinator") return !hasSignedThisRole;
+                if (role === "Trainer") return !hasSignedThisRole;
+
                 return false;
+            }
+
+            case "Trainer": {
+                const hasSignedThisRole = hasCurrentUserSignedForRole(role);
+                return role === "Trainer" && !hasSignedThisRole;
+            }
 
             case "Trainee":
-                return false;
-
             default:
                 return false;
         }
     };
+
 
     const addSignature = async (role: "Coordinator" | "Trainer" | "Trainee") => {
         if (!signOffModal.submodule?._id) return;
@@ -612,72 +624,74 @@ export default function SubmodulesPage() {
     return (
         <div className="min-h-screen bg-slate-50 p-3 sm:p-4 md:p-6">
             <div className="max-w-7xl mx-auto">
-                <div className="flex items-center justify-between mb-4">
+                {/* Header Section */}
+                <div className="flex flex-row items-center justify-between gap-2 mb-4">
                     <button
                         onClick={() => router.back()}
-                        className="inline-flex items-center gap-2 px-4 py-2 text-slate-600 hover:text-slate-900 hover:bg-white rounded-lg transition-all border border-slate-200 bg-white shadow-sm"
+                        className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-white rounded-lg transition-all border border-slate-200 bg-white shadow-sm"
                     >
                         <ArrowLeft className="w-4 h-4" />
-                        <span className="font-medium">Back to Modules</span>
+                        <span className="font-medium text-sm sm:text-base">Back to Modules</span>
                     </button>
 
                     <button
                         onClick={downloadCSV}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all shadow-sm font-medium"
+                        className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all shadow-sm font-medium text-sm sm:text-base"
                     >
                         <Download className="w-4 h-4" />
-                        <span className="hidden sm:inline">Download CSV</span>
-                        <span className="sm:hidden">CSV</span>
+                        <span>Download CSV</span>
                     </button>
                 </div>
 
-                {/* Stats Cards */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6">
-                    <div className="bg-white rounded-lg p-3 md:p-4 shadow-sm border border-slate-200">
-                        <div className="flex items-center gap-2 md:gap-3">
-                            <div className="w-8 h-8 md:w-10 md:h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                                <ClipboardList className="w-4 h-4 md:w-5 md:h-5 text-blue-600" />
+
+
+                {/* Stats Cards - Improved for mobile */}
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6">
+                    <div className="bg-white rounded-lg p-3 sm:p-4 shadow-sm border border-slate-200">
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <ClipboardList className="w-4 h-4 text-blue-600" />
                             </div>
                             <div className="min-w-0">
-                                <p className="text-xs md:text-sm text-slate-600 font-medium truncate">Total</p>
-                                <p className="text-lg md:text-xl font-bold text-slate-900 truncate">{submodules.length}</p>
+                                <p className="text-xs text-slate-600 font-medium truncate">Total</p>
+                                <p className="text-base sm:text-lg font-bold text-slate-900">{submodules.length}</p>
                             </div>
                         </div>
                     </div>
-                    <div className="bg-white rounded-lg p-3 md:p-4 shadow-sm border border-slate-200">
-                        <div className="flex items-center gap-2 md:gap-3">
-                            <div className="w-8 h-8 md:w-10 md:h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                                <CheckCircle className="w-4 h-4 md:w-5 md:h-5 text-green-600" />
+                    <div className="bg-white rounded-lg p-3 sm:p-4 shadow-sm border border-slate-200">
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <CheckCircle className="w-4 h-4 text-green-600" />
                             </div>
                             <div className="min-w-0">
-                                <p className="text-xs md:text-sm text-slate-600 font-medium truncate">Completed</p>
-                                <p className="text-lg md:text-xl font-bold text-green-600 truncate">
+                                <p className="text-xs text-slate-600 font-medium truncate">Completed</p>
+                                <p className="text-base sm:text-lg font-bold text-green-600">
                                     {submodules.filter(s => isSubmoduleComplete(s)).length}
                                 </p>
                             </div>
                         </div>
                     </div>
-                    <div className="bg-white rounded-lg p-3 md:p-4 shadow-sm border border-slate-200">
-                        <div className="flex items-center gap-2 md:gap-3">
-                            <div className="w-8 h-8 md:w-10 md:h-10 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                                <Award className="w-4 h-4 md:w-5 md:h-5 text-amber-600" />
+                    <div className="bg-white rounded-lg p-3 sm:p-4 shadow-sm border border-slate-200">
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <Award className="w-4 h-4 text-amber-600" />
                             </div>
                             <div className="min-w-0">
-                                <p className="text-xs md:text-sm text-slate-600 font-medium truncate">Remaining</p>
-                                <p className="text-lg md:text-xl font-bold text-amber-600 truncate">
+                                <p className="text-xs text-slate-600 font-medium truncate">Remaining</p>
+                                <p className="text-base sm:text-lg font-bold text-amber-600">
                                     {submodules.filter(s => !isSubmoduleComplete(s)).length}
                                 </p>
                             </div>
                         </div>
                     </div>
-                    <div className="bg-white rounded-lg p-3 md:p-4 shadow-sm border border-slate-200">
-                        <div className="flex items-center gap-2 md:gap-3">
-                            <div className="w-8 h-8 md:w-10 md:h-10 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                                <Filter className="w-4 h-4 md:w-5 md:h-5 text-purple-600" />
+                    <div className="bg-white rounded-lg p-3 sm:p-4 shadow-sm border border-slate-200">
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <Filter className="w-4 h-4 text-purple-600" />
                             </div>
                             <div className="min-w-0">
-                                <p className="text-xs md:text-sm text-slate-600 font-medium truncate">Showing</p>
-                                <p className="text-lg md:text-xl font-bold text-purple-600 truncate">
+                                <p className="text-xs text-slate-600 font-medium truncate">Showing</p>
+                                <p className="text-base sm:text-lg font-bold text-purple-600">
                                     {filteredAndSortedSubmodules.length}
                                 </p>
                             </div>
@@ -685,48 +699,61 @@ export default function SubmodulesPage() {
                     </div>
                 </div>
 
-                {/* Filters */}
-                <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-3 md:p-4 mb-4 md:mb-6">
+                {/* Search and Filters - Improved for mobile */}
+                <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-3 sm:p-4 mb-4 sm:mb-6">
                     <div className="flex flex-col gap-3">
-                        <div className="flex-1">
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                <input
-                                    type="text"
-                                    placeholder="Search submodules..."
-                                    value={searchQuery}
-                                    onChange={e => setSearchQuery(e.target.value)}
-                                    className="w-full pl-10 pr-4 py-2.5 md:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-sm md:text-base"
-                                />
-                            </div>
+                        {/* Search Bar */}
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+                            <input
+                                type="text"
+                                placeholder="Search submodules..."
+                                value={searchQuery}
+                                onChange={e => setSearchQuery(e.target.value)}
+                                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-sm"
+                            />
                         </div>
 
+                        {/* Filters - Collapsible on mobile */}
                         <div className="flex flex-col sm:flex-row gap-2">
-                            <select
-                                value={statusFilter}
-                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                onChange={e => setStatusFilter(e.target.value as any)}
-                                className="flex-1 px-3 py-2.5 md:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-white text-sm"
+                            {/* Filter Toggle Button for Mobile */}
+                            <button
+                                onClick={() => setShowFilters(!showFilters)}
+                                className="sm:hidden inline-flex items-center justify-center gap-2 px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-700 font-medium text-sm"
                             >
-                                <option value="all">All Status</option>
-                                <option value="completed">Completed</option>
-                                <option value="incomplete">Incomplete</option>
-                            </select>
+                                <Filter className="w-4 h-4" />
+                                Filters
+                                {showFilters ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                            </button>
 
-                            <select
-                                value={practicalFilter === null ? "all" : practicalFilter.toString()}
-                                onChange={e => setPracticalFilter(e.target.value === "all" ? null : e.target.value === "true")}
-                                className="flex-1 px-3 py-2.5 md:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-white text-sm"
-                            >
-                                <option value="all">All Types</option>
-                                <option value="true">Practical Required</option>
-                                <option value="false">No Practical</option>
-                            </select>
+                            {/* Filter Controls */}
+                            <div className={`${showFilters ? 'flex' : 'hidden'} sm:flex flex-col sm:flex-row gap-2 w-full`}>
+                                <select
+                                    value={statusFilter}
+                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                    onChange={e => setStatusFilter(e.target.value as any)}
+                                    className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-white text-sm"
+                                >
+                                    <option value="all">All Status</option>
+                                    <option value="completed">Completed</option>
+                                    <option value="incomplete">Incomplete</option>
+                                </select>
+
+                                <select
+                                    value={practicalFilter === null ? "all" : practicalFilter.toString()}
+                                    onChange={e => setPracticalFilter(e.target.value === "all" ? null : e.target.value === "true")}
+                                    className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-white text-sm"
+                                >
+                                    <option value="all">All Types</option>
+                                    <option value="true">Practical Required</option>
+                                    <option value="false">No Practical</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Mobile Card View */}
+                {/* Mobile Card Layout */}
                 {isMobile ? (
                     <div className="space-y-3">
                         {filteredAndSortedSubmodules.map((submodule) => {
@@ -734,18 +761,18 @@ export default function SubmodulesPage() {
                             const isComplete = isSubmoduleComplete(submodule);
 
                             return (
-                                <div key={submodule._id} className="bg-white rounded-lg border border-slate-200 p-4 shadow-sm">
+                                <div key={submodule._id} className="bg-white rounded-lg border border-slate-200 p-3 shadow-sm">
                                     {/* Header */}
                                     <div className="flex items-start justify-between mb-3">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-lg flex items-center justify-center font-bold text-sm shadow-md">
-                                                {submodule.tSubmodule?.code}
+                                        <div className="flex items-start gap-2 flex-1 min-w-0">
+                                            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded flex items-center justify-center font-bold text-xs shadow-md flex-shrink-0 mt-0.5">
+                                                {submodule.tSubmodule?.code?.substring(0, 4)}
                                             </div>
-                                            <div>
-                                                <h3 className="font-semibold text-slate-900 text-sm leading-tight">
+                                            <div className="min-w-0 flex-1">
+                                                <h3 className="font-semibold text-slate-900 text-sm leading-tight line-clamp-2">
                                                     {submodule.tSubmodule?.title}
                                                 </h3>
-                                                <div className="flex items-center gap-1 mt-1">
+                                                <div className="flex flex-wrap gap-1 mt-1">
                                                     {submodule.tSubmodule?.requiresPractical ? (
                                                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded text-xs">
                                                             <Award className="w-3 h-3" />
@@ -783,7 +810,7 @@ export default function SubmodulesPage() {
                                                     : "bg-slate-100 text-slate-800 hover:bg-slate-200"
                                                 }`}
                                         >
-                                            OJT: {submodule.ojt ? "✓" : "Pending"}
+                                            OJT: {submodule.ojt ? "✓ Done" : "Mark Done"}
                                         </button>
 
                                         {submodule.tSubmodule?.requiresPractical ? (
@@ -797,7 +824,7 @@ export default function SubmodulesPage() {
                                                         : "bg-slate-100 text-slate-800 hover:bg-slate-200"
                                                     }`}
                                             >
-                                                Practical: {submodule.practical ? "✓" : "Pending"}
+                                                Practical: {submodule.practical ? "✓" : "Mark Done"}
                                             </button>
                                         ) : (
                                             <div className="px-2 py-1.5 rounded text-xs text-slate-500 bg-slate-50">
@@ -813,7 +840,7 @@ export default function SubmodulesPage() {
                                                 {['Coordinator', 'Trainer', 'Trainee'].map((role) => (
                                                     <div
                                                         key={role}
-                                                        className={`w-6 h-6 rounded-full border-2 border-white flex items-center justify-center text-xs ${signatureStatus[role.toLowerCase() as keyof typeof signatureStatus]
+                                                        className={`w-5 h-5 rounded-full border-2 border-white flex items-center justify-center text-xs ${signatureStatus[role.toLowerCase() as keyof typeof signatureStatus]
                                                             ? 'bg-green-500 text-white'
                                                             : 'bg-slate-300 text-slate-600'
                                                             }`}
@@ -829,10 +856,10 @@ export default function SubmodulesPage() {
                                         </div>
                                     </div>
 
-                                    {/* Action */}
+                                    {/* Action Button */}
                                     <button
                                         onClick={() => openSignOffModal(submodule)}
-                                        className="w-full px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+                                        className="w-full px-3 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
                                     >
                                         <Users className="w-4 h-4" />
                                         Manage Signatures
@@ -842,7 +869,7 @@ export default function SubmodulesPage() {
                         })}
                     </div>
                 ) : (
-                    /* Desktop Table View */
+                    /* Desktop Table Layout */
                     <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
                         {filteredAndSortedSubmodules.length === 0 ? (
                             <div className="p-8 md:p-12 text-center">
@@ -860,8 +887,8 @@ export default function SubmodulesPage() {
                                             <SortableHeader sortKey="tSubmodule" className="w-20">Code</SortableHeader>
                                             <SortableHeader sortKey="tSubmodule">Title</SortableHeader>
                                             <th className="p-2 md:p-3 text-left font-semibold text-slate-700 w-32 text-xs md:text-sm">Type</th>
-                                            <SortableHeader sortKey="ojt" className="w-24">OJT</SortableHeader>
-                                            <SortableHeader sortKey="practical" className="w-24">Practical</SortableHeader>
+                                            <SortableHeader sortKey="ojt" className="w-32">OJT</SortableHeader>
+                                            <SortableHeader sortKey="practical" className="w-32">Practical</SortableHeader>
                                             <SortableHeader sortKey="signatureStatus" className="w-32">Signatures</SortableHeader>
                                             <SortableHeader sortKey="signedOff" className="w-32">Status</SortableHeader>
                                             <th className="p-2 md:p-3 text-left font-semibold text-slate-700 w-24 text-xs md:text-sm">Actions</th>
@@ -903,14 +930,15 @@ export default function SubmodulesPage() {
                                                         <button
                                                             onClick={() => toggleField(submodule._id || "", "ojt", submodule.ojt)}
                                                             disabled={!canEditFields()}
-                                                            className={`w-20 px-2 py-1 rounded-full text-xs font-medium transition-all ${!canEditFields()
+                                                            className={`w-32 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${!canEditFields()
                                                                 ? "bg-slate-50 text-slate-400 cursor-not-allowed"
                                                                 : submodule.ojt
                                                                     ? "bg-green-100 text-green-800 hover:bg-green-200"
-                                                                    : "bg-slate-100 text-slate-800 hover:bg-slate-200"
+                                                                    : "bg-amber-100 text-amber-800 hover:bg-amber-200 border-2 border-amber-300"
                                                                 }`}
+                                                            title={canEditFields() ? "Click to toggle OJT completion" : "You don't have permission to edit"}
                                                         >
-                                                            {submodule.ojt ? "Completed" : "Pending"}
+                                                            {submodule.ojt ? "✓ Completed" : "Click to Complete"}
                                                         </button>
                                                     </td>
                                                     <td className="p-2 md:p-3">
@@ -918,14 +946,15 @@ export default function SubmodulesPage() {
                                                             <button
                                                                 onClick={() => toggleField(submodule._id || "", "practical", submodule.practical)}
                                                                 disabled={!canEditFields()}
-                                                                className={`w-20 px-2 py-1 rounded-full text-xs font-medium transition-all ${!canEditFields()
+                                                                className={`w-32 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${!canEditFields()
                                                                     ? "bg-slate-50 text-slate-400 cursor-not-allowed"
                                                                     : submodule.practical
                                                                         ? "bg-blue-100 text-blue-800 hover:bg-blue-200"
-                                                                        : "bg-slate-100 text-slate-800 hover:bg-slate-200"
+                                                                        : "bg-amber-100 text-amber-800 hover:bg-amber-200 border-2 border-amber-300"
                                                                     }`}
+                                                                title={canEditFields() ? "Click to toggle practical completion" : "You don't have permission to edit"}
                                                             >
-                                                                {submodule.practical ? "Completed" : "Pending"}
+                                                                {submodule.practical ? "✓ Completed" : "Click to Complete"}
                                                             </button>
                                                         ) : (
                                                             <span className="text-slate-400 text-xs">N/A</span>
@@ -984,13 +1013,13 @@ export default function SubmodulesPage() {
                 )}
             </div>
 
-            {/* Sign Off Modal */}
+            {/* Sign Off Modal - Improved for mobile */}
             {signOffModal.open && signOffModal.submodule && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-50">
                     <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto m-2">
                         <div className="p-4 sm:p-6 border-b border-slate-200 flex items-center justify-between">
                             <div className="flex-1 min-w-0">
-                                <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 truncate">
+                                <h2 className="text-lg sm:text-xl font-bold text-slate-900 truncate">
                                     Sign Off: {signOffModal.submodule.tSubmodule?.title}
                                 </h2>
                                 <p className="text-sm text-slate-600 mt-1">All three signatures required for completion</p>
@@ -1008,7 +1037,7 @@ export default function SubmodulesPage() {
                             </button>
                         </div>
 
-                        <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
+                        <div className="p-4 sm:p-6 space-y-3">
                             {isSignatureLoading && (
                                 <div className="flex items-center justify-center py-4">
                                     <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
@@ -1024,18 +1053,18 @@ export default function SubmodulesPage() {
                                 return (
                                     <div key={role} className="border border-slate-200 rounded-lg p-3 sm:p-4">
                                         <div className="flex items-center justify-between mb-2">
-                                            <h3 className="font-semibold text-slate-900 text-sm sm:text-base">{role}</h3>
+                                            <h3 className="font-semibold text-slate-900 text-sm">{role}</h3>
                                             {sig ? (
                                                 <div className="flex items-center gap-2">
-                                                    <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
+                                                    <CheckCircle className="w-4 h-4 text-green-600" />
                                                     {userHasSigned && (
                                                         <button
                                                             onClick={() => removeSignature(sig._id ? sig._id : "")}
                                                             disabled={isSignatureLoading}
-                                                            className={`text-red-600 hover:text-red-700 text-xs sm:text-sm font-medium ${isSignatureLoading ? 'opacity-50 cursor-not-allowed' : ''
+                                                            className={`text-red-600 hover:text-red-700 text-xs font-medium ${isSignatureLoading ? 'opacity-50 cursor-not-allowed' : ''
                                                                 }`}
                                                         >
-                                                            Remove My Signature
+                                                            Remove
                                                         </button>
                                                     )}
                                                 </div>
@@ -1044,7 +1073,7 @@ export default function SubmodulesPage() {
                                                     <button
                                                         onClick={() => addSignature(role)}
                                                         disabled={isSignatureLoading}
-                                                        className={`px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs sm:text-sm font-medium hover:bg-blue-700 transition-colors ${isSignatureLoading ? 'opacity-50 cursor-not-allowed' : ''
+                                                        className={`px-3 py-1.5 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700 transition-colors ${isSignatureLoading ? 'opacity-50 cursor-not-allowed' : ''
                                                             }`}
                                                     >
                                                         Sign as {currentUser?.name}
@@ -1066,10 +1095,14 @@ export default function SubmodulesPage() {
                                             </div>
                                         ) : (
                                             <div className="text-sm text-slate-600">
-                                                {canSign ? (
-                                                    <p className="text-amber-600">Waiting for your signature</p>
+                                                {!signOffModal.submodule?.ojt ? (
+                                                    <p className="text-red-600 text-xs">⚠️ OJT must be completed first</p>
+                                                ) : signOffModal.submodule?.tSubmodule?.requiresPractical && !signOffModal.submodule?.practical ? (
+                                                    <p className="text-red-600 text-xs">⚠️ Practical must be completed first</p>
+                                                ) : canSign ? (
+                                                    <p className="text-amber-600 text-xs">Ready for your signature</p>
                                                 ) : (
-                                                    <p className="text-slate-500 italic">Not signed</p>
+                                                    <p className="text-slate-500 italic text-xs">Not signed</p>
                                                 )}
                                             </div>
                                         )}
@@ -1079,14 +1112,14 @@ export default function SubmodulesPage() {
 
                             {isSubmoduleComplete(signOffModal.submodule) ? (
                                 <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-                                    <CheckCircle className="w-8 h-8 sm:w-12 sm:h-12 text-green-600 mx-auto mb-2" />
-                                    <p className="font-semibold text-green-900 text-sm sm:text-base">All requirements complete!</p>
-                                    <p className="text-xs sm:text-sm text-green-700">This submodule is fully signed off.</p>
+                                    <CheckCircle className="w-8 h-8 text-green-600 mx-auto mb-2" />
+                                    <p className="font-semibold text-green-900 text-sm">All requirements complete!</p>
+                                    <p className="text-xs text-green-700">This submodule is fully signed off.</p>
                                 </div>
                             ) : (
                                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                                     <p className="font-semibold text-amber-900 text-sm mb-2">Completion Requirements:</p>
-                                    <ul className="text-xs sm:text-sm text-amber-800 space-y-1">
+                                    <ul className="text-xs text-amber-800 space-y-1">
                                         <li className="flex items-center gap-2">
                                             {signOffModal.submodule.ojt ? (
                                                 <CheckCircle className="w-4 h-4 text-green-600" />
@@ -1121,7 +1154,7 @@ export default function SubmodulesPage() {
                         <div className="p-4 sm:p-6 border-t border-slate-200 bg-slate-50 flex justify-end">
                             <button
                                 onClick={closeSignOffModal}
-                                className="w-full sm:w-auto px-4 py-2.5 sm:px-6 sm:py-2 bg-slate-600 text-white rounded-lg font-medium hover:bg-slate-700 transition-colors text-sm sm:text-base"
+                                className="w-full sm:w-auto px-4 py-2.5 bg-slate-600 text-white rounded font-medium hover:bg-slate-700 transition-colors text-sm"
                             >
                                 Close
                             </button>
