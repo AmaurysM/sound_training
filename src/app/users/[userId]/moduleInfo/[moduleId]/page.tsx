@@ -222,6 +222,10 @@ export default function UserModulePage() {
     const totalSubmodules = userModule.submodules?.length || 0;
     const progressPercentage = totalSubmodules > 0 ? Math.round((completedSubmodules / totalSubmodules) * 100) : 0;
 
+
+    const canUploadFiles = currentUser?.role === "Coordinator";
+    const canDeleteFiles = currentUser?.role === "Coordinator";
+
     return (
         <div className="min-h-screen bg-linear-to-br from-slate-50 to-slate-100">
             <div className="max-w-7xl mx-auto p-6 lg:p-8">
@@ -405,9 +409,13 @@ export default function UserModulePage() {
                                     <div className="p-1.5 sm:p-2 bg-purple-50 rounded-lg shrink-0">
                                         <FileCheck className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
                                     </div>
-                                    <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Documents & Files</h2>
+                                    <h2 className="text-xl sm:text-2xl font-bold text-slate-900">
+                                        Documents & Files
+                                    </h2>
                                 </div>
-                                {currentUser?.role !== "Trainee" && (
+
+                                {/* Only Coordinators can upload files */}
+                                {canUploadFiles && (
                                     <label className="flex items-center gap-2 px-4 py-2.5 sm:px-6 sm:py-3 bg-linear-to-r from-slate-900 to-slate-800 text-white rounded-xl hover:from-slate-800 hover:to-slate-700 cursor-pointer transition-all font-semibold shadow-lg hover:shadow-xl text-sm sm:text-base">
                                         {uploading ? (
                                             <>
@@ -435,8 +443,9 @@ export default function UserModulePage() {
                                     <div className="w-12 h-12 sm:w-16 sm:h-16 bg-slate-200 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
                                         <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-slate-400" />
                                     </div>
-                                    <p className="text-sm sm:text-base lg:text-lg text-slate-600 font-semibold">No files uploaded yet</p>
-                                    <p className="text-xs sm:text-sm text-slate-500 mt-1 sm:mt-2 px-4">Upload training materials, certificates, and documentation</p>
+                                    <p className="text-sm sm:text-base lg:text-lg text-slate-600 font-semibold">
+                                        No files uploaded yet
+                                    </p>
                                 </div>
                             ) : (
                                 <div className="space-y-2 sm:space-y-3">
@@ -450,12 +459,15 @@ export default function UserModulePage() {
                                                     <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="font-bold text-sm sm:text-base text-slate-900 truncate">{file.fileName}</p>
+                                                    <p className="font-bold text-sm sm:text-base text-slate-900 truncate">
+                                                        {file.fileName}
+                                                    </p>
                                                     <p className="text-xs sm:text-sm text-slate-500">
-                                                        {file.fileType} • {new Date(file.createdAt).toLocaleDateString('en-US', {
-                                                            month: 'short',
-                                                            day: 'numeric',
-                                                            year: 'numeric'
+                                                        {file.fileType} •{" "}
+                                                        {new Date(file.createdAt).toLocaleDateString("en-US", {
+                                                            month: "short",
+                                                            day: "numeric",
+                                                            year: "numeric",
                                                         })}
                                                     </p>
                                                 </div>
@@ -468,7 +480,9 @@ export default function UserModulePage() {
                                                 >
                                                     <Download className="w-4 h-4 sm:w-5 sm:h-5" />
                                                 </button>
-                                                {currentUser?.role !== "Trainee" && (
+
+                                                {/* Only Coordinators can delete */}
+                                                {canDeleteFiles && (
                                                     <button
                                                         onClick={() => handleDeleteFile(file._id)}
                                                         className="p-2 sm:p-2.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-200"

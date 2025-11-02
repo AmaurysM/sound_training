@@ -56,9 +56,9 @@ const TrainingHeader = ({
                             <Home className="w-5 h-5 text-gray-600" />
                         </button>
                     )}
-                    <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 sm:gap-3 mb-2 flex-nowrap">
-                            <h1 className="text-xl sm:text-3xl font-bold text-gray-900 truncate">
+                    <div className="flex-1 min-w-0 ">
+                        <div className="flex items-center gap-2 sm:gap-3 mb-2 flex-nowrap ">
+                            <h1 className="text-xl sm:text-3xl font-bold text-gray-900 truncate overflow-show">
                                 {isTrainee ? 'My Training Progress' : (isEditable ? 'Training Management' : 'My Training')}
                             </h1>
                             <button
