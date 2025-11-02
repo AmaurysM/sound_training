@@ -1,15 +1,16 @@
 // src/models/Signature.ts
 import mongoose, { Schema, models, Document } from "mongoose";
 import { ISignature } from "./mongoTypes";
+import { RoleEnum } from "./types";
 
 const SignatureSchema = new Schema<ISignature>(
   {
     user: { type: Schema.Types.ObjectId, ref: "User", required: true },
     attachedTo: { type: Schema.Types.ObjectId },
-    deleted: { type: Boolean, default: false },
+    archived: { type: Boolean, default: false },
     role: {
       type: String,
-      enum: ["Coordinator", "Trainer", "Trainee"],
+      enum: RoleEnum,
     },
   },
   { timestamps: true }

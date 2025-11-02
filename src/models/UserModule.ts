@@ -5,12 +5,12 @@ import { IUserModule } from "./mongoTypes";
 const UserModuleSchema = new Schema<IUserModule>(
   {
     user: { type: Schema.Types.ObjectId, ref: "User" },
-    tModule: {type: Schema.Types.ObjectId, ref: "TrainingModule"},
+    tModule: { type: Schema.Types.ObjectId, ref: "TrainingModule" },
     submodules: [{ type: Schema.Types.ObjectId, ref: "UserSubmodule" }],
-    notes: {type: String},
-    deleted: {type: Boolean, default: false},    
-    trainingYear: {type: Number},
-    activeCycle: {type: Boolean, default: true}
+    notes: { type: String },
+    archived: { type: Boolean, default: false },
+    trainingYear: { type: Number },
+    activeCycle: { type: Boolean, default: true },
   },
   { timestamps: true }
 );

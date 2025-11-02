@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useParams } from "next/navigation";
 import {
     ClipboardList,
@@ -13,26 +13,18 @@ import {
     ChevronDown,
     Filter,
 } from "lucide-react";
-import { ISignature, IUserSubmodule } from "@/models/types";
+import { ISignature, IUser, IUserSubmodule, Role, RoleEnum, Roles } from "@/models/types";
 
 interface SortConfig {
     key: keyof IUserSubmodule | 'signatureStatus';
     direction: 'asc' | 'desc';
 }
 
-interface CurrentUser {
-    _id: string;
-    name: string;
-    username: string;
-    role: "Coordinator" | "Trainer" | "Trainee";
-    studentId?: string;
-}
-
 export default function SubmodulesPage() {
     const { userId, moduleId } = useParams();
     const [submodules, setSubmodules] = useState<IUserSubmodule[]>([]);
     const [loading, setLoading] = useState(true);
-    const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+    const [currentUser, setCurrentUser] = useState<IUser>();
     const [userLoading, setUserLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState<"all" | "completed" | "incomplete">("all");
@@ -89,11 +81,23 @@ export default function SubmodulesPage() {
         fetchSubmodules();
     }, [userId, moduleId]);
 
-    const hasAllSignatures = (submodule: IUserSubmodule) => {
-        const status = getSignatureStatus(submodule);
-        return status.coordinator && status.trainer && status.trainee;
-    };
+    const getSignatureStatus = useCallback((submodule: IUserSubmodule) => {
+        const sigs = submodule.signatures || [];
+        const coordinator = hasRole(sigs, Roles.Coordinator);
+        const trainer = hasRole(sigs, Roles.Trainer);
+        const trainee = hasRole(sigs, Roles.Student);
+        const count = [coordinator, trainer, trainee].filter(Boolean).length;
+        return { coordinator, trainer, trainee, count };
+    }, []); // ✅ no dependencies (pure function using static helpers)
 
+    const hasAllSignatures = useCallback(
+        (submodule: IUserSubmodule) => {
+            const status = getSignatureStatus(submodule);
+            return status.coordinator && status.trainer && status.trainee;
+        },
+        [getSignatureStatus] // ✅ depends on getSignatureStatus
+    );
+    
     const filteredAndSortedSubmodules = useMemo(() => {
         let filtered = [...submodules];
 
@@ -144,7 +148,7 @@ export default function SubmodulesPage() {
         }
 
         return filtered;
-    }, [submodules, searchQuery, statusFilter, practicalFilter, sortConfig]);
+    }, [submodules, searchQuery, statusFilter, practicalFilter, sortConfig, getSignatureStatus, hasAllSignatures]);
 
     const handleSort = (key: SortConfig['key']) => {
         setSortConfig(current => ({
@@ -156,14 +160,7 @@ export default function SubmodulesPage() {
     const hasRole = (sigs: ISignature[], role: string) =>
         sigs.some(s => typeof s.user !== "string" && s.user.role === role);
 
-    const getSignatureStatus = (submodule: IUserSubmodule) => {
-        const sigs = submodule.signatures || [];
-        const coordinator = hasRole(sigs, "Coordinator");
-        const trainer = hasRole(sigs, "Trainer");
-        const trainee = hasRole(sigs, "Trainee");
-        const count = [coordinator, trainer, trainee].filter(Boolean).length;
-        return { coordinator, trainer, trainee, count };
-    };
+
 
 
     const toggleField = async (submoduleId: string, field: "ojt" | "practical", current: boolean) => {
@@ -201,7 +198,7 @@ export default function SubmodulesPage() {
         setSignOffModal({ open: false, submodule: null });
     };
 
-    const addSignature = async (role: "Coordinator" | "Trainer" | "Trainee") => {
+    const addSignature = async (role: Role) => {
         if (!signOffModal.submodule?._id) return;
 
         if (!currentUser) {
@@ -232,9 +229,9 @@ export default function SubmodulesPage() {
 
             // Ensure _id is undefined so Mongoose will create one automatically
             const newSig: ISignature = {
-                user: currentUser._id,
+                user: currentUser._id!,
                 attachedTo: signOffModal.submodule._id,
-                deleted: false,
+                archived: false,
                 role: role
             };
 
@@ -284,25 +281,25 @@ export default function SubmodulesPage() {
         }
     };
 
-    const canUserSignRole = (role: "Coordinator" | "Trainer" | "Trainee") => {
+    const canUserSignRole = (role: Role) => {
         if (!currentUser) return false;
 
         switch (currentUser.role) {
-            case "Coordinator":
+            case Roles.Coordinator:
                 // Coordinators can sign as Coordinator or Trainer
-                return role === "Coordinator" || role === "Trainer";
-            case "Trainer":
+                return role === Roles.Coordinator || role === Roles.Trainer;
+            case Roles.Trainer:
                 // Trainers can only sign as Trainer
-                return role === "Trainer";
-            case "Trainee":
+                return role === Roles.Trainer;
+            case Roles.Student:
                 // Trainees can only sign as Trainee
-                return role === "Trainee";
+                return role === Roles.Student;
             default:
                 return false;
         }
     };
 
-    const hasUserSignedRole = (role: "Coordinator" | "Trainer" | "Trainee") => {
+    const hasUserSignedRole = (role: Role) => {
         if (!signOffModal.submodule || !currentUser) return false;
 
         return signOffModal.submodule.signatures?.some(sig => {
@@ -358,7 +355,6 @@ export default function SubmodulesPage() {
                                 </h2>
                                 <p className="text-slate-600">
                                     Role: <span className="font-medium capitalize">{currentUser.role.toLowerCase()}</span>
-                                    {currentUser.studentId && ` • Student ID: ${currentUser.studentId}`}
                                 </p>
                             </div>
                             <div className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
@@ -372,7 +368,7 @@ export default function SubmodulesPage() {
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6">
                     <div className="bg-white rounded-lg p-3 md:p-4 shadow-sm border border-slate-200">
                         <div className="flex items-center gap-2 md:gap-3">
-                            <div className="w-8 h-8 md:w-10 md:h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <div className="w-8 h-8 md:w-10 md:h-10 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
                                 <ClipboardList className="w-4 h-4 md:w-5 md:h-5 text-blue-600" />
                             </div>
                             <div className="min-w-0">
@@ -383,7 +379,7 @@ export default function SubmodulesPage() {
                     </div>
                     <div className="bg-white rounded-lg p-3 md:p-4 shadow-sm border border-slate-200">
                         <div className="flex items-center gap-2 md:gap-3">
-                            <div className="w-8 h-8 md:w-10 md:h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <div className="w-8 h-8 md:w-10 md:h-10 bg-green-100 rounded-lg flex items-center justify-center shrink-0">
                                 <CheckCircle className="w-4 h-4 md:w-5 md:h-5 text-green-600" />
                             </div>
                             <div className="min-w-0">
@@ -396,7 +392,7 @@ export default function SubmodulesPage() {
                     </div>
                     <div className="bg-white rounded-lg p-3 md:p-4 shadow-sm border border-slate-200">
                         <div className="flex items-center gap-2 md:gap-3">
-                            <div className="w-8 h-8 md:w-10 md:h-10 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <div className="w-8 h-8 md:w-10 md:h-10 bg-amber-100 rounded-lg flex items-center justify-center shrink-0">
                                 <Award className="w-4 h-4 md:w-5 md:h-5 text-amber-600" />
                             </div>
                             <div className="min-w-0">
@@ -409,7 +405,7 @@ export default function SubmodulesPage() {
                     </div>
                     <div className="bg-white rounded-lg p-3 md:p-4 shadow-sm border border-slate-200">
                         <div className="flex items-center gap-2 md:gap-3">
-                            <div className="w-8 h-8 md:w-10 md:h-10 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <div className="w-8 h-8 md:w-10 md:h-10 bg-purple-100 rounded-lg flex items-center justify-center shrink-0">
                                 <Filter className="w-4 h-4 md:w-5 md:h-5 text-purple-600" />
                             </div>
                             <div className="min-w-0">
@@ -475,7 +471,7 @@ export default function SubmodulesPage() {
                                     {/* Header */}
                                     <div className="flex items-start justify-between mb-3">
                                         <div className="flex items-center gap-2">
-                                            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-lg flex items-center justify-center font-bold text-sm shadow-md">
+                                            <div className="w-10 h-10 bg-linear-to-br from-blue-600 to-blue-700 text-white rounded-lg flex items-center justify-center font-bold text-sm shadow-md">
                                                 {submodule.tSubmodule?.code}
                                             </div>
                                             <div>
@@ -727,14 +723,14 @@ export default function SubmodulesPage() {
                             </div>
                             <button
                                 onClick={closeSignOffModal}
-                                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors flex-shrink-0 ml-2"
+                                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors shrink-0 ml-2"
                             >
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
 
                         <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
-                            {(["Coordinator", "Trainer", "Trainee"] as const).map(role => {
+                            {RoleEnum.map(role => {
                                 const sig = signOffModal.submodule?.signatures.find(s =>
                                     typeof s.user !== "string" && s.user.role === role
                                 );

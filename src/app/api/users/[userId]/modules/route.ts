@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import UserModule from "@/models/UserModule";
 import User from "@/models/User";
 import { connectToDatabase } from "@/lib/mongodb";
-import { ITrainingSubModule, TrainingModule, UserSubmodule } from "@/models";
+import { ITrainingSubmodule, TrainingModule, UserSubmodule } from "@/models";
 
 // ✅ GET all modules for a user
 export async function GET(
@@ -23,10 +23,10 @@ export async function GET(
       );
     }
 
-    // ✅ Fetch all active (non-deleted) user modules
+    // ✅ Fetch all active (archived) user modules
     const modules = await UserModule.find({
       user: userId,
-      deleted: { $ne: true },
+      archived: { $ne: true },
     })
       .populate("tModule")
       .populate({
@@ -35,8 +35,8 @@ export async function GET(
           { path: "tSubmodule" },
           {
             path: "signatures",
-            match: { deleted: { $ne: true } }, // ✅ exclude soft-deleted signatures
-            populate: { path: "user", select: "_id name role" },
+            match: { archived: { $ne: true } }, // ✅ exclude archived signatures
+            populate: { path: "user", select: "_id name role archived" },
           },
         ],
       })
@@ -96,16 +96,16 @@ export async function POST(
       tModule,
       trainingYear: moduleTrainingYear,
       activeCycle: moduleActiveCycle,
-      deleted: { $ne: true },
+      archived: { $ne: true },
     }).session(dbSession);
 
     if (existingModule) {
       await dbSession.abortTransaction();
       dbSession.endSession();
       return NextResponse.json(
-        { 
-          success: false, 
-          error: "This module is already assigned for this training cycle." 
+        {
+          success: false,
+          error: "This module is already assigned for this training cycle.",
         },
         { status: 409 }
       );
@@ -144,7 +144,7 @@ export async function POST(
 
     // ✅ Create corresponding user submodules
     const createdUserSubmodules = await Promise.all(
-      trainingModule.submodules.map(async (tSub: ITrainingSubModule) => {
+      trainingModule.submodules.map(async (tSub: ITrainingSubmodule) => {
         const newUserSub = await UserSubmodule.create(
           [
             {
@@ -176,7 +176,7 @@ export async function POST(
     await dbSession.commitTransaction();
     dbSession.endSession();
 
-    // ✅ Populate the final response (exclude deleted)
+    // ✅ Populate the final response (exclude archived)
     const populated = await UserModule.findById(userModuleDoc._id)
       .populate("tModule")
       .populate({
@@ -185,13 +185,16 @@ export async function POST(
           { path: "tSubmodule" },
           {
             path: "signatures",
-            match: { deleted: { $ne: true } },
-            populate: { path: "user", select: "_id name role" },
+            match: { archived: { $ne: true } },
+            populate: { path: "user", select: "_id name role archived" },
           },
         ],
       });
 
-    return NextResponse.json({ success: true, data: populated }, { status: 201 });
+    return NextResponse.json(
+      { success: true, data: populated },
+      { status: 201 }
+    );
   } catch (error) {
     await dbSession.abortTransaction();
     dbSession.endSession();

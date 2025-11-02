@@ -16,8 +16,6 @@ export async function GET(
     const resolvedParams = await params;
     const { userId, moduleId } = resolvedParams || {};
 
-    console.log(userId, moduleId)
-
     // ✅ Validate params
     if (!userId || !moduleId) {
       return NextResponse.json(
@@ -26,16 +24,18 @@ export async function GET(
       );
     }
 
-    // ✅ Query submodules (included soft-deleted)
+    // ✅ Query submodules (included archived)
     const submodules = await UserSubmodule.find({
       module: moduleId,
-      deleted: { $ne: true },
+      archived: { $ne: true },
     })
       .populate("tSubmodule")
       .populate({
         path: "signatures",
-        // match: { deleted: { $ne: true } },
-        populate: { path: "user", select: "_id name role" },
+        populate: {
+          path: "user",
+          select: "_id name username role archived createdAt",
+        },
       });
 
     return NextResponse.json({ success: true, data: submodules });

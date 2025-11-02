@@ -6,7 +6,7 @@ import { IUserSubmodule } from "./mongoTypes";
 const UserSubmoduleSchema = new Schema<IUserSubmodule>(
   {
     module: {type: Schema.Types.ObjectId, ref: "UserModule"},
-    tSubmodule: {type: Schema.Types.ObjectId, ref: "TrainingSubModule"},
+    tSubmodule: {type: Schema.Types.ObjectId, ref: "TrainingSubmodule"},
     ojt: {type: Boolean},
     practical:{type: Boolean},
     signedOff:{type: Boolean},

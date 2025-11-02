@@ -6,7 +6,7 @@ import { Role } from "./types";
 export interface ITrainingModule extends Document {
   name: string;
   description?: string;
-  submodules?: mongoose.Types.ObjectId[] | ITrainingSubModule[];
+  submodules?: mongoose.Types.ObjectId[] | ITrainingSubmodule[];
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -16,16 +16,16 @@ export interface IUserModule extends Document {
   tModule: mongoose.Types.ObjectId | ITrainingModule;
   submodules: mongoose.Types.ObjectId[] | IUserSubmodule[];
   notes: string;
-  deleted: boolean;
+  archived: boolean;
 
   trainingYear: number;
   activeCycle: boolean;
-  
+
   createdAt?: Date;
   updatedAt?: Date;
 }
 
-export interface ITrainingSubModule extends Document {
+export interface ITrainingSubmodule extends Document {
   moduleId: mongoose.Types.ObjectId;
   code: string;
   title: string;
@@ -35,7 +35,7 @@ export interface ITrainingSubModule extends Document {
 
 export interface IUserSubmodule extends Document {
   module: mongoose.Types.ObjectId | IUserModule;
-  tSubmodule: mongoose.Types.ObjectId | ITrainingSubModule;
+  tSubmodule: mongoose.Types.ObjectId | ITrainingSubmodule;
   ojt: boolean;
   practical: boolean;
   signedOff: boolean;
@@ -46,7 +46,7 @@ export interface ISignature extends Document {
   user: mongoose.Types.ObjectId | IUser;
   attachedTo: mongoose.Types.ObjectId;
   role: Role;
-  deleted: boolean;
+  archived: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }

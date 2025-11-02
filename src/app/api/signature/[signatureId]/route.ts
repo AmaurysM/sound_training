@@ -5,14 +5,17 @@ import { connectToDatabase } from "@/lib/mongodb";
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Promise<{ signatureId: string}> }
+  { params }: { params: Promise<{ signatureId: string }> }
 ) {
   try {
     const resolvedParams = await params; // <-- unwrap the Promise
     const { signatureId } = resolvedParams;
 
     if (!signatureId) {
-      return NextResponse.json({ error: "Missing Traing Module ID" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Missing Traing Module ID" },
+        { status: 400 }
+      );
     }
     await connectToDatabase();
 
@@ -26,18 +29,15 @@ export async function PATCH(
     }
 
     // Soft delete
-    signature.deleted = true;
+    signature.archived = true;
     await signature.save();
 
     return NextResponse.json({
       success: true,
-      message: "Signature soft deleted",
+      message: "Signature archived",
       data: signature,
     });
   } catch (error) {
-    return NextResponse.json(
-      { success: false, error: error },
-      { status: 400 }
-    );
+    return NextResponse.json({ success: false, error: error }, { status: 400 });
   }
 }

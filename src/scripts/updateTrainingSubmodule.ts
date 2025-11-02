@@ -1,7 +1,7 @@
 // scripts/migrateSubmodules.ts
 import mongoose from "mongoose";
 import { connectToDatabase } from "../lib/mongodb";
-import TrainingSubmodule from "../models/TrainingSubModule";
+import TrainingSubmodule from "../models/TrainingSubmodule";
 import dotenv from "dotenv";
 
 dotenv.config();

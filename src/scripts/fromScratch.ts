@@ -1,11 +1,15 @@
 import mongoose from "mongoose";
 import dotenv from "dotenv";
-import TrainingModuleModel from "../models/TrainingModule";
-import TrainingSubmoduleModel from "@/models/TrainingSubmodule";
-import UserModel from "../models/User";
-import SignatureModel from "../models/Signature";
 import bcrypt from "bcrypt";
-import { Roles } from "@/models/types";
+import {
+  TrainingModule,
+  TrainingSubmodule,
+  User,
+  UserModule,
+  UserSubmodule,
+  Signature,
+} from "@/models"; // Adjust import path as needed
+import { Role } from "@/models/types";
 
 dotenv.config();
 
@@ -19,10 +23,12 @@ async function seedDatabase() {
 
     // Wipe everything clean
     await Promise.all([
-      TrainingModuleModel.deleteMany({}),
-      TrainingSubmoduleModel.deleteMany({}),
-      UserModel.deleteMany({}),
-      SignatureModel.deleteMany({}),
+      TrainingModule.deleteMany({}),
+      TrainingSubmodule.deleteMany({}),
+      User.deleteMany({}),
+      UserModule.deleteMany({}),
+      UserSubmodule.deleteMany({}),
+      Signature.deleteMany({}),
     ]);
     console.log("🧹 All collections cleared!");
 
@@ -248,16 +254,16 @@ async function seedDatabase() {
     }
 
     // Insert all modules
-    const moduleDocs = new Map<string, mongoose.Document>();
+    const moduleDocs = new Map<string, any>();
     for (const moduleName of moduleMap.keys()) {
-      const moduleDoc = await TrainingModuleModel.create({ name: moduleName });
+      const moduleDoc = await TrainingModule.create({ name: moduleName });
       moduleDocs.set(moduleName, moduleDoc);
     }
 
     // Insert submodules
     for (const [moduleName, entries] of moduleMap.entries()) {
       const moduleDoc = moduleDocs.get(moduleName)!;
-      const submodules = await TrainingSubmoduleModel.insertMany(
+      const submodules = await TrainingSubmodule.insertMany(
         entries.map(([_, code, title, requiresPractical]) => ({
           moduleId: moduleDoc._id,
           code,
@@ -266,44 +272,76 @@ async function seedDatabase() {
         }))
       );
 
-      // Update module’s submodule array
-      moduleDoc.set({ submodules: submodules.map((s) => s._id) });
+      // Update module's submodule array
+      moduleDoc.submodules = submodules.map((s: any) => s._id);
       await moduleDoc.save();
       console.log(`✅ ${moduleName}: ${submodules.length} submodules added`);
     }
 
     // Seed users
-    const users = await UserModel.insertMany([
+    const users = await User.insertMany([
       {
         name: "Alice Coordinator",
+        nickname: "Alice",
         username: "alice",
         password: await bcrypt.hash("password123", 10),
-        role: "Coordinator",
-        trainings: [],
-        signatures: [],
+        email: "alice@example.com",
+        isVerified: true,
+        role: "Coordinator" as Role,
+        archived: false,
+        modules: [],
       },
       {
         name: "Tom Trainer",
+        nickname: "Tom",
         username: "tom",
         password: await bcrypt.hash("password123", 10),
-        role: "Trainer",
-        trainings: [],
-        signatures: [],
+        email: "tom@example.com",
+        isVerified: true,
+        role: "Trainer" as Role,
+        archived: false,
+        modules: [],
       },
       {
         name: "Tina Trainee",
+        nickname: "Tina",
         username: "tina",
         password: await bcrypt.hash("password123", 10),
-        role: Roles.Student,
-        trainings: [],
-        signatures: [],
+        email: "tina@example.com",
+        isVerified: true,
+        role: "Student" as Role,
+        archived: false,
+        modules: [],
       },
     ]);
     console.log("👥 Users seeded");
 
-    console.log("📘 Example training created");
+    // Create a sample UserModule for the trainee
+    const trainee = users[2];
+    const exampleModule = Array.from(moduleDocs.values())[0];
 
+    const userModule = await UserModule.create({
+      user: trainee._id,
+      tModule: exampleModule._id,
+      submodules: [],
+      notes: "Initial training assignment",
+      archived: false,
+      trainingYear: new Date().getFullYear(),
+      activeCycle: true,
+    });
+
+    // Add the userModule to trainee's modules
+    trainee.modules = [userModule._id];
+    await trainee.save();
+
+    console.log("📘 Example user module created");
     console.log("🎉 Database seeding completed successfully!");
+
+    console.log("\n📊 Summary:");
+    console.log(`   Modules: ${moduleDocs.size}`);
+    console.log(`   Total Submodules: ${rawData.length}`);
+    console.log(`   Users: ${users.length}`);
+
     process.exit(0);
   } catch (err) {
     console.error("❌ Error seeding database:", err);

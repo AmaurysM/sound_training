@@ -1,6 +1,6 @@
 // src/app/api/users/[userId]/modules/[moduleId]/submodules/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import UserSubmodule from "@/models/UserSubmodule";
+import UserSubmodule, { IUserSubmodule } from "@/models/UserSubmodule";
 import UserModule from "@/models/UserModule";
 import { connectToDatabase } from "@/lib/mongodb";
 
@@ -16,8 +16,6 @@ export async function GET(
     const resolvedParams = await params;
     const { userId, moduleId } = resolvedParams || {};
 
-    console.log(userId, moduleId)
-
     // ✅ Validate params
     if (!userId || !moduleId) {
       return NextResponse.json(
@@ -26,16 +24,16 @@ export async function GET(
       );
     }
 
-    // ✅ Query submodules (exclude soft-deleted)
-    const submodules = await UserSubmodule.find({
+    // ✅ Query submodules (exclude archived)
+    const submodules: IUserSubmodule[] = await UserSubmodule.find({
       module: moduleId,
-      deleted: { $ne: true },
+      archived: { $ne: true },
     })
       .populate("tSubmodule")
       .populate({
         path: "signatures",
-        match: { deleted: { $ne: true } },
-        populate: { path: "user", select: "_id name role" },
+        match: { archived: { $ne: true } },
+        populate: { path: "user", select: "_id name role archived" },
       });
 
     return NextResponse.json({ success: true, data: submodules });
@@ -79,12 +77,12 @@ export async function POST(
     const mod = await UserModule.findOne({
       _id: moduleId,
       user: userId,
-      deleted: { $ne: true },
+      archived: { $ne: true },
     });
 
     if (!mod) {
       return NextResponse.json(
-        { success: false, error: "Module not found or deleted." },
+        { success: false, error: "Module not found or archived." },
         { status: 404 }
       );
     }
@@ -109,11 +107,14 @@ export async function POST(
       .populate("tSubmodule")
       .populate({
         path: "signatures",
-        match: { deleted: { $ne: true } },
-        populate: { path: "user", select: "_id name role" },
+        match: { archived: { $ne: true } },
+        populate: { path: "user", select: "_id name role archived" },
       });
 
-    return NextResponse.json({ success: true, data: populated }, { status: 201 });
+    return NextResponse.json(
+      { success: true, data: populated },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("POST /submodules error:", error);
     return NextResponse.json(

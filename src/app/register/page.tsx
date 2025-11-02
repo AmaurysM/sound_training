@@ -31,26 +31,13 @@ function RegisterForm() {
         confirmPassword: '',
     });
 
-    useEffect(() => {
-        setToken(searchParams.get('token'));
-    }, [searchParams]);
-
-    useEffect(() => {
-        if (!token) {
-            setLoading(false);
-            setValidating(false);
-            return;
-        }
-
-        validateToken();
-    }, [token]);
-
-    const validateToken = async () => {
+    // Define the function *before* using it in the effect
+    const validateToken = async (tokenValue: string) => {
         try {
             const res = await fetch('/api/register/validate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token }),
+                body: JSON.stringify({ token: tokenValue }),
             });
 
             const data = await res.json();
@@ -72,6 +59,21 @@ function RegisterForm() {
             setLoading(false);
         }
     };
+
+    // Handle token extraction and validation
+    useEffect(() => {
+        const t = searchParams.get('token');
+        setToken(t);
+
+        if (!t) {
+            setLoading(false);
+            setValidating(false);
+            return;
+        }
+
+        validateToken(t);
+    }, [searchParams]);
+
 
     const handleResendEmail = async () => {
         if (!userData?.email) return;
@@ -177,7 +179,7 @@ function RegisterForm() {
 
     if (loading || validating) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+            <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
                 <div className="text-center">
                     <div className="w-12 h-12 border-4 border-gray-900 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
                     <p className="text-gray-600">Validating registration link...</p>
@@ -188,7 +190,7 @@ function RegisterForm() {
 
     if (!token) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+            <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
                 <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
                     <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
                     <h1 className="text-2xl font-bold text-gray-900 mb-2">Invalid Link</h1>
@@ -208,7 +210,7 @@ function RegisterForm() {
 
     if (tokenExpired) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+            <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
                 <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
                     <div className="text-center mb-6">
                         <Clock className="w-16 h-16 text-amber-500 mx-auto mb-4" />
@@ -279,7 +281,7 @@ function RegisterForm() {
 
     if (!tokenValid) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+            <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
                 <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
                     <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
                     <h1 className="text-2xl font-bold text-gray-900 mb-2">Invalid Token</h1>
@@ -299,7 +301,7 @@ function RegisterForm() {
 
     if (success) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+            <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
                 <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
                     <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
                     <h1 className="text-2xl font-bold text-gray-900 mb-2">Registration Complete!</h1>
@@ -313,7 +315,7 @@ function RegisterForm() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+        <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
             <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
                 <div className="text-center mb-8">
                     <div className="w-16 h-16 bg-gray-900 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -443,7 +445,7 @@ function RegisterForm() {
 export default function RegisterPage() {
     return (
         <Suspense fallback={
-            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+            <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
                 <div className="text-center">
                     <div className="w-12 h-12 border-4 border-gray-900 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
                     <p className="text-gray-600">Loading...</p>

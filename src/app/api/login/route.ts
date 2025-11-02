@@ -28,6 +28,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
+  // ❌ Prevent login if user is archived
+  if (user.archived) {
+    return NextResponse.json(
+      { error: "This user account is archived and cannot log in." },
+      { status: 403 }
+    );
+  }
+
   if (!user.password) {
     return NextResponse.json(
       { error: "User has not completed registration" },
@@ -45,6 +53,7 @@ export async function POST(req: Request) {
   const token = await new SignJWT({
     id: user._id.toString(),
     role: user.role,
+    archived: user.archived,
   })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()

@@ -1,7 +1,7 @@
 // src/app/users/[userId]/modules/[moduleId]/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
     FileText,
@@ -18,7 +18,7 @@ import {
     ChevronRight,
     Clock,
 } from "lucide-react";
-import { IUserModule, IUser } from "@/models/types";
+import { IUserModule, IUser, Roles } from "@/models/types";
 
 interface UploadedFile {
     _id: string;
@@ -30,64 +30,65 @@ interface UploadedFile {
 }
 
 export default function UserModulePage() {
-    const params = useParams();
-    const router = useRouter();
-    const [userModule, setUserModule] = useState<IUserModule | null>(null);
-    const [currentUser, setCurrentUser] = useState<IUser | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
-    const [notes, setNotes] = useState("");
-    const [files, setFiles] = useState<UploadedFile[]>([]);
-    const [uploading, setUploading] = useState(false);
-    const [saving, setSaving] = useState(false);
-    const [moduleUser, setModuleUser] = useState<IUser | null>(null);
+  const params = useParams();
+  const router = useRouter();
 
-    useEffect(() => {
-        fetchData();
-    }, [params.userId, params.moduleId]);
+  const [userModule, setUserModule] = useState<IUserModule | null>(null);
+  const [currentUser, setCurrentUser] = useState<IUser | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [notes, setNotes] = useState("");
+  const [files, setFiles] = useState<UploadedFile[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [moduleUser, setModuleUser] = useState<IUser | null>(null);
 
-    const fetchData = async () => {
-        try {
-            setLoading(true);
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
 
-            // Fetch current user
-            const meRes = await fetch("/api/me");
-            if (!meRes.ok) {
-                router.push("/login");
-                return;
-            }
-            const userData = await meRes.json();
-            setCurrentUser(userData);
+      // Fetch current user
+      const meRes = await fetch("/api/me");
+      if (!meRes.ok) {
+        router.push("/login");
+        return;
+      }
+      const userData = await meRes.json();
+      setCurrentUser(userData);
 
-            // Fetch user module
-            const moduleRes = await fetch(`/api/users/${params.userId}/modules/${params.moduleId}`);
-            if (!moduleRes.ok) throw new Error("Failed to load module");
+      // Fetch user module
+      const moduleRes = await fetch(`/api/users/${params.userId}/modules/${params.moduleId}`);
+      if (!moduleRes.ok) throw new Error("Failed to load module");
 
-            const moduleResponse = await moduleRes.json();
-            const moduleData = moduleResponse.data;
+      const moduleResponse = await moduleRes.json();
+      const moduleData = moduleResponse.data;
 
-            setUserModule(moduleData);
-            setNotes(moduleData.notes || "");
+      setUserModule(moduleData);
+      setNotes(moduleData.notes || "");
 
-            // Fetch the user who owns this module
-            const userRes = await fetch(`/api/users/${params.userId}`);
-            if (userRes.ok) {
-                const userResponse = await userRes.json();
-                setModuleUser(userResponse.data || userResponse);
-            }
+      // Fetch module owner
+      const userRes = await fetch(`/api/users/${params.userId}`);
+      if (userRes.ok) {
+        const userResponse = await userRes.json();
+        setModuleUser(userResponse.data || userResponse);
+      }
 
-            // Fetch files (you'll need to create this endpoint or adjust based on your file storage)
-            const filesRes = await fetch(`/api/users/${params.userId}/modules/${params.moduleId}/files`);
-            if (filesRes.ok) {
-                const filesResponse = await filesRes.json();
-                setFiles(filesResponse.data || filesResponse);
-            }
-        } catch (err) {
-            setError(err instanceof Error ? err.message : "Failed to load data");
-        } finally {
-            setLoading(false);
-        }
-    };
+      // Fetch files
+      const filesRes = await fetch(`/api/users/${params.userId}/modules/${params.moduleId}/files`);
+      if (filesRes.ok) {
+        const filesResponse = await filesRes.json();
+        setFiles(filesResponse.data || filesResponse);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load data");
+    } finally {
+      setLoading(false);
+    }
+  }, [params.userId, params.moduleId, router]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -161,7 +162,7 @@ export default function UserModulePage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+            <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-slate-50 to-slate-100">
                 <div className="text-center">
                     <Loader2 className="w-16 h-16 animate-spin text-blue-600 mx-auto mb-4" />
                     <p className="text-slate-600 text-lg font-medium">Loading module...</p>
@@ -172,7 +173,7 @@ export default function UserModulePage() {
 
     if (error || !userModule) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+            <div className="min-h-screen bg-linear-to-br from-slate-50 to-slate-100">
                 <div className="max-w-7xl mx-auto p-8">
                     <div className="bg-white border border-red-200 rounded-2xl p-8 text-center shadow-lg">
                         <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -190,13 +191,13 @@ export default function UserModulePage() {
             </div>
         );
     }
-//userModule.submodules?.filter(s => s.signedOff).length ||
-    const completedSubmodules =  0;
+    //userModule.submodules?.filter(s => s.signedOff).length ||
+    const completedSubmodules = 0;
     const totalSubmodules = userModule.submodules?.length || 0;
     const progressPercentage = totalSubmodules > 0 ? Math.round((completedSubmodules / totalSubmodules) * 100) : 0;
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="min-h-screen bg-linear-to-br from-slate-50 to-slate-100">
             <div className="max-w-7xl mx-auto p-6 lg:p-8">
                 {/* Back Button */}
                 <button
@@ -211,35 +212,35 @@ export default function UserModulePage() {
 
                 {/* Header Card */}
                 <div className="bg-white rounded-3xl shadow-xl overflow-hidden mb-8 border border-slate-200">
-                    <div className="bg-gradient-to-r from-slate-900 via-blue-900 to-slate-900 p-4 sm:p-6 lg:p-10 text-white relative overflow-hidden">
-    <div className="absolute inset-0 bg-grid-white/[0.05] bg-[size:20px_20px]"></div>
-    <div className="relative z-10">
-        <div className="flex items-start justify-between gap-3 sm:gap-4">
-            <div className="flex-1 min-w-0">
-                <div className="inline-flex items-center gap-2 px-3 py-1 sm:px-4 sm:py-1.5 bg-white/10 backdrop-blur-sm rounded-full border border-white/20 mb-3 sm:mb-4">
-                    <Shield className="w-3 h-3 sm:w-4 sm:h-4" />
-                    <span className="text-xs sm:text-sm font-medium">NATA Certified Training</span>
-                </div>
+                    <div className="bg-linear-to-r from-slate-900 via-blue-900 to-slate-900 p-4 sm:p-6 lg:p-10 text-white relative overflow-hidden">
+                        <div className="absolute inset-0 bg-grid-white/[0.05] bg-size-[20px_20px]"></div>
+                        <div className="relative z-10">
+                            <div className="flex items-start justify-between gap-3 sm:gap-4">
+                                <div className="flex-1 min-w-0">
+                                    <div className="inline-flex items-center gap-2 px-3 py-1 sm:px-4 sm:py-1.5 bg-white/10 backdrop-blur-sm rounded-full border border-white/20 mb-3 sm:mb-4">
+                                        <Shield className="w-3 h-3 sm:w-4 sm:h-4" />
+                                        <span className="text-xs sm:text-sm font-medium">NATA Certified Training</span>
+                                    </div>
 
-                <h1 className="text-2xl sm:text-3xl lg:text-5xl font-bold mb-2 sm:mb-3 leading-tight break-words">
-                    {typeof userModule.tModule !== "string"
-                        ? userModule.tModule?.name
-                        : "Unknown Module"}
-                </h1>
+                                    <h1 className="text-2xl sm:text-3xl lg:text-5xl font-bold mb-2 sm:mb-3 leading-tight wrap-break-word">
+                                        {typeof userModule.tModule !== "string"
+                                            ? userModule.tModule?.name
+                                            : "Unknown Module"}
+                                    </h1>
 
-                <p className="text-slate-200 text-sm sm:text-base lg:text-lg mb-2">
-                    National Aviation Training Association Module
-                </p>
+                                    <p className="text-slate-200 text-sm sm:text-base lg:text-lg mb-2">
+                                        National Aviation Training Association Module
+                                    </p>
 
-                {typeof userModule.tModule !== "string" && userModule.tModule?.description && (
-                    <p className="text-slate-300 text-sm sm:text-base max-w-3xl leading-relaxed">
-                        {userModule.tModule.description}
-                    </p>
-                )}
-            </div>
-        </div>
-    </div>
-</div>
+                                    {typeof userModule.tModule !== "string" && userModule.tModule?.description && (
+                                        <p className="text-slate-300 text-sm sm:text-base max-w-3xl leading-relaxed">
+                                            {userModule.tModule.description}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
 
                     {/* Trainee Info */}
@@ -348,9 +349,9 @@ export default function UserModulePage() {
                                 onChange={(e) => setNotes(e.target.value)}
                                 className="w-full h-40 sm:h-48 p-3 sm:p-5 border-2 border-slate-200 rounded-xl resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-slate-50 font-mono text-xs sm:text-sm"
                                 placeholder="Document trainee progress, performance observations, areas for improvement, and additional notes..."
-                                disabled={currentUser?.role === "Trainee"}
+                                disabled={currentUser?.role === Roles.Student}
                             />
-                            {currentUser?.role !== "Trainee" && (
+                            {currentUser?.role !== Roles.Student && (
                                 <button
                                     onClick={handleSaveNotes}
                                     disabled={saving}
@@ -380,8 +381,8 @@ export default function UserModulePage() {
                                     </div>
                                     <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Documents & Files</h2>
                                 </div>
-                                {currentUser?.role !== "Trainee" && (
-                                    <label className="flex items-center gap-2 px-4 py-2.5 sm:px-6 sm:py-3 bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-xl hover:from-slate-800 hover:to-slate-700 cursor-pointer transition-all font-semibold shadow-lg hover:shadow-xl text-sm sm:text-base">
+                                {currentUser?.role !== Roles.Student && (
+                                    <label className="flex items-center gap-2 px-4 py-2.5 sm:px-6 sm:py-3 bg-linear-to-r from-slate-900 to-slate-800 text-white rounded-xl hover:from-slate-800 hover:to-slate-700 cursor-pointer transition-all font-semibold shadow-lg hover:shadow-xl text-sm sm:text-base">
                                         {uploading ? (
                                             <>
                                                 <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
@@ -441,7 +442,7 @@ export default function UserModulePage() {
                                                 >
                                                     <Download className="w-4 h-4 sm:w-5 sm:h-5" />
                                                 </button>
-                                                {currentUser?.role !== "Trainee" && (
+                                                {currentUser?.role !== Roles.Student && (
                                                     <button
                                                         onClick={() => handleDeleteFile(file._id)}
                                                         className="p-2 sm:p-2.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-200"

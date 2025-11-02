@@ -2,9 +2,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import mongoose from "mongoose";
 import UserSubmodule from "@/models/UserSubmodule";
-import UserModule from "@/models/UserModule";
 import Signature from "@/models/Signature";
 import { connectToDatabase } from "@/lib/mongodb";
+import { IUser, IUserSubmodule } from "@/models";
 
 // 🔒 Helper for ID validation
 function validateObjectIds(ids: Record<string, string>) {
@@ -42,16 +42,16 @@ export async function GET(
     const submodule = await UserSubmodule.findOne({
       _id: submoduleId,
       module: moduleId,
-      deleted: { $ne: true },
+      archived: { $ne: true },
     })
       .populate("tSubmodule")
       .populate({
         path: "signatures",
-        match: { deleted: { $ne: true } },
-        populate: { path: "user", select: "_id name role" },
+        match: { archived: { $ne: true } },
+        populate: { path: "user", select: "_id name role archived nickname" },
       });
 
-    if (!submodule) {
+      if (!submodule) {
       return NextResponse.json(
         { success: false, error: "Submodule not found" },
         { status: 404 }
@@ -94,7 +94,7 @@ export async function PATCH(
     const submodule = await UserSubmodule.findOne({
       _id: submoduleId,
       module: moduleId,
-      deleted: { $ne: true },
+      archived: { $ne: true },
     });
 
     if (!submodule) {
@@ -106,8 +106,10 @@ export async function PATCH(
 
     // ✏️ Update allowed fields
     if (typeof body.ojt === "boolean") submodule.ojt = body.ojt;
-    if (typeof body.practical === "boolean") submodule.practical = body.practical;
-    if (typeof body.signedOff === "boolean") submodule.signedOff = body.signedOff;
+    if (typeof body.practical === "boolean")
+      submodule.practical = body.practical;
+    if (typeof body.signedOff === "boolean")
+      submodule.signedOff = body.signedOff;
 
     // ✍️ Add new signature if requested
     if (body.addSignature?.userId) {
@@ -134,8 +136,8 @@ export async function PATCH(
       .populate("tSubmodule")
       .populate({
         path: "signatures",
-        match: { deleted: { $ne: true } },
-        populate: { path: "user", select: "_id name role" },
+        match: { archived: { $ne: true } },
+        populate: { path: "user", select: "_id name role archived nickname" },
       });
 
     return NextResponse.json({ success: true, data: populatedSubmodule });
@@ -172,7 +174,7 @@ export async function DELETE(
     }
 
     const submodule = await UserSubmodule.findByIdAndUpdate(submoduleId, {
-      deleted: true,
+      archived: true,
     });
 
     if (!submodule) {
@@ -182,12 +184,9 @@ export async function DELETE(
       );
     }
 
-    // Optional: remove reference from module
-    // await UserModule.findByIdAndUpdate(moduleId, { $pull: { submodules: submoduleId } });
-
     return NextResponse.json({
       success: true,
-      message: "Submodule soft-deleted successfully",
+      message: "Submodule archived successfully",
     });
   } catch (error) {
     console.error("DELETE /submodule error:", error);

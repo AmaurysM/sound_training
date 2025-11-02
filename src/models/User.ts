@@ -1,5 +1,6 @@
 import mongoose, { Schema, models } from "mongoose";
 import { IUser } from "./mongoTypes";
+import { RoleEnum } from '@/models/types'
 
 const UserSchema = new Schema<IUser>(
   {
@@ -13,10 +14,11 @@ const UserSchema = new Schema<IUser>(
 
     role: {
       type: String,
-      enum: ["Coordinator", "Trainer", "Trainee"],
+      enum: RoleEnum ,
       required: true,
-      default: "Trainee",
+      default: "Student",
     },
+
     name: { type: String, required: true },
     nickname: { type: String },
     archived: { type: Boolean, default: false },
@@ -25,5 +27,6 @@ const UserSchema = new Schema<IUser>(
   { timestamps: true }
 );
 
-export default models.User || mongoose.model<IUser>("User", UserSchema);
+const UserModel = models.User || mongoose.model<IUser>("User", UserSchema);
+export default UserModel;
 export type { IUser };

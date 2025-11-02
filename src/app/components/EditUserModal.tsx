@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { X, Save, Loader2, AlertCircle, User } from 'lucide-react';
-import { IUser } from '@/models/types';
+import { IUser, Roles } from '@/models/types';
 import { Role } from '@/models/types';
 
 interface EditUserModalProps {
@@ -169,7 +169,7 @@ export default function EditUserModal({ show, user, onClose, onSave }: EditUserM
               disabled={saving}
               required
             >
-              <option value="Trainee">Trainee</option>
+              <option value={Roles.Student}>Trainee</option>
               <option value="Trainer">Trainer</option>
               <option value="Coordinator">Coordinator</option>
             </select>
@@ -243,7 +243,7 @@ export default function EditUserModal({ show, user, onClose, onSave }: EditUserM
             </button>
           </div>
         </form>
-      </div>
-    </div>
+      </div >
+    </div >
   );
 }

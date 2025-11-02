@@ -2,7 +2,7 @@
 import { ISignature } from "@/models/types";
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
-import TrainingSubmodule from "@/models/TrainingSubModule";
+import TrainingSubmodule from "@/models/TrainingSubmodule";
 import Signature from "@/models/Signature";
 import UserSubmodule from "@/models/UserSubmodule";
 
@@ -35,7 +35,7 @@ export async function GET(
       })
       .populate({
         path: "tSubmodules",
-        model: "TrainingSubModule",
+        model: "TrainingSubmodule",
         select: "code title requiresPractical description",
       })
       .lean();
@@ -125,7 +125,7 @@ export async function PATCH(
     await submodule.populate({
       path: "signatures",
       model: "Signature",
-      select: "userId userName role signedAt",
+      select: "user attachedTo archived role createdAt",
     });
 
     return NextResponse.json(submodule);

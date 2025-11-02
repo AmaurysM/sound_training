@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 import Signature from "@/models/Signature"; // adjust path if needed
 import { connectToDatabase } from "@/lib/mongodb";
+import { Roles } from "@/models/types";
 
 dotenv.config();
 
@@ -14,10 +15,9 @@ async function seedSignatures() {
     await mongoose.connect(MONGO_URI);
     console.log("Connected to MongoDB");
 
-    // Update all existing signatures that don't have `deleted` field
     const result = await Signature.updateMany(
       { role: { $exists: false } },
-      { $set: { role: "Trainee" } }
+      { $set: { role: Roles.Student } }
     );
 
     console.log(`Updated ${result.modifiedCount} signatures`);

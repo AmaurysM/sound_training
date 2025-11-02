@@ -13,7 +13,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { IUserModule, IUserSubmodule } from '@/models/types';
-
+import { Roles } from '@/models/types'
 interface TrainingHistoryModalProps {
   show: boolean;
   training: IUserModule | null;
@@ -30,17 +30,17 @@ export default function TrainingHistoryModal({
   const [submodules, setSubmodules] = useState<IUserSubmodule[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-      const [showDeleted, setShowDeleted] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
 
   const isSubmoduleComplete = (submodule: IUserSubmodule) => {
     if (!submodule.ojt) return false;
 
     const sigs = submodule.signatures || [];
-    const hasCoordinator = sigs.some(s => s.role === 'Coordinator' && !s.deleted);
-    const hasTrainer = sigs.some(s => s.role === 'Trainer' && !s.deleted);
-    const hasTrainee = sigs.some(s => s.role === 'Trainee' && !s.deleted);
+    const hasCoordinator = sigs.some(s => s.role === Roles.Coordinator && !s.archived);
+    const hasTrainer = sigs.some(s => s.role === Roles.Trainer && !s.archived);
+    const hasStudent = sigs.some(s => s.role === Roles.Student && !s.archived);
 
-    if (!hasCoordinator || !hasTrainer || !hasTrainee) return false;
+    if (!hasCoordinator || !hasTrainer || !hasStudent) return false;
 
     if (submodule.tSubmodule && typeof submodule.tSubmodule !== 'string') {
       if (submodule.tSubmodule.requiresPractical && !submodule.practical) {
@@ -101,13 +101,13 @@ export default function TrainingHistoryModal({
     totalSubmodules > 0
       ? Math.round((completedSubmodules / totalSubmodules) * 100)
       : 0;
-      
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/50 backdrop-blur-sm">
       <div className="bg-white rounded-xl max-w-5xl w-full shadow-2xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="p-3 sm:p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+        <div className="p-3 sm:p-4 border-b border-gray-200 bg-linear-to-r from-blue-50 to-indigo-50">
           <div className="flex justify-between items-start gap-2">
             <div className="flex-1 min-w-0">
               <h2 className="text-lg font-bold text-gray-900">
@@ -216,21 +216,19 @@ export default function TrainingHistoryModal({
                     return (
                       <div
                         key={submodule._id || idx}
-                        className={`border rounded-lg overflow-hidden ${
-                          isComplete
-                            ? 'bg-green-50 border-green-200'
-                            : 'bg-white border-gray-200'
-                        }`}
+                        className={`border rounded-lg overflow-hidden ${isComplete
+                          ? 'bg-green-50 border-green-200'
+                          : 'bg-white border-gray-200'
+                          }`}
                       >
                         <div className="p-3">
                           <div className="flex justify-between items-start">
                             <div className="flex items-center gap-2">
                               <div
-                                className={`px-2 py-0.5 rounded text-xs font-bold ${
-                                  isComplete
-                                    ? 'bg-green-100 text-green-700'
-                                    : 'bg-gray-100 text-gray-700'
-                                }`}
+                                className={`px-2 py-0.5 rounded text-xs font-bold ${isComplete
+                                  ? 'bg-green-100 text-green-700'
+                                  : 'bg-gray-100 text-gray-700'
+                                  }`}
                               >
                                 {submoduleCode}
                               </div>
@@ -247,142 +245,142 @@ export default function TrainingHistoryModal({
                               <CheckCircle2 className="w-5 h-5 text-green-600" />
                             ) : (
                               <span className="text-xs text-gray-500">
-                                {signatures.filter(s => !s.deleted).length}/3
+                                {signatures.filter(s => !s.archived).length}/3
                               </span>
                             )}
                           </div>
 
                           {/* Signatures */}
-{/* Signatures */}
-{signatures.length > 0 ? (
-  <div className="mt-3 pt-2 border-t border-gray-200 space-y-2">
-    {(() => {
-      const activeSigs = signatures.filter(s => !s.deleted);
-      const deletedSigs = signatures.filter(s => s.deleted);
+                          {/* Signatures */}
+                          {signatures.length > 0 ? (
+                            <div className="mt-3 pt-2 border-t border-gray-200 space-y-2">
+                              {(() => {
+                                const activeSigs = signatures.filter(s => !s.archived);
+                                const archivedSigs = signatures.filter(s => s.archived);
 
-      return (
-        <>
-          {/* Active Signatures */}
-          {activeSigs.length > 0 && (
-            <div>
-              <p className="text-xs font-semibold text-gray-700 mb-1">
-                Active Signatures
-              </p>
-              <div className="space-y-1.5">
-                {activeSigs.map((sig, sigIdx) => {
-                  const userName =
-                    typeof sig.user !== 'string'
-                      ? sig.user?.name || sig.user?.username || 'Unknown User'
-                      : 'Unknown User';
-                  const signDate = sig.createdAt
-                    ? new Date(sig.createdAt).toLocaleString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })
-                    : 'Date unknown';
-                  const roleColor =
-                    sig.role === 'Coordinator'
-                      ? 'bg-purple-100 text-purple-700'
-                      : sig.role === 'Trainer'
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'bg-green-100 text-green-700';
+                                return (
+                                  <>
+                                    {/* Active Signatures */}
+                                    {activeSigs.length > 0 && (
+                                      <div>
+                                        <p className="text-xs font-semibold text-gray-700 mb-1">
+                                          Active Signatures
+                                        </p>
+                                        <div className="space-y-1.5">
+                                          {activeSigs.map((sig, sigIdx) => {
+                                            const userName =
+                                              typeof sig.user !== 'string'
+                                                ? sig.user?.name || sig.user?.username || 'Unknown User'
+                                                : 'Unknown User';
+                                            const signDate = sig.createdAt
+                                              ? new Date(sig.createdAt).toLocaleString('en-US', {
+                                                month: 'short',
+                                                day: 'numeric',
+                                                year: 'numeric',
+                                                hour: '2-digit',
+                                                minute: '2-digit',
+                                              })
+                                              : 'Date unknown';
+                                            const roleColor =
+                                              sig.role === 'Coordinator'
+                                                ? 'bg-purple-100 text-purple-700'
+                                                : sig.role === 'Trainer'
+                                                  ? 'bg-blue-100 text-blue-700'
+                                                  : 'bg-green-100 text-green-700';
 
-                  return (
-                    <div
-                      key={sig._id || sigIdx}
-                      className="flex items-center justify-between p-2 bg-white border border-gray-200 rounded-md hover:shadow-sm transition"
-                    >
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <div
-                          className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${roleColor}`}
-                        >
-                          {sig.role?.charAt(0)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate text-gray-900">
-                            {userName}
-                          </p>
-                          <p className="text-[11px] text-gray-500">
-                            {sig.role} • {signDate}
-                          </p>
-                        </div>
-                      </div>
-                      <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+                                            return (
+                                              <div
+                                                key={sig._id || sigIdx}
+                                                className="flex items-center justify-between p-2 bg-white border border-gray-200 rounded-md hover:shadow-sm transition"
+                                              >
+                                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                  <div
+                                                    className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${roleColor}`}
+                                                  >
+                                                    {sig.role?.charAt(0)}
+                                                  </div>
+                                                  <div className="flex-1 min-w-0">
+                                                    <p className="font-medium truncate text-gray-900">
+                                                      {userName}
+                                                    </p>
+                                                    <p className="text-[11px] text-gray-500">
+                                                      {sig.role} • {signDate}
+                                                    </p>
+                                                  </div>
+                                                </div>
+                                                <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+                                    )}
 
-          {/* Deleted Signatures Dropdown */}
-          {deletedSigs.length > 0 && (
-            <div className="mt-3">
-              <button
-                onClick={() => setShowDeleted(!showDeleted)}
-                className="flex items-center justify-between w-full text-xs font-semibold text-gray-500 mb-1 px-2 py-1 bg-gray-100 rounded-md hover:bg-gray-200 transition"
-              >
-                <span>Deleted Signatures ({deletedSigs.length})</span>
-                <span className="transform transition-transform duration-200">
-                  {showDeleted ? '▲' : '▼'}
-                </span>
-              </button>
+                                    {/* Archieved Signatures Dropdown */}
+                                    {archivedSigs.length > 0 && (
+                                      <div className="mt-3">
+                                        <button
+                                          onClick={() => setShowArchived(!showArchived)}
+                                          className="flex items-center justify-between w-full text-xs font-semibold text-gray-500 mb-1 px-2 py-1 bg-gray-100 rounded-md hover:bg-gray-200 transition"
+                                        >
+                                          <span>Archieved Signatures ({archivedSigs.length})</span>
+                                          <span className="transform transition-transform duration-200">
+                                            {showArchived ? '▲' : '▼'}
+                                          </span>
+                                        </button>
 
-              {showDeleted && (
-                <div className="space-y-1.5 mt-1">
-                  {deletedSigs.map((sig, sigIdx) => {
-                    const userName =
-                      typeof sig.user !== 'string'
-                        ? sig.user?.name || sig.user?.username || 'Unknown User'
-                        : 'Unknown User';
-                    const signDate = sig.createdAt
-                      ? new Date(sig.createdAt).toLocaleString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })
-                      : 'Date unknown';
+                                        {showArchived && (
+                                          <div className="space-y-1.5 mt-1">
+                                            {archivedSigs.map((sig, sigIdx) => {
+                                              const userName =
+                                                typeof sig.user !== 'string'
+                                                  ? sig.user?.name || sig.user?.username || 'Unknown User'
+                                                  : 'Unknown User';
+                                              const signDate = sig.createdAt
+                                                ? new Date(sig.createdAt).toLocaleString('en-US', {
+                                                  month: 'short',
+                                                  day: 'numeric',
+                                                  year: 'numeric',
+                                                  hour: '2-digit',
+                                                  minute: '2-digit',
+                                                })
+                                                : 'Date unknown';
 
-                    return (
-                      <div
-                        key={sig._id || sigIdx}
-                        className="flex items-center justify-between p-2 bg-gray-50 border border-gray-200 rounded-md opacity-70 italic"
-                      >
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 bg-gray-200 text-gray-500">
-                            {sig.role?.charAt(0) || '?'}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium truncate line-through text-gray-500">
-                              {userName}
+                                              return (
+                                                <div
+                                                  key={sig._id || sigIdx}
+                                                  className="flex items-center justify-between p-2 bg-gray-50 border border-gray-200 rounded-md opacity-70 italic"
+                                                >
+                                                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 bg-gray-200 text-gray-500">
+                                                      {sig.role?.charAt(0) || '?'}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                      <p className="font-medium truncate line-through text-gray-500">
+                                                        {userName}
+                                                      </p>
+                                                      <p className="text-[11px] text-gray-500">
+                                                        {sig.role} • {signDate} • Archived
+                                                      </p>
+                                                    </div>
+                                                  </div>
+                                                  <Trash2 className="w-4 h-4 text-gray-400 shrink-0" />
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </>
+                                );
+                              })()}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-gray-500 italic text-center py-2">
+                              No signatures yet
                             </p>
-                            <p className="text-[11px] text-gray-500">
-                              {sig.role} • {signDate} • Deleted
-                            </p>
-                          </div>
-                        </div>
-                        <Trash2 className="w-4 h-4 text-gray-400 shrink-0" />
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-        </>
-      );
-    })()}
-  </div>
-) : (
-  <p className="text-xs text-gray-500 italic text-center py-2">
-    No signatures yet
-  </p>
-)}
+                          )}
 
                         </div>
                       </div>

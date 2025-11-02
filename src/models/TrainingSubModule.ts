@@ -1,10 +1,10 @@
-// src/models/TrainingSubModules.ts
+// src/models/TrainingSubmodule.ts
 
 import mongoose, { Schema, Document } from "mongoose";
-import { ITrainingSubModule } from "./mongoTypes";
+import { ITrainingSubmodule } from "./mongoTypes";
 import "./Signature";
 
-const TrainingSubModuleSchema = new Schema<ITrainingSubModule>(
+const TrainingSubmoduleSchema = new Schema<ITrainingSubmodule>(
   {
     moduleId: {
       type: Schema.Types.ObjectId,
@@ -19,8 +19,8 @@ const TrainingSubModuleSchema = new Schema<ITrainingSubModule>(
   { timestamps: true }
 );
 
-export default mongoose.models.TrainingSubModule ||
-  mongoose.model<ITrainingSubModule>(
-    "TrainingSubModule",
-    TrainingSubModuleSchema
+export default mongoose.models.TrainingSubmodule ||
+  mongoose.model<ITrainingSubmodule>(
+    "TrainingSubmodule",
+    TrainingSubmoduleSchema
   );

@@ -100,13 +100,12 @@ export async function DELETE(
   context: { params: Promise<{ userId: string }> }
 ) {
   try {
-    
     const { userId } = await context.params;
 
     if (!userId) {
       return NextResponse.json({ error: "Missing User ID" }, { status: 400 });
     }
-    
+
     await connectToDatabase();
 
     const updated = await User.findByIdAndUpdate(
@@ -118,6 +117,6 @@ export async function DELETE(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json({ message: "User archived" });
   } catch {
-    return NextResponse.json({ error: "Archive failed" }, { status: 500 });
+    return NextResponse.json({ error: "archived failed" }, { status: 500 });
   }
 }

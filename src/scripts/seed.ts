@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 import dotenv from "dotenv";
 import UserModel from "@/models/User"; // adjust path if needed
+import { Roles } from "@/models/types";
 
 dotenv.config();
 
@@ -37,7 +38,7 @@ async function seed() {
         name: "Tina Trainee",
         username: "tina",
         password: await bcrypt.hash("password123", 10),
-        role: "Trainee",
+        role: Roles.Student,
         trainings: [],
       },
     ];

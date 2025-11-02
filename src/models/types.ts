@@ -1,6 +1,10 @@
-// import { ITrainingSubmodule } from "./TrainingSubModule";
-
-export type Role = "Trainee" | "Trainer" | "Coordinator";
+export const RoleEnum = ["Student", "Trainer", "Coordinator"] as const;
+export type Role = (typeof RoleEnum)[number];
+export const Roles = {
+  Student: RoleEnum[0],
+  Trainer: RoleEnum[1],
+  Coordinator: RoleEnum[2],
+} as const;
 
 export interface Stat {
   completed: number;
@@ -16,7 +20,7 @@ export interface IUser {
   password?: string;
 
   email?: string;
-  isVerified: boolean;
+  isVerified: boolean; // please set this to verified
   registrationToken?: string;
   tokenExpires?: Date;
 
@@ -29,7 +33,7 @@ export interface IUser {
   updatedAt?: Date;
 }
 
-export interface ITrainingSubModule {
+export interface ITrainingSubmodule {
   _id?: string;
   moduleId: string;
   code: string;
@@ -43,7 +47,7 @@ export interface ITrainingSubModule {
 export interface IUserSubmodule extends Document {
   _id?: string;
   module: string | IUserModule;
-  tSubmodule: ITrainingSubModule;
+  tSubmodule: ITrainingSubmodule;
   ojt: boolean;
   practical: boolean;
   signedOff: boolean;
@@ -54,7 +58,7 @@ export interface ITrainingModule {
   _id?: string;
   name: string;
   description?: string;
-  submodules: string[] | ITrainingSubModule[];
+  submodules: string[] | ITrainingSubmodule[];
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -65,7 +69,7 @@ export interface IUserModule {
   tModule: string | ITrainingModule;
   submodules: string[] | IUserSubmodule[];
   notes: string;
-  deleted: boolean;
+  archived: boolean;
   
   trainingYear: number;
   activeCycle: boolean;
@@ -78,17 +82,8 @@ export interface ISignature {
   _id?: string;
   user: string | IUser;
   attachedTo: string;
-  deleted: boolean;
+  archived: boolean;
   role: Role;
   createdAt?: Date;
   updatedAt?: Date;
 }
-
-// export interface ITraining {
-//   _id?: string;
-//   user: string; // Id of user or the user object.
-//   module: string | ITrainingModule; // Id of module or ItrainingModule object.
-//   notes: string;
-//   createdAt?: Date;
-//   updatedAt?: Date;
-// }

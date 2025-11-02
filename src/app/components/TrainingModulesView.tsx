@@ -1,5 +1,5 @@
 import { Search, Filter, Plus, FileText, History, X, MessageSquare, Save, Archive, AlertCircle } from "lucide-react";
-import { IUser, IUserModule, IUserSubmodule, Stat } from "@/models/types";
+import { IUser, IUserModule, IUserSubmodule, Roles, Stat } from "@/models/types";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -42,9 +42,9 @@ const TrainingModulesView = ({
 }) => {
     const router = useRouter();
 
-    const isEditable = currentUser && (currentUser.role === 'Coordinator' || currentUser.role === 'Trainer');
-    const isCoordinator = currentUser?.role === 'Coordinator';
-    const isTrainee = currentUser?.role === 'Trainee';
+    const isEditable = currentUser && (currentUser.role === Roles.Coordinator || currentUser.role === Roles.Trainer);
+    const isCoordinator = currentUser?.role === Roles.Coordinator;
+    const isTrainee = currentUser?.role === Roles.Student;
     const [searchQuery, setSearchQuery] = useState('');
     const [filterStatus, setFilterStatus] = useState<'all' | 'completed' | 'in-progress' | 'not-started'>('all');
     const [showFilters, setShowFilters] = useState(false);
@@ -52,13 +52,17 @@ const TrainingModulesView = ({
     const [selectedNoteIndex, setSelectedNoteIndex] = useState<number | null>(null);
     const [noteText, setNoteText] = useState('');
 
+    // Check if user is archived - this prevents editing
+    const isUserArchived = viewedUser?.archived || false;
+    const canEdit = isEditable && !isArchived && !isUserArchived;
+
     const isSubmoduleComplete = (submodule: IUserSubmodule) => {
         if (!submodule.ojt) return false;
 
         const sigs = submodule.signatures || [];
-        const hasCoordinator = sigs.some(s => s.role === "Coordinator");
-        const hasTrainer = sigs.some(s => s.role === "Trainer");
-        const hasTrainee = sigs.some(s => s.role === "Trainee");
+        const hasCoordinator = sigs.some(s => s.role === Roles.Coordinator);
+        const hasTrainer = sigs.some(s => s.role === Roles.Trainer);
+        const hasTrainee = sigs.some(s => s.role === Roles.Student);
 
         if (!hasCoordinator || !hasTrainer || !hasTrainee) return false;
 
@@ -124,6 +128,12 @@ const TrainingModulesView = ({
     const handleSaveNote = async () => {
         if (selectedNoteIndex === null) return;
 
+        if (!canEdit) {
+            setError(isUserArchived ? 'Cannot edit notes - user is archived' : 'Cannot edit notes - module is archived');
+            setTimeout(() => setError(null), 3000);
+            return;
+        }
+
         const mod = trainingData[selectedNoteIndex];
         if (!mod._id) return;
 
@@ -171,6 +181,12 @@ const TrainingModulesView = ({
     const handleRemoveModule = useCallback(async (index: number) => {
         if (!isCoordinator) return;
 
+        if (!canEdit) {
+            setError(isUserArchived ? 'Cannot remove module - user is archived' : 'Cannot remove module - archived cycle');
+            setTimeout(() => setError(null), 3000);
+            return;
+        }
+
         const mod = trainingData[index];
         if (!mod._id) return;
 
@@ -196,7 +212,7 @@ const TrainingModulesView = ({
         } finally {
             setSaving(false);
         }
-    }, [isCoordinator, trainingData, viewedUser._id, setTrainingData, setError, setOriginalData, setSaveSuccess, setSaving]);
+    }, [isCoordinator, trainingData, viewedUser._id, setTrainingData, setError, setOriginalData, setSaveSuccess, setSaving, canEdit, isUserArchived]);
 
     useEffect(() => {
         fetchModules();
@@ -222,6 +238,19 @@ const TrainingModulesView = ({
 
     return (
         <>
+            {/* User Archived Warning - Show prominently */}
+            {isUserArchived && (
+                <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                    <div>
+                        <p className="text-sm font-semibold text-red-900">User Account Archived</p>
+                        <p className="text-xs text-red-700 mt-1">
+                            This user has been archived. {isCoordinator ? 'You can view history but cannot make any changes or assign new modules.' : 'No changes can be made to archived user accounts.'}
+                        </p>
+                    </div>
+                </div>
+            )}
+
             {/* Search and Filter Bar */}
             <div className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4 shadow-sm">
                 <div className="flex flex-col gap-3">
@@ -252,7 +281,7 @@ const TrainingModulesView = ({
                                 </button>
                             )}
 
-                            {isCoordinator && !isArchived && (
+                            {isCoordinator && !isArchived && !isUserArchived && (
                                 <button
                                     onClick={() => setShowAddModal(true)}
                                     disabled={loadingModules}
@@ -291,7 +320,7 @@ const TrainingModulesView = ({
             </div>
 
             {/* Archived Notice for Coordinators/Trainers */}
-            {isArchived && !isTrainee && (
+            {(isArchived || isUserArchived) && !isTrainee && !isUserArchived && (
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
                     <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                     <div>
@@ -312,10 +341,10 @@ const TrainingModulesView = ({
                             {trainingData.length === 0 ? 'No training modules assigned' : 'No modules match your filters'}
                         </p>
                         <p className="text-sm text-gray-500 mb-4">
-                            {trainingData.length === 0 && isCoordinator && !isArchived
+                            {trainingData.length === 0 && isCoordinator && !isArchived && !isUserArchived
                                 ? 'Click "Assign" to get started'
-                                : trainingData.length === 0 && isCoordinator && isArchived
-                                    ? 'No archived modules for this training cycle'
+                                : trainingData.length === 0 && isCoordinator && (isArchived || isUserArchived)
+                                    ? isUserArchived ? 'No modules for this archived user' : 'No archived modules for this training cycle'
                                     : trainingData.length === 0 && isTrainee
                                         ? 'Your trainer will assign modules to you soon'
                                         : 'Try adjusting your search or filters'}
@@ -364,16 +393,17 @@ const TrainingModulesView = ({
                                             ? m.tModule.name
                                             : 'Unknown Module';
                                         const progress = getModuleProgress(m);
+                                        const isModuleArchived = isArchived || m.archived || isUserArchived;
 
                                         return (
-                                            <tr 
-                                                key={m._id?.toString() || idx} 
-                                                className={`hover:bg-gray-50 transition-colors ${isArchived ? 'opacity-75' : ''}`}
+                                            <tr
+                                                key={m._id?.toString() || idx}
+                                                className={`hover:bg-gray-50 transition-colors ${isModuleArchived ? 'opacity-75' : ''}`}
                                             >
                                                 <td className="px-4 py-3">
                                                     <div className="flex items-center gap-2">
-                                                        {isArchived && (
-                                                            <Archive className="w-4 h-4 text-amber-500 shrink-0" />
+                                                        {isModuleArchived && (
+                                                            <Archive className={`w-4 h-4 shrink-0 ${isUserArchived ? 'text-red-500' : 'text-amber-500'}`} />
                                                         )}
                                                         <div className="flex-1 min-w-0">
                                                             <button
@@ -390,6 +420,11 @@ const TrainingModulesView = ({
                                                                     Training Year: {m.trainingYear}
                                                                 </p>
                                                             )}
+                                                            {isUserArchived && (
+                                                                <p className="text-xs text-red-600 mt-1 font-medium">
+                                                                    User Archived
+                                                                </p>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </td>
@@ -397,9 +432,8 @@ const TrainingModulesView = ({
                                                     <div className="flex flex-col items-center gap-1">
                                                         <div className="w-full max-w-[120px] bg-gray-200 rounded-full h-2 overflow-hidden">
                                                             <div
-                                                                className={`h-2 rounded-full transition-all ${
-                                                                    isArchived ? 'bg-amber-500' : 'bg-blue-600'
-                                                                }`}
+                                                                className={`h-2 rounded-full transition-all ${isUserArchived ? 'bg-red-500' : isArchived ? 'bg-amber-500' : 'bg-blue-600'
+                                                                    }`}
                                                                 style={{ width: `${progress.percentage}%` }}
                                                             />
                                                         </div>
@@ -412,15 +446,14 @@ const TrainingModulesView = ({
                                                     <td className="px-4 py-3 text-center">
                                                         <button
                                                             onClick={() => handleOpenNoteModal(idx)}
-                                                            disabled={isArchived}
-                                                            className={`p-2 rounded-lg transition-colors ${
-                                                                isArchived 
-                                                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                                                    : m.notes
-                                                                        ? 'bg-blue-50 text-blue-700 hover:bg-blue-100'
-                                                                        : 'bg-gray-50 text-gray-400 hover:bg-gray-100'
-                                                            }`}
-                                                            title={isArchived ? 'Cannot edit archived module' : m.notes || 'Add note'}
+                                                            disabled={isModuleArchived}
+                                                            className={`p-2 rounded-lg transition-colors ${isModuleArchived
+                                                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                                                : m.notes
+                                                                    ? 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                                                                    : 'bg-gray-50 text-gray-400 hover:bg-gray-100'
+                                                                }`}
+                                                            title={isUserArchived ? 'Cannot edit - user archived' : isModuleArchived ? 'Cannot edit archived module' : m.notes || 'Add note'}
                                                         >
                                                             <MessageSquare className="w-4 h-4" />
                                                         </button>
@@ -439,7 +472,7 @@ const TrainingModulesView = ({
                                                             >
                                                                 <History className="w-4 h-4" />
                                                             </button>
-                                                            {!isArchived && (
+                                                            {!isModuleArchived && (
                                                                 <button
                                                                     onClick={() => handleRemoveModule(actualIndex)}
                                                                     disabled={saving}
@@ -470,34 +503,43 @@ const TrainingModulesView = ({
                                     ? m.tModule.description
                                     : '';
                                 const progress = getModuleProgress(m);
+                                const isModuleArchived = isArchived || m.archived || isUserArchived;
 
                                 return (
-                                    <div 
-                                        key={m._id?.toString() || idx} 
-                                        className={`bg-white rounded-xl border shadow-sm hover:shadow-md transition-all overflow-hidden ${
-                                            isArchived 
-                                                ? 'border-amber-200 bg-amber-50/30' 
+                                    <div
+                                        key={m._id?.toString() || idx}
+                                        className={`bg-white rounded-xl border shadow-sm hover:shadow-md transition-all overflow-hidden ${isUserArchived
+                                            ? 'border-red-200 bg-red-50/30'
+                                            : isModuleArchived
+                                                ? 'border-amber-200 bg-amber-50/30'
                                                 : 'border-gray-200'
-                                        }`}
+                                            }`}
                                     >
                                         {/* Header Section */}
-                                        <div className={`p-4 border-b ${
-                                            isArchived ? 'border-amber-100 bg-amber-50/50' : 'border-gray-100'
-                                        }`}>
+                                        <div className={`p-4 border-b ${isUserArchived
+                                            ? 'border-red-100 bg-red-50/50'
+                                            : isModuleArchived
+                                                ? 'border-amber-100 bg-amber-50/50'
+                                                : 'border-gray-100'
+                                            }`}>
                                             <div className="flex items-start justify-between gap-3 mb-2">
                                                 <button
                                                     onClick={() => router.push(`/users/${viewedUser._id}/moduleInfo/${m._id}`)}
                                                     className="flex-1 min-w-0 text-left"
                                                 >
                                                     <div className="flex items-center gap-2 mb-1">
-                                                        {isArchived && (
-                                                            <Archive className="w-4 h-4 text-amber-500 shrink-0" />
+                                                        {isModuleArchived && (
+                                                            <Archive className={`w-4 h-4 shrink-0 ${isUserArchived ? 'text-red-500' : 'text-amber-500'}`} />
                                                         )}
                                                         <h3 className="text-base font-bold text-gray-900 hover:text-blue-600 transition-colors leading-tight">
                                                             {moduleName}
                                                         </h3>
                                                     </div>
-                                                    {isArchived && (
+                                                    {isUserArchived ? (
+                                                        <span className="inline-block px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full">
+                                                            User Archived
+                                                        </span>
+                                                    ) : isArchived && (
                                                         <span className="inline-block px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-medium rounded-full">
                                                             Archived {m.trainingYear && `• ${m.trainingYear}`}
                                                         </span>
@@ -519,34 +561,31 @@ const TrainingModulesView = ({
                                                 </div>
                                                 <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
                                                     <div
-                                                        className={`h-2 rounded-full transition-all ${
-                                                            isArchived ? 'bg-amber-500' : 'bg-blue-600'
-                                                        }`}
+                                                        className={`h-2 rounded-full transition-all ${isUserArchived ? 'bg-red-500' : isArchived ? 'bg-amber-500' : 'bg-blue-600'
+                                                            }`}
                                                         style={{ width: `${progress.percentage}%` }}
                                                     />
                                                 </div>
                                             </div>
 
                                             {/* Show notes preview for trainees or view-only for archived */}
-                                            {m.notes && (isTrainee || isArchived) && (
-                                                <div className={`p-3 rounded-lg border ${
-                                                    isArchived 
-                                                        ? 'bg-amber-50 border-amber-100' 
+                                            {m.notes && (isTrainee || isModuleArchived) && (
+                                                <div className={`p-3 rounded-lg border ${isUserArchived
+                                                    ? 'bg-red-50 border-red-100'
+                                                    : isArchived
+                                                        ? 'bg-amber-50 border-amber-100'
                                                         : 'bg-blue-50 border-blue-100'
-                                                }`}>
+                                                    }`}>
                                                     <div className="flex items-start gap-2">
-                                                        <MessageSquare className={`w-4 h-4 shrink-0 mt-0.5 ${
-                                                            isArchived ? 'text-amber-600' : 'text-blue-600'
-                                                        }`} />
+                                                        <MessageSquare className={`w-4 h-4 shrink-0 mt-0.5 ${isUserArchived ? 'text-red-600' : isArchived ? 'text-amber-600' : 'text-blue-600'
+                                                            }`} />
                                                         <div className="flex-1 min-w-0">
-                                                            <p className={`text-xs font-semibold mb-1 ${
-                                                                isArchived ? 'text-amber-900' : 'text-blue-900'
-                                                            }`}>
+                                                            <p className={`text-xs font-semibold mb-1 ${isUserArchived ? 'text-red-900' : isArchived ? 'text-amber-900' : 'text-blue-900'
+                                                                }`}>
                                                                 Trainer Notes
                                                             </p>
-                                                            <p className={`text-xs leading-relaxed line-clamp-3 ${
-                                                                isArchived ? 'text-amber-700' : 'text-blue-700'
-                                                            }`}>
+                                                            <p className={`text-xs leading-relaxed line-clamp-3 ${isUserArchived ? 'text-red-700' : isArchived ? 'text-amber-700' : 'text-blue-700'
+                                                                }`}>
                                                                 {m.notes}
                                                             </p>
                                                         </div>
@@ -556,22 +595,22 @@ const TrainingModulesView = ({
                                         </div>
 
                                         {/* Actions Footer */}
-                                        <div className={`px-4 py-3 border-t flex items-center justify-between ${
-                                            isArchived 
-                                                ? 'bg-amber-50/50 border-amber-100' 
+                                        <div className={`px-4 py-3 border-t flex items-center justify-between ${isUserArchived
+                                            ? 'bg-red-50/50 border-red-100'
+                                            : isArchived
+                                                ? 'bg-amber-50/50 border-amber-100'
                                                 : 'bg-gray-50 border-gray-100'
-                                        }`}>
+                                            }`}>
                                             {!isTrainee && (
                                                 <button
                                                     onClick={() => handleOpenNoteModal(idx)}
-                                                    disabled={isArchived}
-                                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                                                        isArchived
-                                                            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                                                            : m.notes
-                                                                ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                                                                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
-                                                    }`}
+                                                    disabled={isModuleArchived}
+                                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${isModuleArchived
+                                                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                                        : m.notes
+                                                            ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                                            : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+                                                        }`}
                                                 >
                                                     <MessageSquare className="w-3.5 h-3.5" />
                                                     <span>{m.notes ? 'View Note' : 'Add Note'}</span>
@@ -590,7 +629,7 @@ const TrainingModulesView = ({
                                                     >
                                                         <History className="w-4 h-4" />
                                                     </button>
-                                                    {!isArchived && (
+                                                    {!isModuleArchived && (
                                                         <button
                                                             onClick={() => handleRemoveModule(actualIndex)}
                                                             disabled={saving}
@@ -620,8 +659,10 @@ const TrainingModulesView = ({
                         <div className="flex items-center justify-between p-6 border-b border-gray-200">
                             <div>
                                 <h3 className="text-lg font-semibold text-gray-900">Training Notes</h3>
-                                {isArchived && (
-                                    <p className="text-xs text-amber-600 mt-1">Read-only • Archived module</p>
+                                {(isArchived || isUserArchived) && (
+                                    <p className="text-xs text-red-600 mt-1">
+                                        Read-only • {isUserArchived ? 'User archived' : 'Archived module'}
+                                    </p>
                                 )}
                             </div>
                             <button
@@ -642,7 +683,7 @@ const TrainingModulesView = ({
                                 onChange={(e) => setNoteText(e.target.value)}
                                 placeholder="Add notes about this training module..."
                                 className="w-full h-48 border border-gray-300 rounded-lg p-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none disabled:bg-gray-50 disabled:text-gray-500"
-                                disabled={!isEditable || isArchived}
+                                disabled={!canEdit}
                             />
                         </div>
 
@@ -655,9 +696,9 @@ const TrainingModulesView = ({
                                 }}
                                 className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
                             >
-                                {isArchived ? 'Close' : 'Cancel'}
+                                {(isArchived || isUserArchived) ? 'Close' : 'Cancel'}
                             </button>
-                            {isEditable && !isArchived && (
+                            {canEdit && (
                                 <button
                                     onClick={handleSaveNote}
                                     disabled={saving}

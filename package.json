@@ -12,7 +12,8 @@
     "seed:migrateSignatures": "tsx src/scripts/migrateSignatures.ts",
     "seed:populateAllData": "tsx src/scripts/populateAllData.ts",
     "seed:updateTrainingSubmodule": "tsx src/scripts/updateTrainingSubmodule.ts",
-    "seed:updateSignatures": "tsx src/scripts/updateSignatures.ts"
+    "seed:updateSignatures": "tsx src/scripts/updateSignatures.ts",
+    "seed:fromScratch": "tsx src/scripts/fromScratch.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.918.0",

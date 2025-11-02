@@ -1,5 +1,5 @@
 import { Award, Clock, Edit, Home, LogOut, Menu, RefreshCw, TrendingUp, User } from "lucide-react";
-import { IUser, Stat } from "@/models/types";
+import { IUser, Roles, Stat } from "@/models/types";
 
 import { useRouter } from 'next/navigation';
 
@@ -24,9 +24,9 @@ const TrainingHeader = ({
 }) => {
     const router = useRouter();
 
-    const isEditable = currentUser && (currentUser.role === 'Coordinator' || currentUser.role === 'Trainer');
-    const isCoordinator = currentUser?.role === 'Coordinator';
-    const isTrainee = currentUser?.role === 'Trainee';
+    const isEditable = currentUser && (currentUser.role === Roles.Coordinator || currentUser.role === Roles.Trainer);
+    const isCoordinator = currentUser?.role === Roles.Coordinator;
+    const isTrainee = currentUser?.role === Roles.Student;
     const isViewingOwnProfile = currentUser?._id === viewedUser?._id;
 
     const handleLogout = async () => {

@@ -14,12 +14,12 @@ export async function GET(
     await connectToDatabase();
 
     // Add timeout protection
-    const resolvedParams = await Promise.race([
+    const resolvedParams = (await Promise.race([
       params,
-      new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Params timeout')), 5000)
-      )
-    ]) as { userId: string; moduleId: string };
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Params timeout")), 5000)
+      ),
+    ])) as { userId: string; moduleId: string };
 
     const { userId, moduleId } = resolvedParams;
 
@@ -44,18 +44,18 @@ export async function GET(
     const mod = await UserModule.findOne({
       _id: moduleId,
       user: userId,
-      deleted: { $ne: true }, // ✅ ignore deleted modules
+      archived: { $ne: true }, // ✅ ignore archived modules
     })
       .populate("tModule")
       .populate({
         path: "submodules",
-        match: { deleted: { $ne: true } }, // ✅ exclude deleted submodules too, if any
+        match: { archived: { $ne: true } }, // ✅ exclude archived submodules too, if any
         populate: [
           { path: "tSubmodule" },
           {
             path: "signatures",
-            match: { deleted: { $ne: true } }, // ✅ exclude deleted signatures
-            populate: { path: "user", select: "_id name role" },
+            match: { archived: { $ne: true } }, // ✅ exclude archived signatures
+            populate: { path: "user", select: "_id name role archived" },
           },
         ],
       });
@@ -96,25 +96,28 @@ export async function PATCH(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const allowedUpdates: any = {};
     if (body.notes !== undefined) allowedUpdates.notes = body.notes;
-    if (body.submodules !== undefined) allowedUpdates.submodules = body.submodules;
-    if (body.activeCycle !== undefined) allowedUpdates.activeCycle = body.activeCycle;
-    if (body.trainingYear !== undefined) allowedUpdates.trainingYear = body.trainingYear;
+    if (body.submodules !== undefined)
+      allowedUpdates.submodules = body.submodules;
+    if (body.activeCycle !== undefined)
+      allowedUpdates.activeCycle = body.activeCycle;
+    if (body.trainingYear !== undefined)
+      allowedUpdates.trainingYear = body.trainingYear;
 
     const mod = await UserModule.findOneAndUpdate(
-      { _id: moduleId, user: userId, deleted: { $ne: true } },
+      { _id: moduleId, user: userId, archived: { $ne: true } },
       allowedUpdates,
       { new: true, runValidators: true }
     )
       .populate("tModule")
       .populate({
         path: "submodules",
-        match: { deleted: { $ne: true } }, // ✅ exclude deleted submodules
+        match: { archived: { $ne: true } }, // ✅ exclude archived submodules
         populate: [
           { path: "tSubmodule" },
           {
             path: "signatures",
-            match: { deleted: { $ne: true } }, // ✅ exclude deleted signatures
-            populate: { path: "user", select: "_id name role" },
+            match: { archived: { $ne: true } }, // ✅ exclude archived signatures
+            populate: { path: "user", select: "_id name role archived" },
           },
         ],
       });
@@ -129,7 +132,10 @@ export async function PATCH(
     return NextResponse.json({ success: true, data: mod });
   } catch (error) {
     console.error("PATCH /modules/[moduleId] error:", error);
-    return NextResponse.json({ success: false, error: (error as Error).message }, { status: 400 });
+    return NextResponse.json(
+      { success: false, error: (error as Error).message },
+      { status: 400 }
+    );
   }
 }
 
@@ -151,9 +157,9 @@ export async function DELETE(
       return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
     }
 
-    // 1️⃣ Mark the user module as deleted
+    // 1️⃣ Mark the user module as archived
     await UserModule.findByIdAndUpdate(moduleId, {
-      deleted: true,
+      archived: true,
     });
 
     // 2️⃣ Optionally remove from user's modules array
@@ -163,10 +169,13 @@ export async function DELETE(
 
     return NextResponse.json({
       success: true,
-      message: "Module soft-deleted successfully",
+      message: "Module archived successfully",
     });
   } catch (error) {
     console.error("DELETE /modules/[moduleId] error:", error);
-    return NextResponse.json({ success: false, error: (error as Error).message }, { status: 400 });
+    return NextResponse.json(
+      { success: false, error: (error as Error).message },
+      { status: 400 }
+    );
   }
 }

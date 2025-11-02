@@ -2,28 +2,28 @@
 import React, { useEffect, useState, startTransition, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, UserPlus, Archive, ArchiveRestore, Users, LogOut, User as UserIcon, BookOpen, Settings, ChevronDown, Menu, X, Mail, CheckCircle, Clock, Trash2 } from 'lucide-react';
+import { Role, Roles, IUser } from '@/models/types';
 
-interface User {
-    _id: string;
-    name: string;
-    username: string;
-    role: 'Coordinator' | 'Trainer' | 'Trainee';
-    email?: string;
-    archived?: boolean;
-    isVerified?: boolean;
-    createdAt?: string;
-}
+
 
 const roleOptions = [
-    { value: 'Trainee', label: 'Trainee' },
-    { value: 'Trainer', label: 'Trainer' },
-    { value: 'Coordinator', label: 'Coordinator' },
+    { value: Roles.Student, label: 'Student' },
+    { value: Roles.Trainer, label: 'Trainer' },
+    { value: Roles.Coordinator, label: 'Coordinator' },
 ];
+
+interface NewUserForm {
+    fullName: string;
+    username: string;
+    email: string;
+    role: Role;
+}
+
 
 export default function DashboardPage() {
     const router = useRouter();
-    const [currentUser, setCurrentUser] = useState<User | null>(null);
-    const [users, setUsers] = useState<User[]>([]);
+    const [currentUser, setCurrentUser] = useState<IUser | null>(null);
+    const [users, setUsers] = useState<IUser[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [showArchived, setShowArchived] = useState(false);
     const [selectedRole, setSelectedRole] = useState<string | null>(null);
@@ -40,18 +40,18 @@ export default function DashboardPage() {
     const settingsDropdownRef = useRef<HTMLDivElement>(null);
     const mobileMenuRef = useRef<HTMLDivElement>(null);
 
-    const [newUserForm, setNewUserForm] = useState({
+    const [newUserForm, setNewUserForm] = useState<NewUserForm>({
         fullName: '',
         username: '',
         email: '',
-        role: 'Trainee' as 'Trainee' | 'Trainer' | 'Coordinator',
+        role: Roles.Student,
     });
 
     const fetchUsers = async (query = '') => {
         try {
             const res = await fetch(`/api/users?q=${query}`);
             if (!res.ok) return;
-            const data: User[] = await res.json();
+            const data: IUser[] = await res.json();
             setUsers(data);
         } catch (err) {
             console.error('Failed to fetch users', err);
@@ -85,7 +85,7 @@ export default function DashboardPage() {
             try {
                 const res = await fetch('/api/me');
                 if (!res.ok) return;
-                const user: User = await res.json();
+                const user: IUser = await res.json();
                 setCurrentUser(user);
             } catch (err) {
                 console.error('Failed to fetch current user', err);
@@ -129,11 +129,11 @@ export default function DashboardPage() {
             const data = await res.json();
 
             if (res.ok) {
-                setNewUserForm({ fullName: '', username: '', email: '', role: 'Trainee' });
+                setNewUserForm({ fullName: '', username: '', email: '', role: Roles.Student });
                 setShowAddUserForm(false);
                 setShowSuccessMessage(true);
                 fetchUsers();
-                
+
                 // Hide success message after 5 seconds
                 setTimeout(() => {
                     setShowSuccessMessage(false);
@@ -149,7 +149,7 @@ export default function DashboardPage() {
         }
     };
 
-    const handleToggleArchive = async (user: User) => {
+    const handleToggleArchive = async (user: IUser) => {
         try {
             await fetch('/api/users', {
                 method: 'PATCH',
@@ -162,16 +162,14 @@ export default function DashboardPage() {
         }
     };
 
-    const handleDeleteUser = async (user: User) => {
+    const handleDeleteUser = async (user: IUser) => {
         if (!confirm(`Are you sure you want to delete ${user.name}? This action cannot be undone.`)) {
             return;
         }
 
         try {
-            const res = await fetch('/api/users', {
+            const res = await fetch(`/api/users/${user._id}`, {
                 method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: user._id }),
             });
 
             if (res.ok) {
@@ -185,6 +183,7 @@ export default function DashboardPage() {
             alert('Failed to delete user');
         }
     };
+
 
     const handleLogout = async () => {
         try {
@@ -206,13 +205,13 @@ export default function DashboardPage() {
         }
     };
 
-    const handleUserClick = (user: User) => {
+    const handleUserClick = (user: IUser) => {
         if (currentUser?.role === 'Coordinator') {
             router.push(`/dashboard/train/${user._id}`);
             return;
         }
 
-        if (currentUser?.role === 'Trainer' && user.role === 'Trainee') {
+        if (currentUser?.role === Roles.Trainer && user.role === Roles.Student) {
             router.push(`/dashboard/train/${user._id}`);
             return;
         }
@@ -220,7 +219,7 @@ export default function DashboardPage() {
 
     if (!currentUser) return null;
 
-    if (currentUser.role === 'Trainee') {
+    if (currentUser.role === Roles.Student) {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
                 <div className="text-center">
@@ -244,16 +243,20 @@ export default function DashboardPage() {
             u.email?.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesArchive = showArchived ? u.archived : !u.archived;
         const matchesRole = selectedRole ? u.role === selectedRole : true;
-        const matchesPermission = currentUser.role === 'Coordinator' || u.role === 'Trainee';
+
+        // Fixed permission logic: Trainers can view students
+        const matchesPermission =
+            currentUser.role === Roles.Coordinator ||
+            (currentUser.role === Roles.Trainer && u.role === Roles.Student);
 
         return matchesSearch && matchesArchive && matchesRole && matchesPermission;
     });
 
     const stats = {
         total: users.filter(u => !u.archived).length,
-        trainees: users.filter(u => u.role === 'Trainee' && !u.archived).length,
-        trainers: users.filter(u => u.role === 'Trainer' && !u.archived).length,
-        coordinators: users.filter(u => u.role === 'Coordinator' && !u.archived).length,
+        trainees: users.filter(u => u.role === Roles.Student && !u.archived).length,
+        trainers: users.filter(u => u.role === Roles.Trainer && !u.archived).length,
+        coordinators: users.filter(u => u.role === Roles.Coordinator && !u.archived).length,
         pending: users.filter(u => !u.isVerified && !u.archived).length,
     };
 
@@ -488,8 +491,7 @@ export default function DashboardPage() {
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-700 mb-1.5 flex items-center gap-1">
-                                        <Mail className="w-3.5 h-3.5" />
+                                    <label className="block text-xs font-medium text-gray-700 mb-1.5 items-center gap-1">
                                         Email Address
                                     </label>
                                     <input
@@ -526,7 +528,7 @@ export default function DashboardPage() {
                                                 <li
                                                     key={opt.value}
                                                     onClick={() => {
-                                                        setNewUserForm({ ...newUserForm, role: opt.value as 'Trainee' | 'Trainer' | 'Coordinator' });
+                                                        setNewUserForm({ ...newUserForm, role: opt.value }); // no 'as Role' needed
                                                         setSearchRoleDropdownOpen(false);
                                                     }}
                                                     className={`px-3 py-2 text-sm cursor-pointer ${newUserForm.role === opt.value
@@ -537,6 +539,7 @@ export default function DashboardPage() {
                                                     {opt.label}
                                                 </li>
                                             ))}
+
                                         </ul>
                                     )}
                                 </div>
@@ -620,7 +623,7 @@ export default function DashboardPage() {
                                     </li>
 
                                     {roleOptions.map((opt) => {
-                                        if ((opt.value === 'Trainer' || opt.value === 'Coordinator') && currentUser?.role !== 'Coordinator') return null;
+                                        if ((opt.value === Roles.Trainer || opt.value === Roles.Coordinator) && currentUser?.role !== Roles.Coordinator) return null;
 
                                         return (
                                             <li
@@ -664,260 +667,260 @@ export default function DashboardPage() {
                 </div>
 
                 {/* User List */}
-<div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-    {/* Desktop Table */}
-    <div className="hidden lg:block overflow-x-auto">
-        <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        User
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Contact
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Role
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                    </th>
-                    {currentUser.role === 'Coordinator' && (
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Actions
-                        </th>
-                    )}
-                </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-                {filteredUsers.map((user) => {
-                    const canAccess = currentUser.role === 'Coordinator' ||
-                        (currentUser.role === 'Trainer' && user.role === 'Trainee');
+                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                    {/* Desktop Table */}
+                    <div className="hidden lg:block overflow-x-auto">
+                        <table className="w-full">
+                            <thead className="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        User
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Contact
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Role
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Status
+                                    </th>
+                                    {currentUser.role === 'Coordinator' && (
+                                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Actions
+                                        </th>
+                                    )}
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                                {filteredUsers.map((user) => {
+                                    const canAccess = currentUser.role === Roles.Coordinator ||
+                                        (currentUser.role === Roles.Trainer && user.role === Roles.Student);
 
-                    return (
-                        <tr
-                            key={user._id}
-                            onClick={() => canAccess && user.isVerified && handleUserClick(user)}
-                            className={canAccess && user.isVerified ? 'hover:bg-gray-50 cursor-pointer' : 'opacity-50'}
-                        >
-                            <td className="px-4 py-3">
-                                <div className="flex flex-col min-w-0">
-                                    <div className="text-sm font-medium text-gray-900 truncate">{user.name}</div>
-                                    <div className="text-sm text-gray-500 truncate">@{user.username}</div>
+                                    return (
+                                        <tr
+                                            key={user._id}
+                                            onClick={() => canAccess && user.isVerified && handleUserClick(user)}
+                                            className={canAccess && user.isVerified ? 'hover:bg-gray-50 cursor-pointer' : 'opacity-50'}
+                                        >
+                                            <td className="px-4 py-3">
+                                                <div className="flex flex-col min-w-0">
+                                                    <div className="text-sm font-medium text-gray-900 truncate">{user.name}</div>
+                                                    <div className="text-sm text-gray-500 truncate">@{user.username}</div>
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <div className="text-sm text-gray-500 truncate max-w-[200px]">
+                                                    {user.email || 'N/A'}
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <span className="inline-flex px-2.5 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-full">
+                                                    {user.role}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                {user.isVerified ? (
+                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-green-700 bg-green-50 rounded-full">
+                                                        <CheckCircle className="w-3.5 h-3.5" />
+                                                        Active
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-amber-700 bg-amber-50 rounded-full">
+                                                        <Clock className="w-3.5 h-3.5" />
+                                                        Pending
+                                                    </span>
+                                                )}
+                                            </td>
+                                            {currentUser.role === 'Coordinator' && (
+                                                <td className="px-4 py-3 text-right">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        {!user.isVerified && (
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleDeleteUser(user);
+                                                                }}
+                                                                className="p-1.5 text-red-600 hover:text-red-900 hover:bg-red-50 rounded transition-colors"
+                                                                title="Delete user"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleToggleArchive(user);
+                                                            }}
+                                                            className="text-sm text-gray-600 hover:text-gray-900 font-medium px-2 py-1 hover:bg-gray-100 rounded transition-colors"
+                                                        >
+                                                            {user.archived ? 'Restore' : 'archived'}
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            )}
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Tablet View */}
+                    <div className="hidden md:block lg:hidden">
+                        {filteredUsers.map((user) => {
+                            const canAccess = currentUser.role === Roles.Coordinator ||
+                                (currentUser.role === Roles.Trainer && user.role === Roles.Student);
+
+                            return (
+                                <div
+                                    key={user._id}
+                                    onClick={() => canAccess && user.isVerified && handleUserClick(user)}
+                                    className={`p-4 border-b border-gray-200 last:border-b-0 ${canAccess && user.isVerified ? 'hover:bg-gray-50 cursor-pointer' : 'opacity-50'}`}
+                                >
+                                    <div className="flex justify-between items-start gap-4">
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <div className="text-sm font-medium text-gray-900 truncate">{user.name}</div>
+                                                <span className="inline-flex px-2.5 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-full shrink-0">
+                                                    {user.role}
+                                                </span>
+                                            </div>
+                                            <div className="text-sm text-gray-500 mb-1 truncate">@{user.username}</div>
+                                            {user.email && (
+                                                <div className="text-sm text-gray-500 truncate flex items-center gap-1.5">
+                                                    <Mail className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                                    {user.email}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="flex flex-col items-end gap-2 shrink-0">
+                                            {user.isVerified ? (
+                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-green-700 bg-green-50 rounded-full">
+                                                    <CheckCircle className="w-3.5 h-3.5" />
+                                                    Active
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-amber-700 bg-amber-50 rounded-full">
+                                                    <Clock className="w-3.5 h-3.5" />
+                                                    Pending
+                                                </span>
+                                            )}
+                                            {currentUser.role === 'Coordinator' && (
+                                                <div className="flex gap-1">
+                                                    {!user.isVerified && (
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleDeleteUser(user);
+                                                            }}
+                                                            className="p-1.5 text-red-600 hover:text-red-900 hover:bg-red-50 rounded transition-colors"
+                                                            title="Delete user"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleToggleArchive(user);
+                                                        }}
+                                                        className="text-sm text-gray-600 hover:text-gray-900 font-medium px-2 py-1 hover:bg-gray-100 rounded transition-colors"
+                                                    >
+                                                        {user.archived ? 'Restore' : 'archived'}
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
-                            </td>
-                            <td className="px-4 py-3">
-                                <div className="text-sm text-gray-500 truncate max-w-[200px]">
-                                    {user.email || 'N/A'}
-                                </div>
-                            </td>
-                            <td className="px-4 py-3">
-                                <span className="inline-flex px-2.5 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-full">
-                                    {user.role}
-                                </span>
-                            </td>
-                            <td className="px-4 py-3">
-                                {user.isVerified ? (
-                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-green-700 bg-green-50 rounded-full">
-                                        <CheckCircle className="w-3.5 h-3.5" />
-                                        Active
-                                    </span>
-                                ) : (
-                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-amber-700 bg-amber-50 rounded-full">
-                                        <Clock className="w-3.5 h-3.5" />
-                                        Pending
-                                    </span>
-                                )}
-                            </td>
-                            {currentUser.role === 'Coordinator' && (
-                                <td className="px-4 py-3 text-right">
-                                    <div className="flex items-center justify-end gap-2">
-                                        {!user.isVerified && (
+                            );
+                        })}
+                    </div>
+
+                    {/* Mobile Card View */}
+                    <div className="md:hidden">
+                        {filteredUsers.map((user) => {
+                            const canAccess = currentUser.role === Roles.Coordinator ||
+                                (currentUser.role === Roles.Trainer && user.role === Roles.Student);
+
+                            return (
+                                <div
+                                    key={user._id}
+                                    onClick={() => canAccess && user.isVerified && handleUserClick(user)}
+                                    className={`p-4 border-b border-gray-200 last:border-b-0 ${canAccess && user.isVerified ? 'hover:bg-gray-50 cursor-pointer' : 'opacity-50'}`}
+                                >
+                                    <div className="flex justify-between items-start gap-3 mb-2">
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-sm font-medium text-gray-900 truncate mb-1">{user.name}</div>
+                                            <div className="text-sm text-gray-500 truncate mb-1">@{user.username}</div>
+                                        </div>
+                                        <div className="flex flex-col items-end gap-1 shrink-0">
+                                            <span className="inline-flex px-2.5 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-full">
+                                                {user.role}
+                                            </span>
+                                            {user.isVerified ? (
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-green-700 bg-green-50 rounded-full">
+                                                    <CheckCircle className="w-3 h-3" />
+                                                    Active
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-amber-700 bg-amber-50 rounded-full">
+                                                    <Clock className="w-3 h-3" />
+                                                    Pending
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {user.email && (
+                                        <div className="text-sm text-gray-500 flex items-center gap-1.5 mb-3">
+                                            <Mail className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                            <span className="truncate">{user.email}</span>
+                                        </div>
+                                    )}
+
+                                    {currentUser.role === 'Coordinator' && (
+                                        <div className="flex gap-2 pt-2 border-t border-gray-100">
+                                            {!user.isVerified && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDeleteUser(user);
+                                                    }}
+                                                    className="flex items-center gap-1.5 text-sm text-red-600 hover:text-red-900 font-medium px-2 py-1 hover:bg-red-50 rounded transition-colors flex-1 justify-center"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                    Delete
+                                                </button>
+                                            )}
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    handleDeleteUser(user);
+                                                    handleToggleArchive(user);
                                                 }}
-                                                className="p-1.5 text-red-600 hover:text-red-900 hover:bg-red-50 rounded transition-colors"
-                                                title="Delete user"
+                                                className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 font-medium px-2 py-1 hover:bg-gray-100 rounded transition-colors flex-1 justify-center"
                                             >
-                                                <Trash2 className="w-4 h-4" />
+                                                {user.archived ? 'Restore' : 'archived'}
                                             </button>
-                                        )}
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleToggleArchive(user);
-                                            }}
-                                            className="text-sm text-gray-600 hover:text-gray-900 font-medium px-2 py-1 hover:bg-gray-100 rounded transition-colors"
-                                        >
-                                            {user.archived ? 'Restore' : 'Archive'}
-                                        </button>
-                                    </div>
-                                </td>
-                            )}
-                        </tr>
-                    );
-                })}
-            </tbody>
-        </table>
-    </div>
-
-    {/* Tablet View */}
-    <div className="hidden md:block lg:hidden">
-        {filteredUsers.map((user) => {
-            const canAccess = currentUser.role === 'Coordinator' ||
-                (currentUser.role === 'Trainer' && user.role === 'Trainee');
-
-            return (
-                <div
-                    key={user._id}
-                    onClick={() => canAccess && user.isVerified && handleUserClick(user)}
-                    className={`p-4 border-b border-gray-200 last:border-b-0 ${canAccess && user.isVerified ? 'hover:bg-gray-50 cursor-pointer' : 'opacity-50'}`}
-                >
-                    <div className="flex justify-between items-start gap-4">
-                        <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-2">
-                                <div className="text-sm font-medium text-gray-900 truncate">{user.name}</div>
-                                <span className="inline-flex px-2.5 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-full shrink-0">
-                                    {user.role}
-                                </span>
-                            </div>
-                            <div className="text-sm text-gray-500 mb-1 truncate">@{user.username}</div>
-                            {user.email && (
-                                <div className="text-sm text-gray-500 truncate flex items-center gap-1.5">
-                                    <Mail className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                                    {user.email}
-                                </div>
-                            )}
-                        </div>
-                        <div className="flex flex-col items-end gap-2 shrink-0">
-                            {user.isVerified ? (
-                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-green-700 bg-green-50 rounded-full">
-                                    <CheckCircle className="w-3.5 h-3.5" />
-                                    Active
-                                </span>
-                            ) : (
-                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-amber-700 bg-amber-50 rounded-full">
-                                    <Clock className="w-3.5 h-3.5" />
-                                    Pending
-                                </span>
-                            )}
-                            {currentUser.role === 'Coordinator' && (
-                                <div className="flex gap-1">
-                                    {!user.isVerified && (
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleDeleteUser(user);
-                                            }}
-                                            className="p-1.5 text-red-600 hover:text-red-900 hover:bg-red-50 rounded transition-colors"
-                                            title="Delete user"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
+                                        </div>
                                     )}
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleToggleArchive(user);
-                                        }}
-                                        className="text-sm text-gray-600 hover:text-gray-900 font-medium px-2 py-1 hover:bg-gray-100 rounded transition-colors"
-                                    >
-                                        {user.archived ? 'Restore' : 'Archive'}
-                                    </button>
                                 </div>
-                            )}
-                        </div>
+                            );
+                        })}
                     </div>
-                </div>
-            );
-        })}
-    </div>
 
-    {/* Mobile Card View */}
-    <div className="md:hidden">
-        {filteredUsers.map((user) => {
-            const canAccess = currentUser.role === 'Coordinator' ||
-                (currentUser.role === 'Trainer' && user.role === 'Trainee');
-
-            return (
-                <div
-                    key={user._id}
-                    onClick={() => canAccess && user.isVerified && handleUserClick(user)}
-                    className={`p-4 border-b border-gray-200 last:border-b-0 ${canAccess && user.isVerified ? 'hover:bg-gray-50 cursor-pointer' : 'opacity-50'}`}
-                >
-                    <div className="flex justify-between items-start gap-3 mb-2">
-                        <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium text-gray-900 truncate mb-1">{user.name}</div>
-                            <div className="text-sm text-gray-500 truncate mb-1">@{user.username}</div>
-                        </div>
-                        <div className="flex flex-col items-end gap-1 shrink-0">
-                            <span className="inline-flex px-2.5 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-full">
-                                {user.role}
-                            </span>
-                            {user.isVerified ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-green-700 bg-green-50 rounded-full">
-                                    <CheckCircle className="w-3 h-3" />
-                                    Active
-                                </span>
-                            ) : (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-amber-700 bg-amber-50 rounded-full">
-                                    <Clock className="w-3 h-3" />
-                                    Pending
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                    
-                    {user.email && (
-                        <div className="text-sm text-gray-500 flex items-center gap-1.5 mb-3">
-                            <Mail className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                            <span className="truncate">{user.email}</span>
-                        </div>
-                    )}
-                    
-                    {currentUser.role === 'Coordinator' && (
-                        <div className="flex gap-2 pt-2 border-t border-gray-100">
-                            {!user.isVerified && (
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDeleteUser(user);
-                                    }}
-                                    className="flex items-center gap-1.5 text-sm text-red-600 hover:text-red-900 font-medium px-2 py-1 hover:bg-red-50 rounded transition-colors flex-1 justify-center"
-                                >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                    Delete
-                                </button>
-                            )}
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleToggleArchive(user);
-                                }}
-                                className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 font-medium px-2 py-1 hover:bg-gray-100 rounded transition-colors flex-1 justify-center"
-                            >
-                                {user.archived ? 'Restore' : 'Archive'}
-                            </button>
+                    {filteredUsers.length === 0 && (
+                        <div className="text-center py-8">
+                            <Users className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                            <p className="text-sm text-gray-500">
+                                {showArchived
+                                    ? 'No archived users found'
+                                    : 'No users found'}
+                            </p>
                         </div>
                     )}
                 </div>
-            );
-        })}
-    </div>
-
-    {filteredUsers.length === 0 && (
-        <div className="text-center py-8">
-            <Users className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-            <p className="text-sm text-gray-500">
-                {showArchived
-                    ? 'No archived users found'
-                    : 'No users found'}
-            </p>
-        </div>
-    )}
-</div>
             </div>
         </div>
     );

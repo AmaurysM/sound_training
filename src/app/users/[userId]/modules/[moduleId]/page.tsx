@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
     ClipboardList,
@@ -16,28 +16,20 @@ import {
     Filter,
     ArrowLeft,
     Download,
-    Menu,
+    Archive,
 } from "lucide-react";
-import { ISignature, IUserSubmodule } from "@/models/types";
+import { ISignature, IUser, IUserSubmodule, Role, RoleEnum, Roles } from "@/models/types";
 
 interface SortConfig {
     key: keyof IUserSubmodule | 'signatureStatus';
     direction: 'asc' | 'desc';
 }
 
-interface CurrentUser {
-    _id: string;
-    name: string;
-    username: string;
-    role: "Coordinator" | "Trainer" | "Trainee";
-    studentId?: string;
-}
-
 export default function SubmodulesPage() {
     const { userId, moduleId } = useParams();
     const [submodules, setSubmodules] = useState<IUserSubmodule[]>([]);
     const [loading, setLoading] = useState(true);
-    const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+    const [currentUser, setCurrentUser] = useState<IUser>();
     const [userLoading, setUserLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState<"all" | "completed" | "incomplete">("all");
@@ -49,8 +41,9 @@ export default function SubmodulesPage() {
     });
     const [isMobile, setIsMobile] = useState(false);
     const [isSignatureLoading, setIsSignatureLoading] = useState(false);
-    const [moduleOwner, setModuleOwner] = useState<{ name: string; username: string; studentId?: string } | null>(null);
+    const [moduleOwner, setModuleOwner] = useState<IUser>();
     const [showFilters, setShowFilters] = useState(false);
+    const [moduleDetails, setModuleDetails] = useState<{ archived: boolean } | null>(null);
 
     const router = useRouter();
 
@@ -68,7 +61,6 @@ export default function SubmodulesPage() {
         };
     }, []);
 
-    // Rest of your existing useEffect hooks remain the same...
     useEffect(() => {
         const abortController = new AbortController();
 
@@ -116,7 +108,11 @@ export default function SubmodulesPage() {
                 setModuleOwner({
                     name: userData.name,
                     username: userData.username,
-                    studentId: userData.studentId
+                    archived: userData.archived,
+                    isVerified: userData.isVerified,
+                    role: userData.role,
+                    nickname: userData.nickname,
+                    modules: userData.modules
                 });
             } catch (err) {
                 if (err instanceof Error && err.name === 'AbortError') {
@@ -146,15 +142,12 @@ export default function SubmodulesPage() {
                     { signal: abortController.signal }
                 );
 
-                console.log("We got something from the api. ", res)
-
                 if (!res.ok) {
                     const errorData = await res.json();
                     throw new Error(errorData.message || "Failed to fetch submodules");
                 }
 
                 const response = await res.json();
-                console.log(response)
 
                 if (!response.data || !Array.isArray(response.data)) {
                     console.error("Invalid data format received:", response);
@@ -186,14 +179,35 @@ export default function SubmodulesPage() {
         };
     }, [userId, moduleId]);
 
-    const getSignatureStatus = (submodule: IUserSubmodule) => {
-        const sigs = submodule.signatures || [];
-        const coordinator = sigs.some(s => s.role === "Coordinator");
-        const trainer = sigs.some(s => s.role === "Trainer");
-        const trainee = sigs.some(s => s.role === "Trainee");
-        const count = [coordinator, trainer, trainee].filter(Boolean).length;
-        return { coordinator, trainer, trainee, count };
-    };
+    // Fetch module details to check archived status
+    useEffect(() => {
+        const abortController = new AbortController();
+
+        const fetchModuleDetails = async () => {
+            try {
+                const res = await fetch(`/api/users/${userId}/modules/${moduleId}`, {
+                    signal: abortController.signal
+                });
+
+                if (!res.ok) throw new Error("Failed to fetch module details");
+                const response = await res.json();
+                setModuleDetails({ archived: response.data?.archived || false });
+            } catch (err) {
+                if (err instanceof Error && err.name === 'AbortError') {
+                    return;
+                }
+                console.error("Error fetching module details:", err);
+            }
+        };
+
+        if (userId && moduleId) {
+            fetchModuleDetails();
+        }
+
+        return () => {
+            abortController.abort();
+        };
+    }, [userId, moduleId]);
 
     const downloadCSV = () => {
         if (submodules.length === 0) {
@@ -219,14 +233,13 @@ export default function SubmodulesPage() {
             "Total Signatures",
         ];
 
-
         const rows = submodules.map(submodule => {
             const signatureStatus = getSignatureStatus(submodule);
             const isComplete = isSubmoduleComplete(submodule);
 
-            const coordSig = submodule.signatures?.find(s => s.role === "Coordinator");
-            const trainerSig = submodule.signatures?.find(s => s.role === "Trainer");
-            const traineeSig = submodule.signatures?.find(s => s.role === "Trainee");
+            const coordSig = submodule.signatures?.find(s => s.role === Roles.Coordinator);
+            const trainerSig = submodule.signatures?.find(s => s.role === Roles.Trainer);
+            const traineeSig = submodule.signatures?.find(s => s.role === Roles.Student);
 
             const getSignerName = (sig: ISignature | undefined) => {
                 if (!sig) return "";
@@ -304,22 +317,30 @@ export default function SubmodulesPage() {
         }
     };
 
-    const isSubmoduleComplete = (submodule: IUserSubmodule) => {
-        if (!submodule.ojt) return false;
+    // Stable helper functions
+    const getSignatureStatus = useCallback((submodule: IUserSubmodule) => {
+        const sigs = submodule.signatures || [];
+        const coordinator = sigs.some(s => s.role === Roles.Coordinator && !s.archived);
+        const trainer = sigs.some(s => s.role === Roles.Trainer && !s.archived);
+        const trainee = sigs.some(s => s.role === Roles.Student && !s.archived);
+        const count = [coordinator, trainer, trainee].filter(Boolean).length;
+        return { coordinator, trainer, trainee, count };
+    }, []);
 
-        const status = getSignatureStatus(submodule);
-        if (!status.coordinator || !status.trainer || !status.trainee) return false;
-
-        if (submodule.tSubmodule?.requiresPractical && !submodule.practical) return false;
-
-        return true;
-    };
-
-    const hasAllSignatures = (submodule: IUserSubmodule) => {
+    const hasAllSignatures = useCallback((submodule: IUserSubmodule) => {
         const status = getSignatureStatus(submodule);
         return status.coordinator && status.trainer && status.trainee;
-    };
+    }, [getSignatureStatus]);
 
+    const isSubmoduleComplete = useCallback((submodule: IUserSubmodule) => {
+        if (!submodule.ojt) return false;
+        const status = getSignatureStatus(submodule);
+        if (!status.coordinator || !status.trainer || !status.trainee) return false;
+        if (submodule.tSubmodule?.requiresPractical && !submodule.practical) return false;
+        return true;
+    }, [getSignatureStatus]);
+
+    // Memoized filtered & sorted list
     const filteredAndSortedSubmodules = useMemo(() => {
         let filtered = [...submodules];
 
@@ -357,18 +378,23 @@ export default function SubmodulesPage() {
                     bValue = b.tSubmodule?.code || '';
                 }
 
-                if (aValue < bValue) {
-                    return sortConfig.direction === 'asc' ? -1 : 1;
-                }
-                if (aValue > bValue) {
-                    return sortConfig.direction === 'asc' ? 1 : -1;
-                }
+                if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+                if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
                 return 0;
             });
         }
 
         return filtered;
-    }, [submodules, searchQuery, statusFilter, practicalFilter, sortConfig]);
+    }, [
+        submodules,
+        searchQuery,
+        statusFilter,
+        practicalFilter,
+        sortConfig,
+        hasAllSignatures,
+        isSubmoduleComplete,
+        getSignatureStatus,
+    ]);
 
     const handleSort = (key: SortConfig['key']) => {
         setSortConfig(current => ({
@@ -379,14 +405,22 @@ export default function SubmodulesPage() {
 
     const canEditFields = () => {
         if (!currentUser) return false;
+        
+        // Check if module or user is archived
+        if (moduleOwner?.archived || moduleDetails?.archived) return false;
+        
         const isViewingOwnModules = currentUser._id === userId;
-        if (currentUser.role === "Trainee") return false;
+        if (currentUser.role === Roles.Student) return false;
         return !isViewingOwnModules;
     };
 
     const toggleField = async (submoduleId: string, field: "ojt" | "practical", current: boolean) => {
         if (!canEditFields()) {
-            alert("You don't have permission to edit this field");
+            if (moduleOwner?.archived || moduleDetails?.archived) {
+                alert("Cannot edit - this user or module has been archived");
+            } else {
+                alert("You don't have permission to edit this field");
+            }
             return;
         }
 
@@ -417,6 +451,11 @@ export default function SubmodulesPage() {
 
     const removeSignature = async (sigId: string) => {
         if (!signOffModal.submodule?._id) return;
+
+        if (moduleOwner?.archived || moduleDetails?.archived) {
+            alert("Cannot remove signature - this user or module has been archived");
+            return;
+        }
 
         if (!confirm("Are you sure you want to remove this signature?")) {
             return;
@@ -473,25 +512,23 @@ export default function SubmodulesPage() {
         }) ?? false;
     };
 
-    const hasRole = (sigs: ISignature[], role: string) =>
-        sigs.some(s => s.role === role);
-
-
-
     const getSignedRoles = () => {
         if (!signOffModal.submodule)
             return { coordinator: false, trainer: false, trainee: false };
 
         const sigs = signOffModal.submodule.signatures || [];
         return {
-            coordinator: sigs.some(sig => sig.role === "Coordinator"),
-            trainer: sigs.some(sig => sig.role === "Trainer"),
-            trainee: sigs.some(sig => sig.role === "Trainee"),
+            coordinator: sigs.some(sig => sig.role === Roles.Coordinator),
+            trainer: sigs.some(sig => sig.role === Roles.Trainer),
+            trainee: sigs.some(sig => sig.role === Roles.Student),
         };
     };
 
-    const canUserSignRole = (role: "Coordinator" | "Trainer" | "Trainee") => {
+    const canUserSignRole = (role: Role) => {
         if (!currentUser || !signOffModal.submodule) return false;
+
+        // ✅ Check if module or user is archived
+        if (moduleOwner?.archived || moduleDetails?.archived) return false;
 
         // ✅ Check if OJT is completed
         if (!signOffModal.submodule.ojt) return false;
@@ -505,7 +542,7 @@ export default function SubmodulesPage() {
         const signedRoles = getSignedRoles();
 
         if (isViewingOwnModules) {
-            return role === "Trainee" && !signedRoles.trainee;
+            return role === Roles.Student && !signedRoles.trainee;
         }
 
         switch (currentUser.role) {
@@ -523,18 +560,22 @@ export default function SubmodulesPage() {
                 return role === "Trainer" && !hasSignedThisRole;
             }
 
-            case "Trainee":
+            case Roles.Student:
             default:
                 return false;
         }
     };
 
-
-    const addSignature = async (role: "Coordinator" | "Trainer" | "Trainee") => {
+    const addSignature = async (role: Role) => {
         if (!signOffModal.submodule?._id) return;
 
         if (!currentUser) {
             alert("You must be logged in to sign off");
+            return;
+        }
+
+        if (moduleOwner?.archived || moduleDetails?.archived) {
+            alert("Cannot sign - this user or module has been archived");
             return;
         }
 
@@ -582,7 +623,7 @@ export default function SubmodulesPage() {
         }
     };
 
-    const hasUserSignedRole = (role: "Coordinator" | "Trainer" | "Trainee") => {
+    const hasUserSignedRole = (role: Role) => {
         if (!signOffModal.submodule || !currentUser) return false;
 
         return signOffModal.submodule.signatures?.some(sig => {
@@ -627,6 +668,29 @@ export default function SubmodulesPage() {
     return (
         <div className="min-h-screen bg-slate-50 p-3 sm:p-4 md:p-6">
             <div className="max-w-7xl mx-auto">
+                {/* Archived Banner */}
+                {(moduleOwner?.archived || moduleDetails?.archived) && (
+                    <div className="mb-4 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
+                        <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center shrink-0">
+                                <Archive className="w-4 h-4 text-red-600" />
+                            </div>
+                            <div>
+                                <p className="font-semibold text-red-900 text-sm">
+                                    {moduleOwner?.archived && moduleDetails?.archived
+                                        ? "This user and module have been archived"
+                                        : moduleOwner?.archived
+                                        ? "This user has been archived"
+                                        : "This module has been archived"}
+                                </p>
+                                <p className="text-xs text-red-700 mt-1">
+                                    Editing and signing are disabled for archived items.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Header Section */}
                 <div className="flex flex-row items-center justify-between gap-2 mb-4">
                     <button
@@ -646,10 +710,6 @@ export default function SubmodulesPage() {
                     </button>
                 </div>
 
-
-
-                {/* Stats Cards - Clickable Filters */}
-                {/* Stats Cards - Clickable Filters */}
                 {/* Stats Cards - Clickable Filters */}
                 <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6">
                     {[
@@ -701,7 +761,7 @@ export default function SubmodulesPage() {
                     ${statusFilter === key ? `ring-2 ring-${color}-400` : ""}
                 `}
                             >
-                                <div className={`w-8 h-8 bg-${color}-100 rounded-lg flex items-center justify-center flex-shrink-0`}>
+                                <div className={`w-8 h-8 bg-${color}-100 rounded-lg flex items-center justify-center shrink-0`}>
                                     <Icon className={`w-4 h-4 text-${color}-600`} />
                                 </div>
                                 <div className="min-w-0">
@@ -714,7 +774,7 @@ export default function SubmodulesPage() {
                                 key={key}
                                 className={`bg-slate-50 rounded-lg p-3 sm:p-4 border border-slate-200 flex items-center gap-2 text-left cursor-default opacity-70`}
                             >
-                                <div className={`w-8 h-8 bg-${color}-100 rounded-lg flex items-center justify-center flex-shrink-0`}>
+                                <div className={`w-8 h-8 bg-${color}-100 rounded-lg flex items-center justify-center shrink-0`}>
                                     <Icon className={`w-4 h-4 text-${color}-600`} />
                                 </div>
                                 <div className="min-w-0">
@@ -792,7 +852,7 @@ export default function SubmodulesPage() {
                                     {/* Header */}
                                     <div className="flex items-start justify-between mb-3">
                                         <div className="flex items-start gap-2 flex-1 min-w-0">
-                                            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded flex items-center justify-center font-bold text-xs shadow-md flex-shrink-0 mt-0.5">
+                                            <div className="w-8 h-8 bg-linear-to-br from-blue-600 to-blue-700 text-white rounded flex items-center justify-center font-bold text-xs shadow-md shrink-0 mt-0.5">
                                                 {submodule.tSubmodule?.code?.substring(0, 4)}
                                             </div>
                                             <div className="min-w-0 flex-1">
@@ -963,7 +1023,7 @@ export default function SubmodulesPage() {
                                                                     ? "bg-green-100 text-green-800 hover:bg-green-200"
                                                                     : "bg-amber-100 text-amber-800 hover:bg-amber-200 border-2 border-amber-300"
                                                                 }`}
-                                                            title={canEditFields() ? "Click to toggle OJT completion" : "You don't have permission to edit"}
+                                                            title={canEditFields() ? "Click to toggle OJT completion" : (moduleOwner?.archived || moduleDetails?.archived) ? "Cannot edit - archived" : "You don't have permission to edit"}
                                                         >
                                                             {submodule.ojt ? "✓ Completed" : "Click to Complete"}
                                                         </button>
@@ -979,7 +1039,7 @@ export default function SubmodulesPage() {
                                                                         ? "bg-blue-100 text-blue-800 hover:bg-blue-200"
                                                                         : "bg-amber-100 text-amber-800 hover:bg-amber-200 border-2 border-amber-300"
                                                                     }`}
-                                                                title={canEditFields() ? "Click to toggle practical completion" : "You don't have permission to edit"}
+                                                                title={canEditFields() ? "Click to toggle practical completion" : (moduleOwner?.archived || moduleDetails?.archived) ? "Cannot edit - archived" : "You don't have permission to edit"}
                                                             >
                                                                 {submodule.practical ? "✓ Completed" : "Click to Complete"}
                                                             </button>
@@ -1058,7 +1118,7 @@ export default function SubmodulesPage() {
                             </div>
                             <button
                                 onClick={closeSignOffModal}
-                                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors flex-shrink-0 ml-2"
+                                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors shrink-0 ml-2"
                             >
                                 <X className="w-5 h-5" />
                             </button>
@@ -1071,7 +1131,7 @@ export default function SubmodulesPage() {
                                 </div>
                             )}
 
-                            {(["Coordinator", "Trainer", "Trainee"] as const).map(role => {
+                            {RoleEnum.map(role => {
                                 const sig = signOffModal.submodule?.signatures.find(s => s.role === role);
 
                                 const canSign = canUserSignRole(role);
@@ -1084,7 +1144,7 @@ export default function SubmodulesPage() {
                                             {sig ? (
                                                 <div className="flex items-center gap-2">
                                                     <CheckCircle className="w-4 h-4 text-green-600" />
-                                                    {userHasSigned && (
+                                                    {userHasSigned && !(moduleOwner?.archived || moduleDetails?.archived) && (
                                                         <button
                                                             onClick={() => removeSignature(sig._id ? sig._id : "")}
                                                             disabled={isSignatureLoading}
@@ -1122,7 +1182,9 @@ export default function SubmodulesPage() {
                                             </div>
                                         ) : (
                                             <div className="text-sm text-slate-600">
-                                                {!signOffModal.submodule?.ojt ? (
+                                                {moduleOwner?.archived || moduleDetails?.archived ? (
+                                                    <p className="text-red-600 text-xs">⚠️ Cannot sign - archived</p>
+                                                ) : !signOffModal.submodule?.ojt ? (
                                                     <p className="text-red-600 text-xs">⚠️ OJT must be completed first</p>
                                                 ) : signOffModal.submodule?.tSubmodule?.requiresPractical && !signOffModal.submodule?.practical ? (
                                                     <p className="text-red-600 text-xs">⚠️ Practical must be completed first</p>

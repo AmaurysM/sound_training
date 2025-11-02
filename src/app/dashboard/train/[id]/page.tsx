@@ -2,14 +2,15 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import {
-    AlertCircle, CheckCircle2, Loader2, Save, X, Calendar, Archive, RotateCcw, Filter
+    AlertCircle, CheckCircle2, Loader2, Save, X, RotateCcw,
+    Archive
 } from 'lucide-react';
 import TrainingHistoryModal from '@/app/components/ShowHistoryModal';
 import AddModuleModal from '@/app/components/AddModuleModal';
 import EditUserModal from '@/app/components/EditUserModal';
 import TrainingHeader from '@/app/components/TrainingHeader';
 import TrainingModulesView from '@/app/components/TrainingModulesView';
-import { IUserModule, ITrainingModule, IUser, Stat, IUserSubmodule } from "@/models/types";
+import { IUserModule, ITrainingModule, IUser, Stat, IUserSubmodule, Roles } from "@/models/types";
 
 export default function UserTrainingPage() {
     const params = useParams();
@@ -45,9 +46,9 @@ export default function UserTrainingPage() {
         if (!submodule.ojt) return false;
 
         const sigs = submodule.signatures || [];
-        const hasCoordinator = sigs.some(s => s.role === "Coordinator");
-        const hasTrainer = sigs.some(s => s.role === "Trainer");
-        const hasTrainee = sigs.some(s => s.role === "Trainee");
+        const hasCoordinator = sigs.some(s => s.role === Roles.Coordinator);
+        const hasTrainer = sigs.some(s => s.role === Roles.Trainer);
+        const hasTrainee = sigs.some(s => s.role === Roles.Student);
 
         if (!hasCoordinator || !hasTrainer || !hasTrainee) return false;
 
@@ -148,9 +149,16 @@ export default function UserTrainingPage() {
 
     const isEditable = currentUser && (currentUser.role === 'Coordinator' || currentUser.role === 'Trainer');
     const isCoordinator = currentUser?.role === 'Coordinator';
+    const isUserArchived = viewedUser?.archived || false;
 
     const handleAddModule = async () => {
         if (!selectedModuleId || !viewedUser || !isCoordinator) return;
+
+        if (isUserArchived) {
+            setError('Cannot assign modules - user is archived');
+            setTimeout(() => setError(null), 3000);
+            return;
+        }
 
         const alreadyAssigned = userModules.some(
             (m) => (typeof m.tModule === 'object' ? m.tModule._id : m.tModule)?.toString() === selectedModuleId &&
@@ -204,6 +212,12 @@ export default function UserTrainingPage() {
     const handleSave = async () => {
         if (!viewedUser || !isEditable) return;
 
+        if (isUserArchived) {
+            setError('Cannot save changes - user is archived');
+            setTimeout(() => setError(null), 3000);
+            return;
+        }
+
         try {
             setSaving(true);
             setError(null);
@@ -249,6 +263,12 @@ export default function UserTrainingPage() {
     const handleArchiveCycle = async () => {
         if (!isCoordinator || !viewedUser) return;
 
+        if (isUserArchived) {
+            setError('Cannot archive cycle - user is archived');
+            setTimeout(() => setError(null), 3000);
+            return;
+        }
+
         if (!confirm(`Archive all modules for ${selectedYear === 'all' ? 'all years' : selectedYear}? This will mark them as inactive.`)) return;
 
         try {
@@ -285,6 +305,12 @@ export default function UserTrainingPage() {
 
     const handleRestoreCycle = async () => {
         if (!isCoordinator || !viewedUser) return;
+
+        if (isUserArchived) {
+            setError('Cannot restore cycle - user is archived');
+            setTimeout(() => setError(null), 3000);
+            return;
+        }
 
         if (!confirm(`Restore all modules for ${selectedYear === 'all' ? 'all years' : selectedYear}? This will mark them as active.`)) return;
 
@@ -429,18 +455,18 @@ export default function UserTrainingPage() {
                 />
 
                 {/* Training Cycle Filter */}
-                <div className=" bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl shadow-sm shadow-gray-200/60 overflow-show">
+                <div className="bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl shadow-sm shadow-gray-200/60 overflow-show">
                     <div className="p-4">
                         <button
                             onClick={() => setShowCycleFilter(!showCycleFilter)}
                             className="flex items-center justify-between w-full text-left group"
                         >
                             <div className="flex items-center gap-3">
-                                <div className="p-2 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg group-hover:from-blue-100 group-hover:to-blue-200 transition-all duration-200 shadow-sm">
+                                <div className="p-2 bg-linear-to-br from-blue-50 to-blue-100 rounded-lg group-hover:from-blue-100 group-hover:to-blue-200 transition-all duration-200 shadow-sm">
                                     <Archive className="w-4 h-4 text-blue-500" />
                                 </div>
                                 <div>
-                                    <h3 className="text-sm font-semibold text-gray-800">Archive</h3>
+                                    <h3 className="text-sm font-semibold text-gray-800">Training Cycles</h3>
                                     <p className="text-xs text-gray-500 mt-0.5">
                                         {showActiveCycles ? 'Active' : 'Archived'} • {selectedYear === 'all' ? 'All Years' : selectedYear}
                                     </p>
@@ -487,8 +513,8 @@ export default function UserTrainingPage() {
                                         <button
                                             onClick={() => setShowActiveCycles(true)}
                                             className={`flex-1 px-4 py-2 rounded-lg text-xs font-medium transition-all duration-200 ${showActiveCycles
-                                                    ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-sm'
-                                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'
+                                                ? 'bg-linear-to-r from-green-500 to-green-600 text-white shadow-sm'
+                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'
                                                 }`}
                                         >
                                             <span className="flex items-center justify-center gap-1.5">
@@ -499,8 +525,8 @@ export default function UserTrainingPage() {
                                         <button
                                             onClick={() => setShowActiveCycles(false)}
                                             className={`flex-1 px-4 py-2 rounded-lg text-xs font-medium transition-all duration-200 ${!showActiveCycles
-                                                    ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-sm'
-                                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'
+                                                ? 'bg-linear-to-r from-amber-500 to-amber-600 text-white shadow-sm'
+                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'
                                                 }`}
                                         >
                                             <span className="flex items-center justify-center gap-1.5">
@@ -512,7 +538,7 @@ export default function UserTrainingPage() {
                                 </div>
 
                                 {/* Coordinator Actions */}
-                                {isCoordinator && (
+                                {isCoordinator && !isUserArchived && (
                                     <div className="pt-4 border-t border-gray-100">
                                         <label className="block text-xs font-medium text-gray-600 mb-2">Bulk Actions</label>
                                         <div className="flex flex-col sm:flex-row gap-2">
@@ -520,7 +546,7 @@ export default function UserTrainingPage() {
                                                 <button
                                                     onClick={handleArchiveCycle}
                                                     disabled={saving || stats.total === 0}
-                                                    className="flex-1 px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-lg text-xs font-medium hover:from-amber-600 hover:to-amber-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 transition-all duration-200 shadow-sm"
+                                                    className="flex-1 px-4 py-2 bg-linear-to-r from-amber-500 to-amber-600 text-white rounded-lg text-xs font-medium hover:from-amber-600 hover:to-amber-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 transition-all duration-200 shadow-sm"
                                                 >
                                                     <Archive className="w-3.5 h-3.5" />
                                                     Archive {stats.total} Module{stats.total !== 1 ? 's' : ''}
@@ -530,7 +556,7 @@ export default function UserTrainingPage() {
                                                 <button
                                                     onClick={handleRestoreCycle}
                                                     disabled={saving || stats.total === 0}
-                                                    className="flex-1 px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg text-xs font-medium hover:from-green-600 hover:to-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 transition-all duration-200 shadow-sm"
+                                                    className="flex-1 px-4 py-2 bg-linear-to-r from-green-500 to-green-600 text-white rounded-lg text-xs font-medium hover:from-green-600 hover:to-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 transition-all duration-200 shadow-sm"
                                                 >
                                                     <RotateCcw className="w-3.5 h-3.5" />
                                                     Restore {stats.total} Module{stats.total !== 1 ? 's' : ''}
@@ -546,7 +572,7 @@ export default function UserTrainingPage() {
 
                     {/* Status Banner */}
                     {!showActiveCycles && (
-                        <div className="bg-gradient-to-r from-amber-50 to-amber-100/80 border-t border-amber-200/50 px-4 py-2.5 flex items-center gap-2">
+                        <div className="bg-linear-to-r from-amber-50 to-amber-100/80 border-t border-amber-200/50 px-4 py-2.5 flex items-center gap-2">
                             <Archive className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                             <p className="text-xs text-amber-700">
                                 <span className="font-medium">Viewing archived modules</span>
@@ -556,7 +582,7 @@ export default function UserTrainingPage() {
                 </div>
 
                 {error && (
-                    <div className="bg-gradient-to-r from-red-50 to-red-100/80 border border-red-200 rounded-lg p-3 flex items-start gap-2 shadow-sm animate-in fade-in duration-200">
+                    <div className="bg-linear-to-r from-red-50 to-red-100/80 border border-red-200 rounded-lg p-3 flex items-start gap-2 shadow-sm animate-in fade-in duration-200">
                         <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
                         <div className="flex-1 min-w-0">
                             <p className="text-red-700 text-xs font-medium">{error}</p>

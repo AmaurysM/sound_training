@@ -21,6 +21,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       name: user.name,
       username: user.username,
       role: user.role,
+      archived: user.archived
     };
 
     res.status(200).json(safeUser);
