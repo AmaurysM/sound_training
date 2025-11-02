@@ -254,6 +254,7 @@ async function seedDatabase() {
     }
 
     // Insert all modules
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const moduleDocs = new Map<string, any>();
     for (const moduleName of moduleMap.keys()) {
       const moduleDoc = await TrainingModule.create({ name: moduleName });
@@ -273,6 +274,7 @@ async function seedDatabase() {
       );
 
       // Update module's submodule array
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       moduleDoc.submodules = submodules.map((s: any) => s._id);
       await moduleDoc.save();
       console.log(`✅ ${moduleName}: ${submodules.length} submodules added`);
