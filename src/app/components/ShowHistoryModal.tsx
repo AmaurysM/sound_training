@@ -14,19 +14,23 @@ import {
 } from 'lucide-react';
 import { IUserModule, IUserSubmodule } from '@/models/types';
 import { Roles } from '@/models/types'
-interface TrainingHistoryModalProps {
-  show: boolean;
-  training: IUserModule | null;
-  isCoordinator: boolean;
-  onClose: () => void;
-}
+import { useDashboard } from '@/contexts/dashboard-context';
 
-export default function TrainingHistoryModal({
-  show,
-  training,
-  isCoordinator,
-  onClose,
-}: TrainingHistoryModalProps) {
+  // show,
+  // training,
+  // isCoordinator,
+  // onClose,
+export default function TrainingHistoryModal() {
+
+  const {
+    showHistoryModal: show,
+    setShowHistoryModal,
+    selectedUserModule: training,
+    setSelectedUserModule,
+    currentUser,
+  } = useDashboard();
+
+  const isCoordinator = currentUser?.role === Roles.Coordinator;
   const [submodules, setSubmodules] = useState<IUserSubmodule[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -115,7 +119,10 @@ export default function TrainingHistoryModal({
               </h2>
             </div>
             <button
-              onClick={onClose}
+              onClick={() => {
+                    setShowHistoryModal(false);
+                    setSelectedUserModule(null);
+                }}
               className="p-2 hover:bg-white/50 rounded-lg transition-colors shrink-0"
               title="Close"
             >
@@ -395,7 +402,10 @@ export default function TrainingHistoryModal({
         {/* Footer */}
         <div className="p-3 border-t border-gray-200 bg-gray-50 flex justify-end">
           <button
-            onClick={onClose}
+            onClick={() => {
+                    setShowHistoryModal(false);
+                    setSelectedUserModule(null);
+                }}
             className="px-4 py-2 bg-gray-900 text-white rounded-md text-sm font-medium hover:bg-gray-800 transition-colors shadow-sm"
           >
             Close

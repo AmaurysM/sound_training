@@ -2,29 +2,29 @@
 import React from 'react';
 import { Plus, X, CheckCircle2, FileText, Loader2, Check } from 'lucide-react';
 import { ITrainingModule } from "@/models/types";
+import { useDashboard } from '@/contexts/dashboard-context';
 
 interface AddModuleModalProps {
-  show: boolean;
   isCoordinator: boolean;
-  unassignedModules: ITrainingModule[];
-  selectedModuleIds: string[];
-  addingModule: boolean;
-  onClose: () => void;
+  modules: ITrainingModule[];
   onToggleModule: (id: string) => void;
   onAddModules: () => void;
 }
 
 const AddModuleModal: React.FC<AddModuleModalProps> = ({
-  show,
   isCoordinator,
-  unassignedModules,
-  selectedModuleIds,
-  addingModule,
-  onClose,
+  modules,
   onToggleModule,
   onAddModules,
 }) => {
-  if (!show || !isCoordinator) return null;
+  const {
+    showAddModal,
+    setShowAddModal,
+    selectedModuleIds,
+    addingModule,
+  } = useDashboard();
+
+  if (!showAddModal || !isCoordinator) return null;
 
   const isSelected = (id: string) => selectedModuleIds.includes(id);
 
@@ -38,7 +38,7 @@ const AddModuleModal: React.FC<AddModuleModalProps> = ({
             Assign Training Modules
           </h2>
           <button
-            onClick={onClose}
+            onClick={()=>setShowAddModal(false)}
             disabled={addingModule}
             className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
           >
@@ -48,7 +48,7 @@ const AddModuleModal: React.FC<AddModuleModalProps> = ({
 
         {/* Body */}
         <div className="px-5 py-5 sm:px-6 sm:py-6">
-          {unassignedModules.length === 0 ? (
+          {modules.length === 0 ? (
             <div className="text-center py-8">
               <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-3" />
               <p className="text-gray-900 font-medium text-base mb-1">
@@ -58,7 +58,7 @@ const AddModuleModal: React.FC<AddModuleModalProps> = ({
                 All available training modules have been assigned to this user.
               </p>
               <button
-                onClick={onClose}
+                onClick={()=>setShowAddModal(false)}
                 className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 transition-colors font-medium"
               >
                 Close
@@ -71,7 +71,7 @@ const AddModuleModal: React.FC<AddModuleModalProps> = ({
                   Tap modules to select or deselect:
                 </p>
                 <div className="flex flex-col gap-2">
-                  {unassignedModules.map((module) => {
+                  {modules.map((module) => {
                     const id = module._id?.toString() || '';
                     const selected = isSelected(id);
                     return (
@@ -79,18 +79,16 @@ const AddModuleModal: React.FC<AddModuleModalProps> = ({
                         key={id}
                         onClick={() => onToggleModule(id)}
                         disabled={addingModule}
-                        className={`w-full flex items-start gap-3 border rounded-xl px-4 py-3 text-left transition-all ${
-                          selected
+                        className={`w-full flex items-start gap-3 border rounded-xl px-4 py-3 text-left transition-all ${selected
                             ? 'border-blue-500 bg-blue-50'
                             : 'border-gray-200 hover:bg-gray-50'
-                        }`}
+                          }`}
                       >
                         <div
-                          className={`flex-shrink-0 w-5 h-5 rounded-md border flex items-center justify-center ${
-                            selected
+                          className={`shrink-0 w-5 h-5 rounded-md border flex items-center justify-center ${selected
                               ? 'bg-blue-600 border-blue-600'
                               : 'border-gray-300 bg-white'
-                          }`}
+                            }`}
                         >
                           {selected && <Check className="w-3.5 h-3.5 text-white" />}
                         </div>
@@ -112,7 +110,7 @@ const AddModuleModal: React.FC<AddModuleModalProps> = ({
                   <span>
                     {selectedModuleIds.length > 0
                       ? `${selectedModuleIds.length} selected`
-                      : `${unassignedModules.length} available`}
+                      : `${modules.length} available`}
                   </span>
                 </div>
               </div>
@@ -120,7 +118,7 @@ const AddModuleModal: React.FC<AddModuleModalProps> = ({
               {/* Buttons */}
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
                 <button
-                  onClick={onClose}
+                  onClick={()=>setShowAddModal(false)}
                   disabled={addingModule}
                   className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
                 >

@@ -3,22 +3,23 @@ import React, { useState, useEffect } from 'react';
 import { X, Save, Loader2, AlertCircle, User } from 'lucide-react';
 import { IUser, Roles } from '@/models/types';
 import { Role } from '@/models/types';
-
-interface EditUserModalProps {
-  show: boolean;
-  user: IUser | null;
-  onClose: () => void;
-  onSave: () => void;
-}
+import { useDashboard } from '@/contexts/dashboard-context';
 
 // Make all fields optional for update except archived & modules
 type UserUpdate = Partial<Omit<IUser, 'archived' | 'modules'>> & { password?: string };
 
-export default function EditUserModal({ show, user, onClose, onSave }: EditUserModalProps) {
+export default function EditUserModal() {
+  const {
+    showEditModal: show,
+    setShowEditModal,
+    viewedUser: user,
+    fetchViewedUserAndModules,
+  } = useDashboard();
+
   const [formData, setFormData] = useState({
     name: '',
     username: '',
-    role: 'Trainee' as Role,
+    role: 'Student' as Role,
     password: '',
     changePassword: false,
   });
@@ -39,6 +40,10 @@ export default function EditUserModal({ show, user, onClose, onSave }: EditUserM
       setError(null);
     }
   }, [user]);
+
+  const handleClose = () => {
+    setShowEditModal(false);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,8 +87,12 @@ export default function EditUserModal({ show, user, onClose, onSave }: EditUserM
         throw new Error(errorData.error || 'Failed to update user');
       }
 
-      onSave();
-      onClose();
+      // Refresh the viewed user data
+      if (user._id) {
+        await fetchViewedUserAndModules(user._id.toString());
+      }
+      
+      handleClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update user');
     } finally {
@@ -103,7 +112,7 @@ export default function EditUserModal({ show, user, onClose, onSave }: EditUserM
             <h2 className="text-xl font-bold text-gray-900">Edit User</h2>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             disabled={saving}
             className="text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
           >
@@ -169,7 +178,7 @@ export default function EditUserModal({ show, user, onClose, onSave }: EditUserM
               disabled={saving}
               required
             >
-              <option value={Roles.Student}>Trainee</option>
+              <option value={Roles.Student}>Student</option>
               <option value="Trainer">Trainer</option>
               <option value="Coordinator">Coordinator</option>
             </select>
@@ -218,7 +227,7 @@ export default function EditUserModal({ show, user, onClose, onSave }: EditUserM
           <div className="flex gap-3 pt-4">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               disabled={saving}
               className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
             >
@@ -243,7 +252,7 @@ export default function EditUserModal({ show, user, onClose, onSave }: EditUserM
             </button>
           </div>
         </form>
-      </div >
-    </div >
+      </div>
+    </div>
   );
 }

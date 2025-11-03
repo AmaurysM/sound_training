@@ -41,7 +41,7 @@ export async function GET(
         ],
       })
       .sort({ trainingYear: -1, createdAt: -1 }); // ✅ Sort by year and date
-
+    //console.log(modules)
     return NextResponse.json({ success: true, data: modules });
   } catch (error) {
     console.error("GET /modules error:", error);

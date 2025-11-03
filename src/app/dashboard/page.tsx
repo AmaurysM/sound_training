@@ -1,933 +1,689 @@
-'use client';
-import React, { useEffect, useState, startTransition, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { Search, UserPlus, Archive, ArchiveRestore, Users, LogOut, User as UserIcon, BookOpen, Settings, ChevronDown, Menu, X, Mail, CheckCircle, Clock, Trash2 } from 'lucide-react';
-import { Role, Roles, IUser } from '@/models/types';
+'use client'
 
-const roleOptions = [
-    { value: Roles.Student, label: 'Student' },
-    { value: Roles.Trainer, label: 'Trainer' },
-    { value: Roles.Coordinator, label: 'Coordinator' },
-];
+import React, { useState, useEffect } from 'react';
+import { useDashboard } from '@/contexts/dashboard-context';
+import { IUser, ITrainingModule, IUserModule } from '@/models/types';
+import { 
+  Users, BookOpen, CheckCircle, Clock, ArrowRight, GraduationCap, 
+  UserCheck, TrendingUp, AlertCircle, Target, BarChart3 
+} from 'lucide-react';
+import { redirect, useRouter } from 'next/navigation';
 
-interface NewUserForm {
-    fullName: string;
-    username: string;
-    email: string;
-    role: Role;
+interface DashboardStats {
+  totalUsers: number;
+  activeUsers: number;
+  archivedUsers: number;
+  totalModules: number;
+  completedModules: number;
+  inProgressModules: number;
+  pendingSignoffs: number;
+  overallCompletionRate: number;
+  averageProgress: number;
 }
 
-export default function DashboardPage() {
-    const router = useRouter();
-    const [currentUser, setCurrentUser] = useState<IUser | null>(null);
-    const [users, setUsers] = useState<IUser[]>([]);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [showArchived, setShowArchived] = useState(false);
-    const [selectedRole, setSelectedRole] = useState<string | null>(null);
-    const [showAddUserForm, setShowAddUserForm] = useState(false);
-    const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
-    const [searchRoleDropdownOpen, setSearchRoleDropdownOpen] = useState(false);
-    const [settingsDropdownOpen, setSettingsDropdownOpen] = useState(false);
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-    const [showSuccessMessage, setShowSuccessMessage] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-
-    const roleDropdownRef = useRef<HTMLDivElement>(null);
-    const searchRoleDropdownRef = useRef<HTMLDivElement>(null);
-    const settingsDropdownRef = useRef<HTMLDivElement>(null);
-    const mobileMenuRef = useRef<HTMLDivElement>(null);
-
-    const [newUserForm, setNewUserForm] = useState<NewUserForm>({
-        fullName: '',
-        username: '',
-        email: '',
-        role: Roles.Student,
-    });
-
-    const fetchUsers = async (query = '') => {
-        try {
-            const res = await fetch(`/api/users?q=${query}`);
-            if (!res.ok) return;
-            const data: IUser[] = await res.json();
-            setUsers(data);
-        } catch (err) {
-            console.error('Failed to fetch users', err);
-        }
-    };
-
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (roleDropdownRef.current && !roleDropdownRef.current.contains(event.target as Node)) {
-                setRoleDropdownOpen(false);
-            }
-            if (searchRoleDropdownRef.current && !searchRoleDropdownRef.current.contains(event.target as Node)) {
-                setSearchRoleDropdownOpen(false);
-            }
-            if (settingsDropdownRef.current && !settingsDropdownRef.current.contains(event.target as Node)) {
-                setSettingsDropdownOpen(false);
-            }
-            if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
-                setMobileMenuOpen(false);
-            }
-        };
-
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-        };
-    }, []);
-
-    useEffect(() => {
-        const fetchCurrentUser = async () => {
-            try {
-                const res = await fetch('/api/me');
-                if (!res.ok) return;
-                const user: IUser = await res.json();
-                setCurrentUser(user);
-            } catch (err) {
-                console.error('Failed to fetch current user', err);
-            }
-        };
-
-        startTransition(async () => {
-            await fetchCurrentUser();
-            fetchUsers();
-        });
-    }, [router]);
-
-    const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.target.value;
-        setSearchQuery(value);
-        fetchUsers(value);
-    };
-
-    const handleAddUser = async () => {
-        if (!newUserForm.fullName.trim() || !newUserForm.username.trim() || !newUserForm.email.trim()) {
-            alert('Please fill in all fields');
-            return;
-        }
-
-        // Basic email validation
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(newUserForm.email)) {
-            alert('Please enter a valid email address');
-            return;
-        }
-
-        setIsSubmitting(true);
-
-        try {
-            const res = await fetch('/api/users', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newUserForm),
-            });
-
-            const data = await res.json();
-
-            if (res.ok) {
-                setNewUserForm({ fullName: '', username: '', email: '', role: Roles.Student });
-                setShowAddUserForm(false);
-                setShowSuccessMessage(true);
-                fetchUsers();
-
-                // Hide success message after 5 seconds
-                setTimeout(() => {
-                    setShowSuccessMessage(false);
-                }, 5000);
-            } else {
-                alert(data.error || 'Failed to add user');
-            }
-        } catch (err) {
-            console.error('Failed to add user', err);
-            alert('Failed to add user');
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-    const handleToggleArchive = async (user: IUser) => {
-        try {
-            await fetch('/api/users', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: user._id, archived: !user.archived }),
-            });
-            fetchUsers();
-        } catch (err) {
-            console.error('Failed to update user', err);
-        }
-    };
-
-    const handleDeleteUser = async (user: IUser) => {
-        if (!confirm(`Are you sure you want to delete ${user.name}? This action cannot be undone.`)) {
-            return;
-        }
-
-        try {
-            const res = await fetch(`/api/users/${user._id}`, {
-                method: 'DELETE',
-            });
-
-            if (res.ok) {
-                fetchUsers();
-            } else {
-                const data = await res.json();
-                alert(data.error || 'Failed to delete user');
-            }
-        } catch (err) {
-            console.error('Failed to delete user', err);
-            alert('Failed to delete user');
-        }
-    };
-
-
-    const handleLogout = async () => {
-        try {
-            const res = await fetch('/api/logout', {
-                method: 'POST',
-            });
-
-            if (res.ok) {
-                router.push('/login');
-            }
-        } catch (err) {
-            console.error('Logout failed', err);
-        }
-    };
-
-    const handleViewMyTraining = () => {
-        if (currentUser) {
-            router.push(`/dashboard/train/${currentUser._id}`);
-        }
-    };
-
-    const handleUserClick = (user: IUser) => {
-        if (currentUser?.role === 'Coordinator') {
-            router.push(`/dashboard/train/${user._id}`);
-            return;
-        }
-
-        if (currentUser?.role === Roles.Trainer && user.role === Roles.Student) {
-            router.push(`/dashboard/train/${user._id}`);
-            return;
-        }
-    };
-
-    if (!currentUser) return null;
-
-    if (currentUser.role === Roles.Student) {
-        return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-                <div className="text-center">
-                    <p className="text-gray-600">Access Denied</p>
-                    <button
-                        onClick={handleLogout}
-                        className="mt-4 px-4 py-2 bg-gray-900 text-white rounded hover:bg-gray-800"
-                    >
-                        Logout
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
-    const filteredUsers = users.filter((u) => {
-        if (u._id === currentUser._id) return false;
-
-        const matchesSearch = u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            u.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            u.email?.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesArchive = showArchived ? u.archived : !u.archived;
-        const matchesRole = selectedRole ? u.role === selectedRole : true;
-
-        // Fixed permission logic: Trainers can view students
-        const matchesPermission =
-            currentUser.role === Roles.Coordinator ||
-            (currentUser.role === Roles.Trainer && u.role === Roles.Student);
-
-        return matchesSearch && matchesArchive && matchesRole && matchesPermission;
-    });
-
-    const stats = {
-        total: users.filter(u => !u.archived).length,
-        trainees: users.filter(u => u.role === Roles.Student && !u.archived).length,
-        trainers: users.filter(u => u.role === Roles.Trainer && !u.archived).length,
-        coordinators: users.filter(u => u.role === Roles.Coordinator && !u.archived).length,
-        pending: users.filter(u => !u.isVerified && !u.archived).length,
-    };
-    return (
-        <div className="min-h-screen bg-gray-50 relative"> {/* Added relative here */}
-            {/* Animated background */}
-            {/* <div className="absolute inset-0 overflow-hidden"> 
-                <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
-                <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
-            </div>
-            <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-size-[50px_50px] -z-10"></div> */}
-
-            {/* Main content with relative positioning */}
-            <div className="relative z-10"> {/* Added wrapper with relative z-10 */}
-                <div className="max-w-7xl mx-auto p-3 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
-                    {/* Header */}
-                    <div className="flex items-center justify-between pb-4 border-b border-gray-200">
-                        <div className="flex-1 min-w-0">
-                            <h1 className="text-lg sm:text-xl font-semibold text-gray-900 truncate">NATA Training Dashboard</h1>
-                            <div className="text-xs sm:text-sm text-gray-600 mt-1 flex items-center gap-1">
-                                <UserIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                                <span className="truncate">{currentUser.name}</span>
-                                <span className="text-gray-400">•</span>
-                                <span>{currentUser.role}</span>
-                            </div>
-                        </div>
-
-                        {/* Mobile Menu Button */}
-                        <div className="sm:hidden">
-                            <button
-                                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                                className="p-2 rounded-md text-gray-700 hover:bg-gray-100 transition"
-                            >
-                                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-                            </button>
-                        </div>
-
-                        {/* Desktop Stats and Settings */}
-                        <div className="hidden sm:flex sm:items-center gap-4 sm:gap-6">
-                            <div className="hidden md:flex md:gap-6 text-sm">
-                                <div className="text-right">
-                                    <p className="text-gray-500 text-xs">Total Users</p>
-                                    <p className="text-xl font-semibold text-gray-900">{stats.total}</p>
-                                </div>
-                                <div className="text-right">
-                                    <p className="text-gray-500 text-xs">Trainees</p>
-                                    <p className="text-xl font-semibold text-gray-900">{stats.trainees}</p>
-                                </div>
-                                {currentUser.role === 'Coordinator' && (
-                                    <>
-                                        <div className="text-right">
-                                            <p className="text-gray-500 text-xs">Trainers</p>
-                                            <p className="text-xl font-semibold text-gray-900">{stats.trainers}</p>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-gray-500 text-xs">Pending</p>
-                                            <p className="text-xl font-semibold text-amber-600">{stats.pending}</p>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-
-                            {/* Desktop Settings Dropdown */}
-                            <div ref={settingsDropdownRef} className="hidden sm:block relative">
-                                <button
-                                    onClick={() => setSettingsDropdownOpen(!settingsDropdownOpen)}
-                                    className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition text-sm font-medium text-gray-700"
-                                >
-                                    <Settings className="w-4 h-4" />
-                                    <span className="hidden lg:inline">Menu</span>
-                                    <ChevronDown className={`w-4 h-4 transition-transform ${settingsDropdownOpen ? 'rotate-180' : ''}`} />
-                                </button>
-
-                                {settingsDropdownOpen && (
-                                    <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-50">
-                                        <button
-                                            onClick={() => {
-                                                handleViewMyTraining();
-                                                setSettingsDropdownOpen(false);
-                                            }}
-                                            className="flex items-center gap-3 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition"
-                                        >
-                                            <BookOpen className="w-4 h-4" />
-                                            My Training
-                                        </button>
-
-                                        {currentUser.role === 'Coordinator' && !showArchived && (
-                                            <button
-                                                onClick={() => {
-                                                    setShowAddUserForm(true);
-                                                    setSettingsDropdownOpen(false);
-                                                }}
-                                                className="flex items-center gap-3 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition"
-                                            >
-                                                <UserPlus className="w-4 h-4" />
-                                                Add New User
-                                            </button>
-                                        )}
-
-                                        <div className="border-t border-gray-100 my-1"></div>
-
-                                        <button
-                                            onClick={() => {
-                                                handleLogout();
-                                                setSettingsDropdownOpen(false);
-                                            }}
-                                            className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-50 transition"
-                                        >
-                                            <LogOut className="w-4 h-4" />
-                                            Logout
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Mobile Menu */}
-                    {mobileMenuOpen && (
-                        <div ref={mobileMenuRef} className="sm:hidden bg-white border border-gray-200 rounded-lg p-4 space-y-3">
-                            {/* Mobile Stats */}
-                            <div className="grid grid-cols-2 gap-4 pb-3 border-b border-gray-100">
-                                <div className="text-center">
-                                    <p className="text-gray-500 text-xs">Total Users</p>
-                                    <p className="text-lg font-semibold text-gray-900">{stats.total}</p>
-                                </div>
-                                <div className="text-center">
-                                    <p className="text-gray-500 text-xs">Trainees</p>
-                                    <p className="text-lg font-semibold text-gray-900">{stats.trainees}</p>
-                                </div>
-                                {currentUser.role === 'Coordinator' && (
-                                    <>
-                                        <div className="text-center">
-                                            <p className="text-gray-500 text-xs">Trainers</p>
-                                            <p className="text-lg font-semibold text-gray-900">{stats.trainers}</p>
-                                        </div>
-                                        <div className="text-center">
-                                            <p className="text-gray-500 text-xs">Pending</p>
-                                            <p className="text-lg font-semibold text-amber-600">{stats.pending}</p>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-
-                            {/* Mobile Menu Actions */}
-                            <button
-                                onClick={() => {
-                                    handleViewMyTraining();
-                                    setMobileMenuOpen(false);
-                                }}
-                                className="flex items-center gap-3 w-full px-4 py-3 text-sm text-gray-700 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
-                            >
-                                <BookOpen className="w-4 h-4" />
-                                My Training Modules
-                            </button>
-
-                            {currentUser.role === 'Coordinator' && !showArchived && (
-                                <button
-                                    onClick={() => {
-                                        setShowAddUserForm(true);
-                                        setMobileMenuOpen(false);
-                                    }}
-                                    className="flex items-center gap-3 w-full px-4 py-3 text-sm text-gray-700 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
-                                >
-                                    <UserPlus className="w-4 h-4" />
-                                    Add New User
-                                </button>
-                            )}
-
-                            <button
-                                onClick={() => {
-                                    handleLogout();
-                                    setMobileMenuOpen(false);
-                                }}
-                                className="flex items-center gap-3 w-full px-4 py-3 text-sm text-red-600 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
-                            >
-                                <LogOut className="w-4 h-4" />
-                                Logout
-                            </button>
-                        </div>
-                    )}
-
-                    {/* Success Message */}
-                    {showSuccessMessage && (
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
-                            <CheckCircle className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
-                            <div className="flex-1">
-                                <h3 className="text-sm font-semibold text-green-900 mb-1">Registration Email Sent!</h3>
-                                <p className="text-sm text-green-700">
-                                    An email with registration instructions has been sent to the user. They will have 24 hours to complete their registration.
-                                </p>
-                            </div>
-                            <button
-                                onClick={() => setShowSuccessMessage(false)}
-                                className="text-green-600 hover:text-green-900"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-                    )}
-
-                    {/* Add New User Form */}
-                    {showAddUserForm && currentUser.role === 'Coordinator' && (
-                        <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <div>
-                                    <h3 className="text-base font-semibold text-gray-900">Invite New User</h3>
-                                    <p className="text-sm text-gray-500 mt-1">Send a registration email to the new user</p>
-                                </div>
-                                <button
-                                    onClick={() => setShowAddUserForm(false)}
-                                    className="text-sm text-gray-500 hover:text-gray-900 font-medium"
-                                >
-                                    Cancel
-                                </button>
-                            </div>
-
-                            <div className="space-y-4">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-xs font-medium text-gray-700 mb-1.5">Full Name</label>
-                                        <input
-                                            type="text"
-                                            placeholder="John Doe"
-                                            className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                                            value={newUserForm.fullName}
-                                            onChange={(e) => setNewUserForm({ ...newUserForm, fullName: e.target.value })}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-medium text-gray-700 mb-1.5">Username</label>
-                                        <input
-                                            type="text"
-                                            placeholder="johndoe"
-                                            className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                                            value={newUserForm.username}
-                                            onChange={(e) => setNewUserForm({ ...newUserForm, username: e.target.value })}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-xs font-medium text-gray-700 mb-1.5 items-center gap-1">
-                                            Email Address
-                                        </label>
-                                        <input
-                                            type="email"
-                                            placeholder="john@example.com"
-                                            className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                                            value={newUserForm.email}
-                                            onChange={(e) => setNewUserForm({ ...newUserForm, email: e.target.value })}
-                                        />
-                                        <p className="text-xs text-gray-500 mt-1">Registration link will be sent here</p>
-                                    </div>
-
-                                    <div ref={searchRoleDropdownRef} className="relative">
-                                        <label className="block text-xs font-medium text-gray-700 mb-1.5">Role</label>
-
-                                        <div
-                                            onClick={() => setSearchRoleDropdownOpen((prev) => !prev)}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-gray-900"
-                                        >
-                                            {newUserForm.role || 'Select Role'}
-                                            <svg
-                                                className={`w-4 h-4 transform transition-transform ${searchRoleDropdownOpen ? 'rotate-180' : ''}`}
-                                                fill="none"
-                                                stroke="currentColor"
-                                                viewBox="0 0 24 24"
-                                            >
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                            </svg>
-                                        </div>
-
-                                        {searchRoleDropdownOpen && (
-                                            <ul className="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded shadow-lg max-h-60 overflow-y-auto">
-                                                {roleOptions.map((opt) => (
-                                                    <li
-                                                        key={opt.value}
-                                                        onClick={() => {
-                                                            setNewUserForm({ ...newUserForm, role: opt.value }); // no 'as Role' needed
-                                                            setSearchRoleDropdownOpen(false);
-                                                        }}
-                                                        className={`px-3 py-2 text-sm cursor-pointer ${newUserForm.role === opt.value
-                                                            ? 'bg-gray-900 text-white'
-                                                            : 'hover:bg-gray-50 text-gray-900'
-                                                            }`}
-                                                    >
-                                                        {opt.label}
-                                                    </li>
-                                                ))}
-
-                                            </ul>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                                    <div className="flex items-start gap-2">
-                                        <Mail className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-                                        <div className="text-xs text-blue-800">
-                                            <p className="font-medium mb-1">How it works:</p>
-                                            <ul className="list-disc list-inside space-y-0.5 text-blue-700">
-                                                <li>User receives an email with a secure registration link</li>
-                                                <li>Link is valid for 24 hours</li>
-                                                <li>User creates their own password during registration</li>
-                                            </ul>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <button
-                                    onClick={handleAddUser}
-                                    disabled={isSubmitting}
-                                    className="w-full px-4 py-2.5 bg-gray-900 text-white rounded hover:bg-gray-800 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                                >
-                                    {isSubmitting ? (
-                                        <>
-                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                            Sending Email...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Mail className="w-4 h-4" />
-                                            Send Registration Email
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Search and Filters */}
-                    <div className="flex flex-col gap-3">
-                        <div className="relative flex-1">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                            <input
-                                type="text"
-                                value={searchQuery}
-                                onChange={handleSearchChange}
-                                placeholder="Search users..."
-                                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 focus:border-gray-900"
-                            />
-                        </div>
-
-                        <div className="flex flex-col sm:flex-row gap-3">
-                            <div ref={roleDropdownRef} className="relative z-40 flex-1">
-                                <div
-                                    onClick={() => setRoleDropdownOpen((prev) => !prev)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-gray-900"
-                                >
-                                    <span className="truncate">{selectedRole || 'All Roles'}</span>
-                                    <svg
-                                        className={`w-4 h-4 transform transition-transform shrink-0 ml-2 ${roleDropdownOpen ? 'rotate-180' : ''}`}
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </div>
-
-                                {roleDropdownOpen && (
-                                    <ul className="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded shadow-lg max-h-60 overflow-y-auto">
-                                        <li
-                                            onClick={() => {
-                                                setSelectedRole(null);
-                                                setRoleDropdownOpen(false);
-                                            }}
-                                            className={`px-3 py-2 text-sm cursor-pointer ${!selectedRole ? 'bg-gray-900 text-white' : 'hover:bg-gray-50 text-gray-900'}`}
-                                        >
-                                            All Roles
-                                        </li>
-
-                                        {roleOptions.map((opt) => {
-                                            if ((opt.value === Roles.Trainer || opt.value === Roles.Coordinator) && currentUser?.role !== Roles.Coordinator) return null;
-
-                                            return (
-                                                <li
-                                                    key={opt.value}
-                                                    onClick={() => {
-                                                        setSelectedRole(opt.value);
-                                                        setRoleDropdownOpen(false);
-                                                    }}
-                                                    className={`px-3 py-2 text-sm cursor-pointer ${selectedRole === opt.value ? 'bg-gray-900 text-white' : 'hover:bg-gray-50 text-gray-900'}`}
-                                                >
-                                                    {opt.label}
-                                                </li>
-                                            );
-                                        })}
-                                    </ul>
-                                )}
-                            </div>
-
-                            {currentUser.role === 'Coordinator' && (
-                                <button
-                                    onClick={() => setShowArchived(!showArchived)}
-                                    className={`flex items-center justify-center gap-2 px-4 py-2 rounded text-sm font-medium transition whitespace-nowrap ${showArchived
-                                        ? 'bg-gray-900 text-white hover:bg-gray-800'
-                                        : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
-                                        }`}
-                                >
-                                    {showArchived ? (
-                                        <>
-                                            <ArchiveRestore className="w-4 h-4" />
-                                            <span>View Active</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Archive className="w-4 h-4" />
-                                            <span>View Archived</span>
-                                        </>
-                                    )}
-                                </button>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* User List */}
-                    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                        {/* Desktop Table */}
-                        <div className="hidden lg:block overflow-x-auto">
-                            <table className="w-full">
-                                <thead className="bg-gray-50 border-b border-gray-200">
-                                    <tr>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            User
-                                        </th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Contact
-                                        </th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Role
-                                        </th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Status
-                                        </th>
-                                        {currentUser.role === 'Coordinator' && (
-                                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Actions
-                                            </th>
-                                        )}
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-200">
-                                    {filteredUsers.map((user) => {
-                                        const canAccess = currentUser.role === Roles.Coordinator ||
-                                            (currentUser.role === Roles.Trainer && user.role === Roles.Student);
-
-                                        return (
-                                            <tr
-                                                key={user._id}
-                                                onClick={() => canAccess && user.isVerified && handleUserClick(user)}
-                                                className={canAccess && user.isVerified ? 'hover:bg-gray-50 cursor-pointer' : 'opacity-50'}
-                                            >
-                                                <td className="px-4 py-3">
-                                                    <div className="flex flex-col min-w-0">
-                                                        <div className="text-sm font-medium text-gray-900 truncate">{user.name}</div>
-                                                        <div className="text-sm text-gray-500 truncate">@{user.username}</div>
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    <div className="text-sm text-gray-500 truncate max-w-[200px]">
-                                                        {user.email || 'N/A'}
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    <span className="inline-flex px-2.5 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-full">
-                                                        {user.role}
-                                                    </span>
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    {user.isVerified ? (
-                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-green-700 bg-green-50 rounded-full">
-                                                            <CheckCircle className="w-3.5 h-3.5" />
-                                                            Active
-                                                        </span>
-                                                    ) : (
-                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-amber-700 bg-amber-50 rounded-full">
-                                                            <Clock className="w-3.5 h-3.5" />
-                                                            Pending
-                                                        </span>
-                                                    )}
-                                                </td>
-                                                {currentUser.role === 'Coordinator' && (
-                                                    <td className="px-4 py-3 text-right">
-                                                        <div className="flex items-center justify-end gap-2">
-                                                            {!user.isVerified && (
-                                                                <button
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        handleDeleteUser(user);
-                                                                    }}
-                                                                    className="p-1.5 text-red-600 hover:text-red-900 hover:bg-red-50 rounded transition-colors"
-                                                                    title="Delete user"
-                                                                >
-                                                                    <Trash2 className="w-4 h-4" />
-                                                                </button>
-                                                            )}
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleToggleArchive(user);
-                                                                }}
-                                                                className="text-sm text-gray-600 hover:text-gray-900 font-medium px-2 py-1 hover:bg-gray-100 rounded transition-colors"
-                                                            >
-                                                                {user.archived ? 'Restore' : 'archived'}
-                                                            </button>
-                                                        </div>
-                                                    </td>
-                                                )}
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        {/* Tablet View */}
-                        <div className="hidden md:block lg:hidden">
-                            {filteredUsers.map((user) => {
-                                const canAccess = currentUser.role === Roles.Coordinator ||
-                                    (currentUser.role === Roles.Trainer && user.role === Roles.Student);
-
-                                return (
-                                    <div
-                                        key={user._id}
-                                        onClick={() => canAccess && user.isVerified && handleUserClick(user)}
-                                        className={`p-4 border-b border-gray-200 last:border-b-0 ${canAccess && user.isVerified ? 'hover:bg-gray-50 cursor-pointer' : 'opacity-50'}`}
-                                    >
-                                        <div className="flex justify-between items-start gap-4">
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2 mb-2">
-                                                    <div className="text-sm font-medium text-gray-900 truncate">{user.name}</div>
-                                                    <span className="inline-flex px-2.5 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-full shrink-0">
-                                                        {user.role}
-                                                    </span>
-                                                </div>
-                                                <div className="text-sm text-gray-500 mb-1 truncate">@{user.username}</div>
-                                                {user.email && (
-                                                    <div className="text-sm text-gray-500 truncate flex items-center gap-1.5">
-                                                        <Mail className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                                                        {user.email}
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div className="flex flex-col items-end gap-2 shrink-0">
-                                                {user.isVerified ? (
-                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-green-700 bg-green-50 rounded-full">
-                                                        <CheckCircle className="w-3.5 h-3.5" />
-                                                        Active
-                                                    </span>
-                                                ) : (
-                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-amber-700 bg-amber-50 rounded-full">
-                                                        <Clock className="w-3.5 h-3.5" />
-                                                        Pending
-                                                    </span>
-                                                )}
-                                                {currentUser.role === 'Coordinator' && (
-                                                    <div className="flex gap-1">
-                                                        {!user.isVerified && (
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleDeleteUser(user);
-                                                                }}
-                                                                className="p-1.5 text-red-600 hover:text-red-900 hover:bg-red-50 rounded transition-colors"
-                                                                title="Delete user"
-                                                            >
-                                                                <Trash2 className="w-4 h-4" />
-                                                            </button>
-                                                        )}
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleToggleArchive(user);
-                                                            }}
-                                                            className="text-sm text-gray-600 hover:text-gray-900 font-medium px-2 py-1 hover:bg-gray-100 rounded transition-colors"
-                                                        >
-                                                            {user.archived ? 'Restore' : 'archived'}
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-
-                        {/* Mobile Card View */}
-                        <div className="md:hidden">
-                            {filteredUsers.map((user) => {
-                                const canAccess = currentUser.role === Roles.Coordinator ||
-                                    (currentUser.role === Roles.Trainer && user.role === Roles.Student);
-
-                                return (
-                                    <div
-                                        key={user._id}
-                                        onClick={() => canAccess && user.isVerified && handleUserClick(user)}
-                                        className={`p-4 border-b border-gray-200 last:border-b-0 ${canAccess && user.isVerified ? 'hover:bg-gray-50 cursor-pointer' : 'opacity-50'}`}
-                                    >
-                                        <div className="flex justify-between items-start gap-3 mb-2">
-                                            <div className="flex-1 min-w-0">
-                                                <div className="text-sm font-medium text-gray-900 truncate mb-1">{user.name}</div>
-                                                <div className="text-sm text-gray-500 truncate mb-1">@{user.username}</div>
-                                            </div>
-                                            <div className="flex flex-col items-end gap-1 shrink-0">
-                                                <span className="inline-flex px-2.5 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-full">
-                                                    {user.role}
-                                                </span>
-                                                {user.isVerified ? (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-green-700 bg-green-50 rounded-full">
-                                                        <CheckCircle className="w-3 h-3" />
-                                                        Active
-                                                    </span>
-                                                ) : (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-amber-700 bg-amber-50 rounded-full">
-                                                        <Clock className="w-3 h-3" />
-                                                        Pending
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        {user.email && (
-                                            <div className="text-sm text-gray-500 flex items-center gap-1.5 mb-3">
-                                                <Mail className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                                                <span className="truncate">{user.email}</span>
-                                            </div>
-                                        )}
-
-                                        {currentUser.role === 'Coordinator' && (
-                                            <div className="flex gap-2 pt-2 border-t border-gray-100">
-                                                {!user.isVerified && (
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleDeleteUser(user);
-                                                        }}
-                                                        className="flex items-center gap-1.5 text-sm text-red-600 hover:text-red-900 font-medium px-2 py-1 hover:bg-red-50 rounded transition-colors flex-1 justify-center"
-                                                    >
-                                                        <Trash2 className="w-3.5 h-3.5" />
-                                                        Delete
-                                                    </button>
-                                                )}
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleToggleArchive(user);
-                                                    }}
-                                                    className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 font-medium px-2 py-1 hover:bg-gray-100 rounded transition-colors flex-1 justify-center"
-                                                >
-                                                    {user.archived ? 'Restore' : 'archived'}
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-
-                        {filteredUsers.length === 0 && (
-                            <div className="text-center py-8">
-                                <Users className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-                                <p className="text-sm text-gray-500">
-                                    {showArchived
-                                        ? 'No archived users found'
-                                        : 'No users found'}
-                                </p>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
+interface RecentActivity {
+  userId: string;
+  userName: string;
+  userInitials: string;
+  action: 'completed' | 'started' | 'in-progress' | 'assigned';
+  moduleName: string;
+  moduleId: string;
+  timestamp: Date;
+  timeAgo: string;
+}
+
+interface ModuleProgress {
+  id: string;
+  name: string;
+  description: string;
+  completionRate: number;
+  enrolledUsers: number;
+  category?: string;
+}
+
+export default function Dashboard() {
+  //const router = useRouter();
+    redirect('/dashboard/users');
+  
+//   const { currentUser, fetchCurrentUser } = useDashboard();
+//   const [stats, setStats] = useState<DashboardStats>({
+//     totalUsers: 0,
+//     activeUsers: 0,
+//     archivedUsers: 0,
+//     totalModules: 0,
+//     completedModules: 0,
+//     inProgressModules: 0,
+//     pendingSignoffs: 0,
+//     overallCompletionRate: 0,
+//     averageProgress: 0
+//   });
+  
+//   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
+//   const [topModules, setTopModules] = useState<ModuleProgress[]>([]);
+//   const [userProgress, setUserProgress] = useState<{completed: number; inProgress: number; notStarted: number}>({
+//     completed: 0,
+//     inProgress: 0,
+//     notStarted: 0
+//   });
+//   const [loading, setLoading] = useState(true);
+//   const [dataLastUpdated, setDataLastUpdated] = useState<Date | null>(null);
+
+//   useEffect(() => {
+//     const initDashboard = async () => {
+//       try {
+//         setLoading(true);
+//         if (!currentUser) {
+//           await fetchCurrentUser();
+//         }
+//         await fetchDashboardData();
+//         setDataLastUpdated(new Date());
+//       } catch (error) {
+//         console.error('Error initializing dashboard:', error);
+//       } finally {
+//         setLoading(false);
+//       }
+//     };
+
+//     initDashboard();
+//   }, [currentUser]);
+
+//   const fetchDashboardData = async () => {
+//     try {
+//       // Fetch users and modules
+//       const [usersRes, modulesRes] = await Promise.all([
+//         fetch('/api/users'),
+//         fetch('/api/training-modules')
+//       ]);
+
+//       let allUsers: IUser[] = [];
+//       let allModules: ITrainingModule[] = [];
+
+//       // Process users data
+//       if (usersRes.ok) {
+//         allUsers = await usersRes.json();
+//         const activeUsers = allUsers.filter(u => !u.archived);
+//         const archivedUsers = allUsers.filter(u => u.archived);
+        
+//         setStats(prev => ({
+//           ...prev,
+//           totalUsers: allUsers.length,
+//           activeUsers: activeUsers.length,
+//           archivedUsers: archivedUsers.length
+//         }));
+//       }
+
+//       // Process modules data
+//       if (modulesRes.ok) {
+//         const response = await modulesRes.json();
+//         allModules = response.data || response;
+        
+//         setStats(prev => ({ 
+//           ...prev, 
+//           totalModules: allModules.length 
+//         }));
+//       }
+
+//       // Fetch all user modules to calculate real statistics
+//       const userModulesPromises = allUsers.map(user => 
+//         fetch(`/api/users/${user._id}/modules`)
+//           .then(res => res.ok ? res.json() : null)
+//           .then(data => ({ userId: user._id, userName: user.name, modules: data?.data || data || [] }))
+//           .catch(() => ({ userId: user._id, userName: user.name, modules: [] }))
+//       );
+
+//       const allUserModules = await Promise.all(userModulesPromises);
+
+//       // Calculate real statistics
+//       let totalCompleted = 0;
+//       let totalInProgress = 0;
+//       let totalPendingSignoffs = 0;
+//       let totalProgress = 0;
+//       let usersWithModules = 0;
+
+//       const activityList: RecentActivity[] = [];
+
+//       allUserModules.forEach(({ userId, userName, modules }) => {
+//         if (!Array.isArray(modules) || modules.length === 0) return;
+
+//         usersWithModules++;
+//         let userCompleted = 0;
+//         let userInProgress = 0;
+//         let userTotal = modules.length;
+
+//         modules.forEach((userModule: IUserModule) => {
+//           const moduleName = typeof userModule.tModule === 'object' 
+//             ? userModule.tModule.name 
+//             : 'Unknown Module';
+//           const moduleId = typeof userModule.tModule === 'object'
+//             ? userModule.tModule._id
+//             : userModule.tModule;
+
+//           // Check submodules status
+//           if (userModule.submodules && Array.isArray(userModule.submodules)) {
+//             const submodules = userModule.submodules;
+//             const totalSubs = submodules.length;
+            
+//             if (totalSubs > 0) {
+//               const completedSubs = submodules.filter(sub => {
+//                 if (typeof sub === 'object' && sub !== null) {
+//                   return sub.signedOff === true;
+//                 }
+//                 return false;
+//               }).length;
+
+//               const pendingSubs = submodules.filter(sub => {
+//                 if (typeof sub === 'object' && sub !== null) {
+//                   return !sub.signedOff && (sub.ojt || sub.practical);
+//                 }
+//                 return false;
+//               }).length;
+
+//               totalPendingSignoffs += pendingSubs;
+
+//               // Determine status
+//               let status: 'completed' | 'in-progress' | 'assigned' = 'assigned';
+//               if (completedSubs === totalSubs) {
+//                 totalCompleted++;
+//                 userCompleted++;
+//                 status = 'completed';
+//               } else if (completedSubs > 0) {
+//                 totalInProgress++;
+//                 userInProgress++;
+//                 status = 'in-progress';
+//               }
+
+//               // Add to activity
+//               if (userModule.updatedAt) {
+//                 activityList.push({
+//                   userId: userId?.toString(),
+//                   userName,
+//                   userInitials: userName.split(' ').map(n => n[0]).join('').toUpperCase(),
+//                   action: status,
+//                   moduleName,
+//                   moduleId: moduleId?.toString() || '',
+//                   timestamp: new Date(userModule.updatedAt),
+//                   timeAgo: getTimeAgo(new Date(userModule.updatedAt))
+//                 });
+//               }
+//             }
+//           }
+//         });
+
+//         if (userTotal > 0) {
+//           const userProgressPercent = ((userCompleted + userInProgress * 0.5) / userTotal) * 100;
+//           totalProgress += userProgressPercent;
+//         }
+//       });
+
+//       // Calculate averages and rates
+//       const overallCompletionRate = usersWithModules > 0 
+//         ? Math.round(totalProgress / usersWithModules) 
+//         : 0;
+
+//       setStats(prev => ({
+//         ...prev,
+//         completedModules: totalCompleted,
+//         inProgressModules: totalInProgress,
+//         pendingSignoffs: totalPendingSignoffs,
+//         overallCompletionRate,
+//         averageProgress: overallCompletionRate
+//       }));
+
+//       // Sort and set recent activity
+//       activityList.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+//       setRecentActivity(activityList.slice(0, 6));
+
+//       // Calculate module progress
+//       const moduleProgressData = await calculateModuleProgress(allModules, allUserModules);
+//       setTopModules(moduleProgressData);
+
+//       // Calculate current user's progress
+//       if (currentUser) {
+//         const currentUserData = allUserModules.find(u => u.userId!.toString() === currentUser._id!.toString());
+//         if (currentUserData) {
+//           const progress = calculateUserProgress(currentUserData.modules);
+//           setUserProgress(progress);
+//         }
+//       }
+
+//     } catch (error) {
+//       console.error('Error fetching dashboard data:', error);
+//     }
+//   };
+
+//   const getTimeAgo = (date: Date): string => {
+//     const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+    
+//     if (seconds < 60) return 'Just now';
+//     if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`;
+//     if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
+//     if (seconds < 604800) return `${Math.floor(seconds / 86400)} days ago`;
+//     return date.toLocaleDateString();
+//   };
+
+//   const calculateModuleProgress = async (
+//     modules: ITrainingModule[], 
+//     allUserModules: any[]
+//   ): Promise<ModuleProgress[]> => {
+//     return modules.slice(0, 6).map(module => {
+//       let enrolledCount = 0;
+//       let completedCount = 0;
+
+//       allUserModules.forEach(({ modules: userMods }) => {
+//         const userModule = userMods.find((um: IUserModule) => {
+//           const modId = typeof um.tModule === 'object' ? um.tModule._id : um.tModule;
+//           return modId?.toString() === module._id!.toString();
+//         });
+
+//         if (userModule) {
+//           enrolledCount++;
+          
+//           // Check if completed
+//           if (userModule.submodules && Array.isArray(userModule.submodules)) {
+//             const totalSubs = userModule.submodules.length;
+//             if (totalSubs > 0) {
+//               const completedSubs = userModule.submodules.filter((sub: any) => 
+//                 typeof sub === 'object' && sub.signedOff === true
+//               ).length;
+//               if (completedSubs === totalSubs) completedCount++;
+//             }
+//           }
+//         }
+//       });
+
+//       const completionRate = enrolledCount > 0 
+//         ? Math.round((completedCount / enrolledCount) * 100) 
+//         : 0;
+
+//       return {
+//         id: module._id!.toString(),
+//         name: module.name,
+//         description: module.description || 'No description available',
+//         completionRate,
+//         enrolledUsers: enrolledCount
+//       };
+//     });
+//   };
+
+//   const calculateUserProgress = (userModules: IUserModule[]) => {
+//     let completed = 0;
+//     let inProgress = 0;
+//     let notStarted = 0;
+
+//     userModules.forEach(userModule => {
+//       if (userModule.submodules && Array.isArray(userModule.submodules)) {
+//         const totalSubs = userModule.submodules.length;
+//         if (totalSubs > 0) {
+//           const completedSubs = userModule.submodules.filter((sub: any) => 
+//             typeof sub === 'object' && sub.signedOff === true
+//           ).length;
+
+//           if (completedSubs === totalSubs) {
+//             completed++;
+//           } else if (completedSubs > 0) {
+//             inProgress++;
+//           } else {
+//             notStarted++;
+//           }
+//         } else {
+//           notStarted++;
+//         }
+//       } else {
+//         notStarted++;
+//       }
+//     });
+
+//     return { completed, inProgress, notStarted };
+//   };
+
+//   const getActionIcon = (action: RecentActivity['action']) => {
+//     switch (action) {
+//       case 'completed': return <CheckCircle className="w-4 h-4 text-green-500" />;
+//       case 'in-progress': return <Clock className="w-4 h-4 text-blue-500" />;
+//       case 'started': return <Clock className="w-4 h-4 text-blue-500" />;
+//       case 'assigned': return <BookOpen className="w-4 h-4 text-orange-500" />;
+//       default: return <BookOpen className="w-4 h-4 text-gray-500" />;
+//     }
+//   };
+
+//   const getActionText = (activity: RecentActivity) => {
+//     switch (activity.action) {
+//       case 'completed': return `completed ${activity.moduleName}`;
+//       case 'in-progress': return `is working on ${activity.moduleName}`;
+//       case 'started': return `started ${activity.moduleName}`;
+//       case 'assigned': return `was assigned ${activity.moduleName}`;
+//       default: return `interacted with ${activity.moduleName}`;
+//     }
+//   };
+
+//   if (loading) {
+//     return (
+//       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+//         <div className="text-center">
+//           <div className="w-12 h-12 border-3 border-gray-300 border-t-gray-900 rounded-full animate-spin mx-auto mb-4"></div>
+//           <p className="text-sm text-gray-600">Loading training dashboard...</p>
+//           <p className="text-xs text-gray-500 mt-1">Preparing your insights</p>
+//         </div>
+//       </div>
+//     );
+//   }
+
+//   const isCoordinator = currentUser?.role === 'Coordinator';
+
+//   return (
+//     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+//       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+//         {/* Header */}
+//         <div className="mb-6 sm:mb-8">
+//           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+//             <div>
+//               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">
+//                 Training Dashboard
+//               </h1>
+//               <p className="text-sm sm:text-base text-gray-600">
+//                 Welcome back, <span className="font-semibold text-gray-900">{currentUser?.name || 'User'}</span>
+//                 {dataLastUpdated && (
+//                   <span className="text-xs text-gray-500 ml-2">
+//                     • Updated {dataLastUpdated.toLocaleTimeString()}
+//                   </span>
+//                 )}
+//               </p>
+//             </div>
+//             <div className="mt-2 sm:mt-0">
+//               <div className="flex items-center gap-2 text-xs text-gray-500 bg-white px-3 py-1 rounded-full border border-gray-200">
+//                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+//                 System Operational
+//               </div>
+//             </div>
+//           </div>
+//         </div>
+
+//         {/* Quick Actions */}
+//         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+//           <button
+//             onClick={() => router.push(`/dashboard/users/${currentUser?._id}/modules`)}
+//             className="group bg-white border border-gray-200 rounded-xl p-4 sm:p-5 hover:border-gray-900 hover:shadow-lg transition-all duration-200 text-left"
+//           >
+//             <div className="flex items-center justify-between mb-3">
+//               <GraduationCap className="w-6 h-6 sm:w-7 sm:h-7 text-gray-900 group-hover:scale-110 transition-transform" />
+//               <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-gray-900 group-hover:translate-x-1 transition-all" />
+//             </div>
+//             <h3 className="text-sm sm:text-base font-semibold text-gray-900 mb-1">My Training</h3>
+//             <p className="text-xs sm:text-sm text-gray-600">
+//               {userProgress.completed} completed • {userProgress.inProgress} in progress
+//             </p>
+//           </button>
+
+//           <button
+//             onClick={() => router.push('/dashboard/modules')}
+//             className="group bg-white border border-gray-200 rounded-xl p-4 sm:p-5 hover:border-gray-900 hover:shadow-lg transition-all duration-200 text-left"
+//           >
+//             <div className="flex items-center justify-between mb-3">
+//               <BookOpen className="w-6 h-6 sm:w-7 sm:h-7 text-gray-900 group-hover:scale-110 transition-transform" />
+//               <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-gray-900 group-hover:translate-x-1 transition-all" />
+//             </div>
+//             <h3 className="text-sm sm:text-base font-semibold text-gray-900 mb-1">All Modules</h3>
+//             <p className="text-xs sm:text-sm text-gray-600">{stats.totalModules} training modules available</p>
+//           </button>
+
+//           {isCoordinator && (
+//             <button
+//               onClick={() => router.push('/dashboard/users')}
+//               className="group bg-white border border-gray-200 rounded-xl p-4 sm:p-5 hover:border-gray-900 hover:shadow-lg transition-all duration-200 text-left"
+//             >
+//               <div className="flex items-center justify-between mb-3">
+//                 <UserCheck className="w-6 h-6 sm:w-7 sm:h-7 text-gray-900 group-hover:scale-110 transition-transform" />
+//                 <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-gray-900 group-hover:translate-x-1 transition-all" />
+//               </div>
+//               <h3 className="text-sm sm:text-base font-semibold text-gray-900 mb-1">Manage Users</h3>
+//               <p className="text-xs sm:text-sm text-gray-600">{stats.activeUsers} active trainees</p>
+//             </button>
+//           )}
+
+//           <button
+//             onClick={() => router.push(`/dashboard/users/${currentUser?._id}/profile`)}
+//             className="group bg-white border border-gray-200 rounded-xl p-4 sm:p-5 hover:border-gray-900 hover:shadow-lg transition-all duration-200 text-left"
+//           >
+//             <div className="flex items-center justify-between mb-3">
+//               <Users className="w-6 h-6 sm:w-7 sm:h-7 text-gray-900 group-hover:scale-110 transition-transform" />
+//               <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-gray-900 group-hover:translate-x-1 transition-all" />
+//             </div>
+//             <h3 className="text-sm sm:text-base font-semibold text-gray-900 mb-1">My Profile</h3>
+//             <p className="text-xs sm:text-sm text-gray-600">View and update your details</p>
+//           </button>
+//         </div>
+
+//         {/* Enhanced Stats Grid */}
+//         <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 mb-6 sm:mb-8">
+//           <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 hover:shadow-md transition-shadow">
+//             <div className="flex items-center justify-between mb-3">
+//               <Users className="w-5 h-5 text-gray-500" />
+//               <TrendingUp className="w-4 h-4 text-green-500" />
+//             </div>
+//             <p className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">{stats.activeUsers}</p>
+//             <p className="text-xs sm:text-sm text-gray-600">Active Users</p>
+//             <p className="text-xs text-gray-500 mt-1">{stats.archivedUsers} archived</p>
+//           </div>
+
+//           <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 hover:shadow-md transition-shadow">
+//             <div className="flex items-center justify-between mb-3">
+//               <BookOpen className="w-5 h-5 text-gray-500" />
+//               <Target className="w-4 h-4 text-blue-500" />
+//             </div>
+//             <p className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">{stats.totalModules}</p>
+//             <p className="text-xs sm:text-sm text-gray-600">Training Modules</p>
+//             <p className="text-xs text-gray-500 mt-1">Available for enrollment</p>
+//           </div>
+
+//           <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 hover:shadow-md transition-shadow">
+//             <div className="flex items-center justify-between mb-3">
+//               <CheckCircle className="w-5 h-5 text-gray-500" />
+//               <BarChart3 className="w-4 h-4 text-green-500" />
+//             </div>
+//             <p className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">{stats.completedModules}</p>
+//             <p className="text-xs sm:text-sm text-gray-600">Completed</p>
+//             <p className="text-xs text-gray-500 mt-1">{stats.overallCompletionRate}% completion rate</p>
+//           </div>
+
+//           <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 hover:shadow-md transition-shadow">
+//             <div className="flex items-center justify-between mb-3">
+//               <Clock className="w-5 h-5 text-gray-500" />
+//               <AlertCircle className="w-4 h-4 text-orange-500" />
+//             </div>
+//             <p className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">{stats.pendingSignoffs}</p>
+//             <p className="text-xs sm:text-sm text-gray-600">Pending Sign-offs</p>
+//             <p className="text-xs text-gray-500 mt-1">Requires attention</p>
+//           </div>
+
+//           <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 hover:shadow-md transition-shadow col-span-2 lg:col-span-1">
+//             <div className="flex items-center justify-between mb-3">
+//               <TrendingUp className="w-5 h-5 text-gray-500" />
+//               <div className="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full">
+//                 Overall
+//               </div>
+//             </div>
+//             <p className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">{stats.averageProgress}%</p>
+//             <p className="text-xs sm:text-sm text-gray-600">Avg. Progress</p>
+//             <p className="text-xs text-gray-500 mt-1">Across all users</p>
+//           </div>
+//         </div>
+
+//         {/* Main Content Grid */}
+//         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+//           {/* Recent Activity */}
+//           <div className="lg:col-span-2 bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
+//             <div className="flex items-center justify-between mb-4">
+//               <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Recent Activity</h2>
+//               <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-full">
+//                 Live
+//               </span>
+//             </div>
+//             <div className="space-y-3">
+//               {recentActivity.length > 0 ? (
+//                 recentActivity.map((activity, idx) => (
+//                   <button
+//                     key={idx}
+//                     onClick={() => router.push(`/dashboard/users/${activity.userId}/modules`)}
+//                     className="w-full flex items-center gap-4 p-3 rounded-lg hover:bg-gray-50 transition-colors text-left group"
+//                   >
+//                     <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-gray-900 to-gray-700 rounded-full flex items-center justify-center text-white text-sm font-medium">
+//                       {activity.userInitials}
+//                     </div>
+//                     <div className="flex-1 min-w-0">
+//                       <div className="flex items-center gap-2 mb-1">
+//                         {getActionIcon(activity.action)}
+//                         <p className="text-sm text-gray-900 truncate">
+//                           <span className="font-semibold">{activity.userName}</span>
+//                           <span className="text-gray-600"> {getActionText(activity)}</span>
+//                         </p>
+//                       </div>
+//                       <div className="flex items-center gap-2 text-xs text-gray-500">
+//                         <span className="truncate">{activity.moduleName}</span>
+//                         <span>•</span>
+//                         <span className="whitespace-nowrap">{activity.timeAgo}</span>
+//                       </div>
+//                     </div>
+//                     <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-gray-900 transition-colors flex-shrink-0" />
+//                   </button>
+//                 ))
+//               ) : (
+//                 <div className="text-center py-8">
+//                   <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+//                   <p className="text-sm text-gray-500">No recent activity</p>
+//                   <p className="text-xs text-gray-400 mt-1">Activity will appear here as users progress</p>
+//                 </div>
+//               )}
+//             </div>
+//           </div>
+
+//           {/* Enhanced Summary Stats */}
+//           <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
+//             <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">Training Overview</h2>
+//             <div className="space-y-4">
+//               <div>
+//                 <div className="flex items-center justify-between mb-3">
+//                   <span className="text-sm font-medium text-gray-900">Program Completion</span>
+//                   <span className="text-sm font-semibold text-gray-900">{stats.overallCompletionRate}%</span>
+//                 </div>
+//                 <div className="w-full bg-gray-200 rounded-full h-2">
+//                   <div 
+//                     className="bg-gradient-to-r from-green-500 to-green-600 h-2 rounded-full transition-all duration-500" 
+//                     style={{ width: `${stats.overallCompletionRate}%` }}
+//                   ></div>
+//                 </div>
+//                 <p className="text-xs text-gray-500 mt-2">{stats.completedModules} modules completed</p>
+//               </div>
+
+//               <div className="pt-4 border-t border-gray-200">
+//                 <div className="flex items-center justify-between mb-2">
+//                   <span className="text-sm text-gray-600">Active Trainees</span>
+//                   <span className="text-lg font-semibold text-gray-900">{stats.activeUsers}</span>
+//                 </div>
+//                 <p className="text-xs text-gray-500">Currently engaged in training</p>
+//               </div>
+
+//               <div className="pt-4 border-t border-gray-200">
+//                 <div className="flex items-center justify-between mb-2">
+//                   <span className="text-sm text-gray-600">Modules in Progress</span>
+//                   <span className="text-lg font-semibold text-gray-900">{stats.inProgressModules}</span>
+//                 </div>
+//                 <p className="text-xs text-gray-500">Across all users</p>
+//               </div>
+
+//               <div className="pt-4 border-t border-gray-200">
+//                 <div className="flex items-center justify-between mb-2">
+//                   <span className="text-sm text-gray-600">Requiring Attention</span>
+//                   <span className="text-lg font-semibold text-orange-600">{stats.pendingSignoffs}</span>
+//                 </div>
+//                 <p className="text-xs text-gray-500">Pending sign-offs and reviews</p>
+//               </div>
+//             </div>
+//           </div>
+//         </div>
+
+//         {/* Enhanced Available Modules */}
+//         <div className="mt-6 bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
+//           <div className="flex items-center justify-between mb-4">
+//             <div>
+//               <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Featured Training Modules</h2>
+//               <p className="text-sm text-gray-600 mt-1">Most popular and critical training materials</p>
+//             </div>
+//             <button
+//               onClick={() => router.push('/dashboard/modules')}
+//               className="text-sm text-gray-900 hover:text-gray-600 font-medium flex items-center gap-2 group"
+//             >
+//               View All Modules
+//               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+//             </button>
+//           </div>
+          
+//           {topModules.length > 0 ? (
+//             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+//               {topModules.map((module, idx) => (
+//                 <button
+//                   key={idx}
+//                   onClick={() => router.push(`/dashboard/modules/${module.id}`)}
+//                   className="group p-4 border border-gray-200 rounded-lg hover:border-gray-900 hover:shadow-lg transition-all duration-200 text-left"
+//                 >
+//                   <div className="flex items-start justify-between mb-3">
+//                     <div className="flex-1">
+//                       <h3 className="text-base font-semibold text-gray-900 group-hover:text-gray-700 transition-colors pr-2">
+//                         {module.name}
+//                       </h3>
+//                       {module.category && (
+//                         <span className="inline-block text-xs font-medium text-gray-600 bg-gray-100 px-2 py-1 rounded-full mt-1">
+//                           {module.category}
+//                         </span>
+//                       )}
+//                     </div>
+//                     <BookOpen className="w-5 h-5 text-gray-400 group-hover:text-gray-900 transition-colors flex-shrink-0" />
+//                   </div>
+                  
+//                   <p className="text-sm text-gray-600 line-clamp-2 mb-4">{module.description}</p>
+                  
+//                   <div className="space-y-2">
+//                     <div className="flex items-center justify-between text-xs text-gray-600">
+//                       <span>Completion Rate</span>
+//                       <span className="font-semibold">{module.completionRate}%</span>
+//                     </div>
+//                     <div className="w-full bg-gray-200 rounded-full h-1.5">
+//                       <div 
+//                         className="bg-gradient-to-r from-blue-500 to-blue-600 h-1.5 rounded-full transition-all duration-500" 
+//                         style={{ width: `${module.completionRate}%` }}
+//                       ></div>
+//                     </div>
+//                     <div className="flex items-center justify-between text-xs text-gray-500">
+//                       <span>{module.enrolledUsers} enrolled</span>
+//                       <span>Active</span>
+//                     </div>
+//                   </div>
+//                 </button>
+//               ))}
+//             </div>
+//           ) : (
+//             <div className="text-center py-8">
+//               <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+//               <p className="text-sm text-gray-500">No training modules available</p>
+//               <p className="text-xs text-gray-400 mt-1">Modules will appear here once created</p>
+//             </div>
+//           )}
+//         </div>
+
+//         {/* Enhanced Footer */}
+//         <div className="mt-8 text-center">
+//           <div className="bg-white border border-gray-200 rounded-xl p-6">
+//             <p className="text-sm font-semibold text-gray-900">Sound Aircraft Services FBO</p>
+//             <p className="text-sm text-gray-600 mt-1">NATA Certified Training Program</p>
+//             <div className="flex items-center justify-center gap-4 mt-3 text-xs text-gray-500">
+//               <span>Total Users: {stats.totalUsers}</span>
+//               <span>•</span>
+//               <span>Active Modules: {stats.totalModules}</span>
+//               <span>•</span>
+//               <span>Completion Rate: {stats.overallCompletionRate}%</span>
+//             </div>
+//           </div>
+//         </div>
+//       </div>
+//     </div>
+//   );
 }

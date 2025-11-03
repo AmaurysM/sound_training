@@ -1,28 +1,27 @@
 import { Award, Clock, Edit, Home, LogOut, Menu, RefreshCw, TrendingUp, User } from "lucide-react";
 import { IUser, Roles, Stat } from "@/models/types";
-
+import { useDashboard } from '@/contexts/dashboard-context';
 import { useRouter } from 'next/navigation';
 
 const TrainingHeader = ({
-    currentUser,
-    viewedUser,
     handleRefresh,
-    loading,
-    setShowEditModal,
-    setShowMobileMenu,
-    showMobileMenu,
     stats
 }: {
-    currentUser: IUser,
-    viewedUser: IUser,
+
     handleRefresh: () => void,
-    loading: boolean,
-    setShowEditModal: (show: boolean) => void,
-    setShowMobileMenu: (show: boolean) => void,
-    showMobileMenu: boolean,
+
     stats: Stat
 }) => {
     const router = useRouter();
+
+        const {
+            currentUser,
+            viewedUser,
+            loading,
+            showMobileMenu,
+            setShowMobileMenu,
+            setShowEditModal,
+        } = useDashboard();
 
     const isEditable = currentUser && (currentUser.role === Roles.Coordinator || currentUser.role === Roles.Trainer);
     const isCoordinator = currentUser?.role === Roles.Coordinator;
@@ -47,7 +46,7 @@ const TrainingHeader = ({
         <div className="bg-white border border-gray-200 shadow-sm shadow-gray-200/60 rounded-xl p-4 sm:p-6">
             <div className="flex justify-between items-start gap-4">
                 <div className="flex items-start gap-2 sm:gap-4 flex-1 min-w-0">
-                    {!isTrainee && currentUser._id && (
+                    {!isTrainee && currentUser?._id && (
                         <button
                             onClick={() => router.push('/dashboard')}
                             className="p-2 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
@@ -73,10 +72,10 @@ const TrainingHeader = ({
 
                         <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 flex-wrap">
                             <User className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
-                            <span className="font-medium text-gray-900 truncate">{viewedUser.name}</span>
+                            <span className="font-medium text-gray-900 truncate">{viewedUser?.name}</span>
                             <span>•</span>
                             <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium whitespace-nowrap">
-                                {viewedUser.role}
+                                {viewedUser?.role}
                             </span>{isCoordinator && !isViewingOwnProfile && (
                                 <button
                                     onClick={() => setShowEditModal(true)}
@@ -112,14 +111,8 @@ const TrainingHeader = ({
             </div>
 
             <div className={`${showMobileMenu ? 'block' : 'hidden'} lg:block mt-4`}>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-                    <div className="bg-linear-to-br from-blue-50 to-blue-100 rounded-lg p-3 sm:p-4">
-                        <div className="flex items-center gap-2 mb-1">
-                            <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600" />
-                            <p className="text-xs font-medium text-blue-900">Progress</p>
-                        </div>
-                        <p className="text-2xl sm:text-3xl font-bold text-blue-900">{stats.percentage}%</p>
-                    </div>
+                <div className="grid grid-cols-2 sm:grid-cols-2 gap-3 sm:gap-4">
+                    
                     <div className="bg-linear-to-br from-green-50 to-green-100 rounded-lg p-3 sm:p-4">
                         <div className="flex items-center gap-2 mb-1">
                             <Award className="w-3 h-3 sm:w-4 sm:h-4 text-green-600" />
