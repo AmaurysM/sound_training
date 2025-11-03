@@ -28,7 +28,7 @@ export default function UserTrainingPage() {
     const [saveSuccess, setSaveSuccess] = useState(false);
     const [hasChanges, setHasChanges] = useState(false);
     const [showAddModal, setShowAddModal] = useState(false);
-    const [selectedModuleId, setSelectedModuleId] = useState<string>('');
+    const [selectedModuleIds, setSelectedModuleIds] = useState<string[]>([]);
     const [addingModule, setAddingModule] = useState(false);
     const [showHistoryModal, setShowHistoryModal] = useState(false);
     const [selectedUserModule, setSelectedUserModule] = useState<IUserModule | null>(null);
@@ -151,23 +151,74 @@ export default function UserTrainingPage() {
     const isCoordinator = currentUser?.role === 'Coordinator';
     const isUserArchived = viewedUser?.archived || false;
 
-    const handleAddModule = async () => {
-        if (!selectedModuleId || !viewedUser || !isCoordinator) return;
+    // const handleAddModule = async () => {
+    //     if (!selectedModuleId || !viewedUser || !isCoordinator) return;
+
+    //     if (isUserArchived) {
+    //         setError('Cannot assign modules - user is archived');
+    //         setTimeout(() => setError(null), 3000);
+    //         return;
+    //     }
+
+    //     const alreadyAssigned = userModules.some(
+    //         (m) => (typeof m.tModule === 'object' ? m.tModule._id : m.tModule)?.toString() === selectedModuleId &&
+    //             m.trainingYear === selectedYear &&
+    //             m.activeCycle === showActiveCycles
+    //     );
+
+    //     if (alreadyAssigned) {
+    //         setError('This module is already assigned for this training cycle');
+    //         setTimeout(() => setError(null), 3000);
+    //         return;
+    //     }
+
+    //     try {
+    //         setAddingModule(true);
+    //         setError(null);
+
+    //         const targetUserId = viewedUser._id?.toString();
+    //         if (!targetUserId) throw new Error('Invalid user ID');
+
+    //         const res = await fetch(`/api/users/${targetUserId}/modules`, {
+    //             method: 'POST',
+    //             headers: { 'Content-Type': 'application/json' },
+    //             body: JSON.stringify({
+    //                 tModule: selectedModuleId,
+    //                 notes: '',
+    //                 submodules: [],
+    //                 trainingYear: selectedYear === 'all' ? new Date().getFullYear() : selectedYear,
+    //                 activeCycle: showActiveCycles
+    //             }),
+    //         });
+
+    //         if (!res.ok) {
+    //             const errorData = await res.json();
+    //             throw new Error(errorData.error || 'Failed to add training module');
+    //         }
+
+    //         setShowAddModal(false);
+    //         setSelectedModuleId('');
+    //         await fetchViewedUserAndModules();
+
+    //         setSaveSuccess(true);
+    //         setTimeout(() => setSaveSuccess(false), 3000);
+    //     } catch (err) {
+    //         setError(err instanceof Error ? err.message : 'Failed to add module');
+    //     } finally {
+    //         setAddingModule(false);
+    //     }
+    // };
+    const handleToggleModule = (id: string) => {
+        setSelectedModuleIds((prev) =>
+            prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id]
+        );
+    };
+
+    const handleAddModules = async () => {
+        if (selectedModuleIds.length === 0 || !viewedUser || !isCoordinator) return;
 
         if (isUserArchived) {
             setError('Cannot assign modules - user is archived');
-            setTimeout(() => setError(null), 3000);
-            return;
-        }
-
-        const alreadyAssigned = userModules.some(
-            (m) => (typeof m.tModule === 'object' ? m.tModule._id : m.tModule)?.toString() === selectedModuleId &&
-                m.trainingYear === selectedYear &&
-                m.activeCycle === showActiveCycles
-        );
-
-        if (alreadyAssigned) {
-            setError('This module is already assigned for this training cycle');
             setTimeout(() => setError(null), 3000);
             return;
         }
@@ -179,35 +230,52 @@ export default function UserTrainingPage() {
             const targetUserId = viewedUser._id?.toString();
             if (!targetUserId) throw new Error('Invalid user ID');
 
-            const res = await fetch(`/api/users/${targetUserId}/modules`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    tModule: selectedModuleId,
-                    notes: '',
-                    submodules: [],
-                    trainingYear: selectedYear === 'all' ? new Date().getFullYear() : selectedYear,
-                    activeCycle: showActiveCycles
-                }),
-            });
+            const newModules = selectedModuleIds.filter(
+                (id) =>
+                    !userModules.some(
+                        (m) =>
+                            (typeof m.tModule === 'object' ? m.tModule._id : m.tModule)?.toString() === id &&
+                            m.trainingYear === selectedYear &&
+                            m.activeCycle === showActiveCycles
+                    )
+            );
 
-            if (!res.ok) {
-                const errorData = await res.json();
-                throw new Error(errorData.error || 'Failed to add training module');
+            if (newModules.length === 0) {
+                setError('All selected modules are already assigned for this training cycle');
+                setTimeout(() => setError(null), 3000);
+                return;
             }
 
+            await Promise.all(
+                newModules.map((moduleId) =>
+                    fetch(`/api/users/${targetUserId}/modules`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            tModule: moduleId,
+                            notes: '',
+                            submodules: [],
+                            trainingYear: selectedYear === 'all' ? new Date().getFullYear() : selectedYear,
+                            activeCycle: showActiveCycles,
+                        }),
+                    })
+                )
+            );
+
             setShowAddModal(false);
-            setSelectedModuleId('');
+            setSelectedModuleIds([]);
             await fetchViewedUserAndModules();
 
             setSaveSuccess(true);
             setTimeout(() => setSaveSuccess(false), 3000);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to add module');
+            setError(err instanceof Error ? err.message : 'Failed to add modules');
         } finally {
             setAddingModule(false);
         }
     };
+
+
 
     const handleSave = async () => {
         if (!viewedUser || !isEditable) return;
@@ -667,14 +735,11 @@ export default function UserTrainingPage() {
                 show={showAddModal}
                 isCoordinator={isCoordinator}
                 unassignedModules={unassignedModules}
-                selectedModuleId={selectedModuleId}
+                selectedModuleIds={selectedModuleIds}
                 addingModule={addingModule}
-                onClose={() => {
-                    setShowAddModal(false);
-                    setSelectedModuleId('');
-                }}
-                onSelectModule={setSelectedModuleId}
-                onAddModule={handleAddModule}
+                onClose={() => setShowAddModal(false)}
+                onToggleModule={handleToggleModule}
+                onAddModules={handleAddModules}
             />
 
             <TrainingHistoryModal
