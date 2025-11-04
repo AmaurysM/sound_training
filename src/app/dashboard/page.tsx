@@ -527,21 +527,20 @@ export default function Dashboard() {
                 </div>
               </button>
 
-              {isCoordinator && (
-                <button
-                  onClick={() => {
-                    router.push('/dashboard/users');
-                    setMobileMenuOpen(false);
-                  }}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 text-left"
-                >
-                  <UserCheck className="w-5 h-5 text-gray-700" />
-                  <div>
-                    <p className="font-medium text-gray-900">Manage Users</p>
-                    <p className="text-xs text-gray-600">{stats.activeUsers} active</p>
-                  </div>
-                </button>
-              )}
+              <button
+                onClick={() => {
+                  router.push('/dashboard/users');
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 text-left"
+              >
+                <UserCheck className="w-5 h-5 text-gray-700" />
+                <div>
+                  <p className="font-medium text-gray-900">Manage Users</p>
+                  <p className="text-xs text-gray-600">{stats.activeUsers} active</p>
+                </div>
+              </button>
+
 
               <button
                 onClick={() => {
@@ -617,19 +616,17 @@ export default function Dashboard() {
             <p className="text-xs sm:text-sm text-gray-600">{stats.totalModules} training modules</p>
           </button>
 
-          {isCoordinator && (
-            <button
-              onClick={() => router.push('/dashboard/users')}
-              className="group bg-white border border-gray-200 rounded-xl p-4 sm:p-5 hover:border-gray-900 hover:shadow-lg transition-all duration-200 text-left"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <UserCheck className="w-6 h-6 sm:w-7 sm:h-7 text-gray-900 group-hover:scale-110 transition-transform" />
-                <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-gray-900 group-hover:translate-x-1 transition-all" />
-              </div>
-              <h3 className="text-sm sm:text-base font-semibold text-gray-900 mb-1">Manage Users</h3>
-              <p className="text-xs sm:text-sm text-gray-600">{stats.activeUsers} active trainees</p>
-            </button>
-          )}
+          <button
+            onClick={() => router.push('/dashboard/users')}
+            className="group bg-white border border-gray-200 rounded-xl p-4 sm:p-5 hover:border-gray-900 hover:shadow-lg transition-all duration-200 text-left"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <UserCheck className="w-6 h-6 sm:w-7 sm:h-7 text-gray-900 group-hover:scale-110 transition-transform" />
+              <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-gray-900 group-hover:translate-x-1 transition-all" />
+            </div>
+            <h3 className="text-sm sm:text-base font-semibold text-gray-900 mb-1">Manage Users</h3>
+            <p className="text-xs sm:text-sm text-gray-600">{stats.activeUsers} active trainees</p>
+          </button>
 
           <button
             onClick={() => router.push(`/dashboard/users/${currentUser?._id}/profile`)}

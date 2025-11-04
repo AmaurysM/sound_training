@@ -80,7 +80,7 @@ function RegisterForm() {
             const res = await fetch('/api/register/resend', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: userData.email }),
+                body: JSON.stringify({ email: userData.email, username: userData.username }),
             });
 
             if (res.ok) {

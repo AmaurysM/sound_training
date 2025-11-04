@@ -250,132 +250,131 @@ export default function ViewStudents() {
             <div className="relative z-10">
                 <div className="max-w-7xl mx-auto p-3 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
                     <div className="relative z-50 flex items-center justify-between pb-4 border-b border-gray-200 bg-white/60 backdrop-blur-sm px-4 sm:px-6 rounded-t-xl">
-  {/* Back Button */}
-  <button
-    onClick={() => router.push('/dashboard')}
-    className="p-2 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
-    title="Back to Dashboard"
-  >
-    <ArrowLeft className="w-5 h-5 text-gray-600" />
-  </button>
+                        {/* Back Button */}
+                        <button
+                            onClick={() => router.push('/dashboard')}
+                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
+                            title="Back to Dashboard"
+                        >
+                            <ArrowLeft className="w-5 h-5 text-gray-600" />
+                        </button>
 
-  {/* Title + User Info */}
-  <div className="flex-1 min-w-0 px-3 sm:px-4">
-    <h1 className="text-lg sm:text-xl font-semibold text-gray-900 truncate">
-      NATA Training Dashboard
-    </h1>
-    <div className="text-xs sm:text-sm text-gray-600 mt-1 flex items-center gap-2">
-      <div className="flex items-center gap-1 truncate">
-        <UserIcon className="w-3.5 h-3.5 text-gray-500" />
-        <span className="truncate font-medium">{currentUser.name}</span>
-      </div>
-      <span className="text-gray-300">•</span>
-      <span className="capitalize text-gray-700">{currentUser.role}</span>
-    </div>
-  </div>
+                        {/* Title + User Info */}
+                        <div className="flex-1 min-w-0 px-3 sm:px-4">
+                            <h1 className="text-lg sm:text-xl font-semibold text-gray-900 truncate">
+                                NATA Training Dashboard
+                            </h1>
+                            <div className="text-xs sm:text-sm text-gray-600 mt-1 flex items-center gap-2">
+                                <div className="flex items-center gap-1 truncate">
+                                    <UserIcon className="w-3.5 h-3.5 text-gray-500" />
+                                    <span className="truncate font-medium">{currentUser.name}</span>
+                                </div>
+                                <span className="text-gray-300">•</span>
+                                <span className="capitalize text-gray-700">{currentUser.role}</span>
+                            </div>
+                        </div>
 
-  {/* Mobile Menu */}
-  <div className="sm:hidden">
-    <button
-      onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-      className="p-2 rounded-lg text-gray-700 hover:bg-gray-100 transition"
-    >
-      {mobileMenuOpen ? (
-        <X className="w-5 h-5" />
-      ) : (
-        <Menu className="w-5 h-5" />
-      )}
-    </button>
-  </div>
+                        {/* Mobile Menu */}
+                        <div className="sm:hidden">
+                            <button
+                                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                                className="p-2 rounded-lg text-gray-700 hover:bg-gray-100 transition"
+                            >
+                                {mobileMenuOpen ? (
+                                    <X className="w-5 h-5" />
+                                ) : (
+                                    <Menu className="w-5 h-5" />
+                                )}
+                            </button>
+                        </div>
 
-  {/* Desktop Stats + Settings */}
-  <div className="hidden sm:flex items-center gap-5">
-    {/* Dashboard Stats */}
-    <div className="hidden md:flex gap-6 text-sm">
-      <div className="text-right">
-        <p className="text-gray-500 text-xs">Total Users</p>
-        <p className="text-lg font-semibold text-gray-900">{stats.total}</p>
-      </div>
-      <div className="text-right">
-        <p className="text-gray-500 text-xs">Trainees</p>
-        <p className="text-lg font-semibold text-gray-900">{stats.trainees}</p>
-      </div>
+                        {/* Desktop Stats + Settings */}
+                        <div className="hidden sm:flex items-center gap-5">
+                            {/* Dashboard Stats */}
+                            <div className="hidden md:flex gap-6 text-sm">
+                                <div className="text-right">
+                                    <p className="text-gray-500 text-xs">Total Users</p>
+                                    <p className="text-lg font-semibold text-gray-900">{stats.total}</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-gray-500 text-xs">Trainees</p>
+                                    <p className="text-lg font-semibold text-gray-900">{stats.trainees}</p>
+                                </div>
 
-      {currentUser.role === 'Coordinator' && (
-        <>
-          <div className="text-right">
-            <p className="text-gray-500 text-xs">Trainers</p>
-            <p className="text-lg font-semibold text-gray-900">{stats.trainers}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-gray-500 text-xs">Pending</p>
-            <p className="text-lg font-semibold text-amber-600">{stats.pending}</p>
-          </div>
-        </>
-      )}
-    </div>
+                                {currentUser.role === 'Coordinator' && (
+                                    <>
+                                        <div className="text-right">
+                                            <p className="text-gray-500 text-xs">Trainers</p>
+                                            <p className="text-lg font-semibold text-gray-900">{stats.trainers}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-gray-500 text-xs">Pending</p>
+                                            <p className="text-lg font-semibold text-amber-600">{stats.pending}</p>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
 
-    {/* Settings Menu */}
-    <div ref={settingsDropdownRef} className="relative">
-      <button
-        onClick={() => setSettingsDropdownOpen(!settingsDropdownOpen)}
-        className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-white border border-gray-300 rounded-lg hover:shadow-sm hover:bg-gray-50 transition text-sm font-medium text-gray-700"
-      >
-        <Settings className="w-4 h-4" />
-        <span className="hidden lg:inline">Menu</span>
-        <ChevronDown
-          className={`w-4 h-4 transition-transform ${
-            settingsDropdownOpen ? 'rotate-180' : ''
-          }`}
-        />
-      </button>
+                            {/* Settings Menu */}
+                            <div ref={settingsDropdownRef} className="relative">
+                                <button
+                                    onClick={() => setSettingsDropdownOpen(!settingsDropdownOpen)}
+                                    className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-white border border-gray-300 rounded-lg hover:shadow-sm hover:bg-gray-50 transition text-sm font-medium text-gray-700"
+                                >
+                                    <Settings className="w-4 h-4" />
+                                    <span className="hidden lg:inline">Menu</span>
+                                    <ChevronDown
+                                        className={`w-4 h-4 transition-transform ${settingsDropdownOpen ? 'rotate-180' : ''
+                                            }`}
+                                    />
+                                </button>
 
-      {settingsDropdownOpen && (
-        <div
-          className="absolute right-0 mt-2 w-52 bg-white border border-gray-200 rounded-lg shadow-xl py-2 z-9999"
-          style={{ position: 'absolute' }}
-        >
-          <button
-            onClick={() => {
-              handleViewMyTraining();
-              setSettingsDropdownOpen(false);
-            }}
-            className="flex items-center gap-3 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition"
-          >
-            <BookOpen className="w-4 h-4" />
-            My Training
-          </button>
+                                {settingsDropdownOpen && (
+                                    <div
+                                        className="absolute right-0 mt-2 w-52 bg-white border border-gray-200 rounded-lg shadow-xl py-2 z-9999"
+                                        style={{ position: 'absolute' }}
+                                    >
+                                        <button
+                                            onClick={() => {
+                                                handleViewMyTraining();
+                                                setSettingsDropdownOpen(false);
+                                            }}
+                                            className="flex items-center gap-3 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition"
+                                        >
+                                            <BookOpen className="w-4 h-4" />
+                                            My Training
+                                        </button>
 
-          {currentUser.role === 'Coordinator' && !showArchived && (
-            <button
-              onClick={() => {
-                setShowAddUserForm(true);
-                setSettingsDropdownOpen(false);
-              }}
-              className="flex items-center gap-3 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition"
-            >
-              <UserPlus className="w-4 h-4" />
-              Add New User
-            </button>
-          )}
+                                        {currentUser.role === 'Coordinator' && !showArchived && (
+                                            <button
+                                                onClick={() => {
+                                                    setShowAddUserForm(true);
+                                                    setSettingsDropdownOpen(false);
+                                                }}
+                                                className="flex items-center gap-3 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition"
+                                            >
+                                                <UserPlus className="w-4 h-4" />
+                                                Add New User
+                                            </button>
+                                        )}
 
-          <div className="border-t border-gray-100 my-1" />
+                                        <div className="border-t border-gray-100 my-1" />
 
-          <button
-            onClick={() => {
-              handleLogout();
-              setSettingsDropdownOpen(false);
-            }}
-            className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-50 transition"
-          >
-            <LogOut className="w-4 h-4" />
-            Logout
-          </button>
-        </div>
-      )}
-    </div>
-  </div>
-</div>
+                                        <button
+                                            onClick={() => {
+                                                handleLogout();
+                                                setSettingsDropdownOpen(false);
+                                            }}
+                                            className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-50 transition"
+                                        >
+                                            <LogOut className="w-4 h-4" />
+                                            Logout
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
 
 
 
