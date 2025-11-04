@@ -2,21 +2,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import Signature from "@/models/Signature";
 import { connectToDatabase } from "@/lib/mongodb";
+import { ISignature, ITrainingSubmodule } from "@/models";
+import UserSubmodule, { IUserSubmodule } from "@/models/UserSubmodule";
 
-export async function PATCH(
+export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ signatureId: string }> }
 ) {
   try {
-    const resolvedParams = await params; // <-- unwrap the Promise
-    const { signatureId } = resolvedParams;
+    const { signatureId } = await params;
 
     if (!signatureId) {
       return NextResponse.json(
-        { error: "Missing Traing Module ID" },
+        { error: "Missing Signature ID" },
         { status: 400 }
       );
     }
+
     await connectToDatabase();
 
     // Find the signature
@@ -32,12 +34,42 @@ export async function PATCH(
     signature.archived = true;
     await signature.save();
 
+    // Find the attached submodule
+    const submodule = await UserSubmodule.findById(signature.attachedTo)
+      .populate("tSubmodule")
+      .populate({
+        path: "signatures",
+        match: { archived: { $ne: true } },
+      });
+
+    if (!submodule) {
+      return NextResponse.json(
+        { success: false, error: "Attached submodule not found" },
+        { status: 404 }
+      );
+    }
+
+    // Recalculate signedOff
+    const activeSignatures = submodule.signatures.length; // only non-archived populated
+    const tSub = submodule.tSubmodule as ITrainingSubmodule | null;
+    const requiresPractical = tSub?.requiresPractical ?? false;
+
+    submodule.signedOff =
+      activeSignatures >= 3 &&
+      submodule.ojt &&
+      (!requiresPractical || submodule.practical);
+
+    await submodule.save();
+
     return NextResponse.json({
       success: true,
-      message: "Signature archived",
+      message: "Signature archived and submodule updated",
       data: signature,
     });
   } catch (error) {
-    return NextResponse.json({ success: false, error: error }, { status: 400 });
+    return NextResponse.json({
+      success: false,
+      error: error instanceof Error ? error.message : error,
+    }, { status: 400 });
   }
 }

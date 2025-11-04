@@ -5,13 +5,14 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useDashboard } from '@/contexts/dashboard-context';
 import { IUser, IUserModule, ITrainingModule } from '@/models/types';
-import { 
-  ArrowLeft, User, Mail, Calendar, Shield, 
+import {
+  ArrowLeft, User, Mail, Calendar, Shield,
   Edit, Save, X, Lock, Eye, EyeOff,
   BookOpen, CheckCircle, Clock, TrendingUp,
   Award, BarChart3, UserCheck, Archive
 } from 'lucide-react';
 import { IUserSubmodule } from '@/models';
+import LoadingScreen from '@/app/components/LoadingScreen';
 
 interface UserStats {
   totalModules: number;
@@ -54,7 +55,7 @@ export default function UserProfilePage() {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState<{type: 'success' | 'error', message: string} | null>(null);
+  const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
   const [formData, setFormData] = useState<ProfileFormData>({
     name: '',
@@ -86,7 +87,7 @@ export default function UserProfilePage() {
 
       const userData = await userRes.json();
       setUser(userData);
-      
+
       // Initialize form data
       setFormData({
         name: userData.name || '',
@@ -115,24 +116,24 @@ export default function UserProfilePage() {
 
   const calculateStats = (modules: IUserModule[]) => {
     const totalModules = modules.length;
-    const completedModules = modules.filter(module => 
+    const completedModules = modules.filter(module =>
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       module.submodules?.every((submod: any) => submod.signedOff)
     ).length;
-    const inProgressModules = modules.filter(module => 
+    const inProgressModules = modules.filter(module =>
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      module.submodules?.some((submod: any) => !submod.signedOff) && 
+      module.submodules?.some((submod: any) => !submod.signedOff) &&
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       module.submodules?.some((submod: any) => submod.signedOff)
     ).length;
     const pendingSignoffs = modules.reduce((count, module) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const pending = module.submodules?.filter((submod: any) => 
+      const pending = module.submodules?.filter((submod: any) =>
         submod.requiresPractical && !submod.practical
       ).length || 0;
       return count + pending;
     }, 0);
-    
+
     const completionRate = totalModules > 0 ? Math.round((completedModules / totalModules) * 100) : 0;
 
     setStats({
@@ -193,7 +194,7 @@ export default function UserProfilePage() {
 
       const updatedUser = await response.json();
       setUser(updatedUser);
-      
+
       // Update current user if it's the same user
       if (currentUser?._id === userId) {
         fetchCurrentUser();
@@ -206,7 +207,7 @@ export default function UserProfilePage() {
 
       setIsEditing(false);
       setIsChangingPassword(false);
-      
+
       // Reset password fields
       setFormData(prev => ({
         ...prev,
@@ -247,16 +248,7 @@ export default function UserProfilePage() {
   const canEditProfile = currentUser?.role === 'Coordinator' || currentUser?._id === userId;
   const isOwnProfile = currentUser?._id === userId;
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
-        <div className="text-center">
-          <div className="w-12 h-12 border-3 border-gray-300 border-t-gray-900 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-sm text-gray-600">Loading profile...</p>
-        </div>
-      </div>
-    );
-  }
+  if (loading) { return <LoadingScreen message={"Loading profile..."} />; }
 
   if (error || !user) {
     return (
@@ -289,7 +281,7 @@ export default function UserProfilePage() {
             <ArrowLeft className="w-4 h-4" />
             {isOwnProfile ? 'Back to Dashboard' : 'Back to User Details'}
           </button>
-          
+
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
@@ -339,11 +331,10 @@ export default function UserProfilePage() {
         </div>
 
         {saveMessage && (
-          <div className={`mb-6 p-4 rounded-lg ${
-            saveMessage.type === 'success' 
+          <div className={`mb-6 p-4 rounded-lg ${saveMessage.type === 'success'
               ? 'bg-green-50 border border-green-200 text-green-800'
               : 'bg-red-50 border border-red-200 text-red-800'
-          }`}>
+            }`}>
             {saveMessage.message}
           </div>
         )}
@@ -495,13 +486,12 @@ export default function UserProfilePage() {
                   Role
                 </label>
                 <div className="flex items-center gap-2">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    user.role === 'Coordinator' 
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${user.role === 'Coordinator'
                       ? 'bg-purple-100 text-purple-800'
                       : user.role === 'Trainer'
-                      ? 'bg-blue-100 text-blue-800'
-                      : 'bg-gray-100 text-gray-800'
-                  }`}>
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}>
                     {user.role}
                   </span>
                   {user.archived && (
@@ -627,7 +617,7 @@ export default function UserProfilePage() {
                     <span className="text-sm font-semibold text-gray-900">{stats.completionRate}%</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-4">
-                    <div 
+                    <div
                       className="bg-gradient-to-r from-green-500 to-green-600 h-4 rounded-full transition-all duration-500"
                       style={{ width: `${stats.completionRate}%` }}
                     ></div>
@@ -703,10 +693,10 @@ export default function UserProfilePage() {
                     <div key={module._id!.toString()} className="flex items-center gap-3 p-2 rounded-lg bg-gray-50">
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        module.submodules?.every((sm: any) => sm.signedOff) 
-                          ? 'bg-green-500' 
+                        module.submodules?.every((sm: any) => sm.signedOff)
+                          ? 'bg-green-500'
                           : 'bg-blue-500'
-                      }`}>
+                        }`}>
                         <CheckCircle className="w-4 h-4" />
                       </div>
                       <div className="flex-1">
@@ -719,7 +709,7 @@ export default function UserProfilePage() {
                       </div>
                     </div>
                   ))}
-                
+
                 {userModules.length === 0 && (
                   <div className="text-center py-4 text-gray-500 text-sm">
                     No training activity yet

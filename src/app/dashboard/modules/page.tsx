@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useDashboard } from '@/contexts/dashboard-context';
 import { ITrainingModule } from '@/models/types';
-import { BookOpen, Search, Plus, ChevronRight, Loader2 } from 'lucide-react';
+import { BookOpen, Search, Plus, ChevronRight, Loader2, ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function ModulesPage() {
@@ -55,7 +55,7 @@ export default function ModulesPage() {
     }
 
     const lowercaseQuery = query.toLowerCase();
-    const filtered = availableModules.filter(module => 
+    const filtered = availableModules.filter(module =>
       module.name.toLowerCase().includes(lowercaseQuery) ||
       (module.description && module.description.toLowerCase().includes(lowercaseQuery))
     );
@@ -79,7 +79,15 @@ export default function ModulesPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Header */}
+
         <div className="mb-6 sm:mb-8">
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-4 sm:mb-6 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Dashboard
+          </button>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">
             Training Modules
           </h1>
@@ -106,7 +114,7 @@ export default function ModulesPage() {
             {/* Add Module Button (Coordinators only) */}
             {isCoordinator && (
               <button
-                onClick={() => {/* Handle add module */}}
+                onClick={() => {/* Handle add module */ }}
                 className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors text-sm font-medium whitespace-nowrap"
               >
                 <Plus className="w-4 h-4" />
@@ -186,8 +194,8 @@ export default function ModulesPage() {
               {searchQuery ? 'No modules found' : 'No modules available'}
             </h3>
             <p className="text-sm text-gray-600 mb-4">
-              {searchQuery 
-                ? 'Try adjusting your search query' 
+              {searchQuery
+                ? 'Try adjusting your search query'
                 : 'Training modules will appear here once added'}
             </p>
             {searchQuery && (

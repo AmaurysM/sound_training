@@ -42,7 +42,7 @@ export default async function middleware(req: NextRequest) {
   if (payload && PUBLIC_PATHS.some((path) => pathname.startsWith(path))) {
     if (userRole === Roles.Student.toLowerCase()) {
       return NextResponse.redirect(
-        new URL(`/dashboard/train/${userId}`, req.url)
+        new URL(`/dashboard`, req.url)
       );
     }
     return NextResponse.redirect(new URL("/dashboard", req.url));
@@ -55,8 +55,8 @@ export default async function middleware(req: NextRequest) {
 
   // Trainee-specific route protection
   if (userRole === Roles.Student.toLowerCase()) {
-    const traineePath = `/dashboard/train/${userId}`;
-    const modulePath = "/dashboard/module/";
+    const traineePath = `/dashboard/users/${userId}/modules`;
+    const modulePath = "/dashboard/users/${userId}/modules";
 
     const isOwnDashboard = pathname.startsWith(traineePath);
     const isModulePage = pathname.startsWith(modulePath);

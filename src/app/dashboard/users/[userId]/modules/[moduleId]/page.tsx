@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { IUserModule, IUserSubmodule, Roles } from "@/models/types";
 import { useDashboard } from "@/contexts/dashboard-context";
+import LoadingScreen from "@/app/components/LoadingScreen";
 
 interface UploadedFile {
     _id: string;
@@ -40,7 +41,7 @@ export default function ModuleInfo() {
         fetchCurrentUser,
         //fetchViewedUserAndModules
     } = useDashboard();
-    
+
     const [userModule, setUserModule] = useState<IUserModule | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -156,7 +157,7 @@ export default function ModuleInfo() {
 
             const response = await res.json();
             setUserModule(response.data);
-            
+
             // Refresh the viewed user modules in context
         } catch (err) {
             alert(err instanceof Error ? err.message : "Failed to save notes");
@@ -181,16 +182,7 @@ export default function ModuleInfo() {
         }
     };
 
-    if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-slate-50 to-slate-100">
-                <div className="text-center">
-                    <Loader2 className="w-16 h-16 animate-spin text-blue-600 mx-auto mb-4" />
-                    <p className="text-slate-600 text-lg font-medium">Loading module...</p>
-                </div>
-            </div>
-        );
-    }
+    if (loading) { return <LoadingScreen message={"Loading module..."} />; }
 
     if (error || !userModule) {
         return (
@@ -367,7 +359,7 @@ export default function ModuleInfo() {
                                         <p className="text-xs sm:text-sm text-slate-500 mt-1">
                                             Click to view all submodules, track progress, and manage training activities
                                         </p>
-                                        
+
                                         {/* Progress bar */}
                                         <div className="mt-2 w-full max-w-xs bg-slate-200 rounded-full h-2 overflow-hidden">
                                             <div

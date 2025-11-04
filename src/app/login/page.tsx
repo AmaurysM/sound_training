@@ -27,7 +27,7 @@ export default function LoginPage() {
         await new Promise(resolve => setTimeout(resolve, 100));
 
         if (data.user.role === 'Trainee') {
-          router.push('/dashboard/trainee');
+          router.push('/dashboard/modules');
         } else {
           router.push('/dashboard');
         }

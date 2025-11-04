@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { ISignature, IUser, IUserSubmodule, Role, RoleEnum, Roles } from "@/models/types";
 import { useDashboard } from "@/contexts/dashboard-context";
+import LoadingScreen from "@/app/components/LoadingScreen";
 
 interface SortConfig {
     key: keyof IUserSubmodule | 'signatureStatus';
@@ -394,7 +395,7 @@ export default function SubmodulesPage() {
         try {
             setIsSignatureLoading(true);
             const res = await fetch(`/api/signature/${sigId}`, {
-                method: "PATCH",
+                method: "DELETE",
                 headers: { "Content-Type": "application/json" },
             });
 
@@ -590,16 +591,7 @@ export default function SubmodulesPage() {
         </th>
     );
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="text-center">
-                    <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
-                    <p className="text-slate-600 font-medium">Loading submodules...</p>
-                </div>
-            </div>
-        );
-    }
+    if (loading) { return <LoadingScreen message={"Loading submodules..."} />; }
 
     return (
         <div className="min-h-screen bg-slate-50 p-3 sm:p-4 md:p-6">

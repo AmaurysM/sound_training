@@ -1,4 +1,4 @@
-import { Award, Clock, Edit, Home, LogOut, Menu, RefreshCw, TrendingUp, User } from "lucide-react";
+import { ArrowLeft, Award, Clock, Edit, Home, LogOut, Menu, RefreshCw, TrendingUp, User } from "lucide-react";
 import { IUser, Roles, Stat } from "@/models/types";
 import { useDashboard } from '@/contexts/dashboard-context';
 import { useRouter } from 'next/navigation';
@@ -48,11 +48,11 @@ const TrainingHeader = ({
                 <div className="flex items-start gap-2 sm:gap-4 flex-1 min-w-0">
                     {!isTrainee && currentUser?._id && (
                         <button
-                            onClick={() => router.push('/dashboard')}
+                            onClick={() => router.push(`/dashboard/users`)}
                             className="p-2 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
                             title="Back to dashboard"
                         >
-                            <Home className="w-5 h-5 text-gray-600" />
+                            <ArrowLeft className="w-5 h-5 text-gray-600" />
                         </button>
                     )}
                     <div className="flex-1 min-w-0 ">

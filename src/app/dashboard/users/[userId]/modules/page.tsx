@@ -14,6 +14,7 @@ import TrainingHeader from '@/app/components/TrainingHeader';
 import TrainingModulesView from '@/app/components/TrainingModulesView';
 import { Stat, IUserSubmodule, Roles } from "@/models/types";
 import { useDashboard } from '@/contexts/dashboard-context';
+import LoadingScreen from '@/app/components/LoadingScreen';
 
 export default function Modules() {
     const params = useParams();
@@ -366,16 +367,7 @@ export default function Modules() {
     const unassignedModules = getUnassignedModules();
     const cycleSummary = getCycleSummary();
 
-    if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <div className="text-center">
-                    <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
-                    <p className="text-gray-600">Loading training data...</p>
-                </div>
-            </div>
-        );
-    }
+    if (loading) { return <LoadingScreen message={"Loading training data..."}/>; }
 
     if (error && !currentUser) {
         return (

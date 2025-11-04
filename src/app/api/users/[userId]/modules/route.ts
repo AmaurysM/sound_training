@@ -1,6 +1,6 @@
 // src/app/api/users/[userId]/modules/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import UserModule from "@/models/UserModule";
+import UserModule, { IUserModule } from "@/models/UserModule";
 import User from "@/models/User";
 import { connectToDatabase } from "@/lib/mongodb";
 import { ITrainingSubmodule, TrainingModule, UserSubmodule } from "@/models";
@@ -24,7 +24,7 @@ export async function GET(
     }
 
     // ✅ Fetch all active (archived) user modules
-    const modules = await UserModule.find({
+    const modules: IUserModule[] = await UserModule.find({
       user: userId,
       archived: { $ne: true },
     })
@@ -42,7 +42,7 @@ export async function GET(
       })
       .sort({ trainingYear: -1, createdAt: -1 }); // ✅ Sort by year and date
     //console.log(modules)
-    return NextResponse.json({ success: true, data: modules });
+    return NextResponse.json( modules );
   } catch (error) {
     console.error("GET /modules error:", error);
     return NextResponse.json(
