@@ -18,6 +18,7 @@ import {
     Clock,
     Archive,
     BookOpen,
+    AlertCircle,
 } from "lucide-react";
 import { IUserModule, IUserSubmodule, Roles } from "@/models/types";
 import { useDashboard } from "@/contexts/dashboard-context";
@@ -205,6 +206,10 @@ export default function ModuleInfo() {
         );
     }
 
+    const isUserArchived = viewedUser?.archived || false;
+        const isCoordinator = currentUser?.role === Roles.Coordinator;
+    
+
     const completedSubmodules =
         userModule.submodules?.filter(
             (s): s is IUserSubmodule => typeof s !== "string" && isSubmoduleComplete(s)
@@ -387,6 +392,18 @@ export default function ModuleInfo() {
                     )}
                 </div>
 
+                {isUserArchived && (
+                    <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg flex items-start gap-3 mb-5">
+                        <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                        <div>
+                            <p className="text-sm font-semibold text-red-900">User Account Archived</p>
+                            <p className="text-xs text-red-700 mt-1">
+                                This user has been archived. {isCoordinator ? 'You can view notes and fils but cannot make any changes.' : 'No changes can be made to archived user accounts or their information.'}
+                            </p>
+                        </div>
+                    </div>
+                )}
+
                 <div className="lg:grid-cols-3 gap-6 lg:gap-8">
                     {/* Left Column */}
                     <div className="lg:col-span-2 space-y-6 lg:space-y-8">
@@ -526,6 +543,7 @@ export default function ModuleInfo() {
                     </div>
                 </div>
             </div>
+
         </div>
     );
 }

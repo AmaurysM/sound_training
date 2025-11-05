@@ -156,8 +156,8 @@ export default function SubmodulesPage() {
             "Coordinator Signed At",
             "Trainer Signed By",
             "Trainer Signed At",
-            "Trainee Signed By",
-            "Trainee Signed At",
+            "Student Signed By",
+            "Student Signed At",
             "Total Signatures",
         ];
 
@@ -167,7 +167,7 @@ export default function SubmodulesPage() {
 
             const coordSig = submodule.signatures?.find(s => s.role === Roles.Coordinator);
             const trainerSig = submodule.signatures?.find(s => s.role === Roles.Trainer);
-            const traineeSig = submodule.signatures?.find(s => s.role === Roles.Student);
+            const studentSig = submodule.signatures?.find(s => s.role === Roles.Student);
 
             const getSignerName = (sig: ISignature | undefined) => {
                 if (!sig) return "";
@@ -195,8 +195,8 @@ export default function SubmodulesPage() {
                 getSignedDate(coordSig),
                 getSignerName(trainerSig),
                 getSignedDate(trainerSig),
-                getSignerName(traineeSig),
-                getSignedDate(traineeSig),
+                getSignerName(studentSig),
+                getSignedDate(studentSig),
                 `${signatureStatus.count}/3`,
             ];
         });
@@ -250,20 +250,20 @@ export default function SubmodulesPage() {
         const sigs = submodule.signatures || [];
         const coordinator = sigs.some(s => s.role === Roles.Coordinator && !s.archived);
         const trainer = sigs.some(s => s.role === Roles.Trainer && !s.archived);
-        const trainee = sigs.some(s => s.role === Roles.Student && !s.archived);
-        const count = [coordinator, trainer, trainee].filter(Boolean).length;
-        return { coordinator, trainer, trainee, count };
+        const student = sigs.some(s => s.role === Roles.Student && !s.archived);
+        const count = [coordinator, trainer, student].filter(Boolean).length;
+        return { coordinator, trainer, student, count };
     }, []);
 
     const hasAllSignatures = useCallback((submodule: IUserSubmodule) => {
         const status = getSignatureStatus(submodule);
-        return status.coordinator && status.trainer && status.trainee;
+        return status.coordinator && status.trainer && status.student;
     }, [getSignatureStatus]);
 
     const isSubmoduleComplete = useCallback((submodule: IUserSubmodule) => {
         if (!submodule.ojt) return false;
         const status = getSignatureStatus(submodule);
-        if (!status.coordinator || !status.trainer || !status.trainee) return false;
+        if (!status.coordinator || !status.trainer || !status.student) return false;
         if (submodule.tSubmodule?.requiresPractical && !submodule.practical) return false;
         return true;
     }, [getSignatureStatus]);
@@ -448,13 +448,13 @@ export default function SubmodulesPage() {
 
     const getSignedRoles = () => {
         if (!signOffModal.submodule)
-            return { coordinator: false, trainer: false, trainee: false };
+            return { coordinator: false, trainer: false, student: false };
 
         const sigs = signOffModal.submodule.signatures || [];
         return {
             coordinator: sigs.some(sig => sig.role === Roles.Coordinator),
             trainer: sigs.some(sig => sig.role === Roles.Trainer),
-            trainee: sigs.some(sig => sig.role === Roles.Student),
+            student: sigs.some(sig => sig.role === Roles.Student),
         };
     };
 
@@ -476,7 +476,7 @@ export default function SubmodulesPage() {
         const signedRoles = getSignedRoles();
 
         if (isViewingOwnModules) {
-            return role === Roles.Student && !signedRoles.trainee;
+            return role === Roles.Student && !signedRoles.student;
         }
 
         switch (currentUser.role) {
@@ -852,7 +852,7 @@ export default function SubmodulesPage() {
                                     <div className="flex items-center justify-between mb-3">
                                         <div className="flex items-center gap-2">
                                             <div className="flex -space-x-1">
-                                                {['Coordinator', 'Trainer', 'Trainee'].map((role) => (
+                                                {['Coordinator', 'Trainer', 'Student'].map((role) => (
                                                     <div
                                                         key={role}
                                                         className={`w-5 h-5 rounded-full border-2 border-white flex items-center justify-center text-xs ${signatureStatus[role.toLowerCase() as keyof typeof signatureStatus]
@@ -978,7 +978,7 @@ export default function SubmodulesPage() {
                                                     <td className="p-2 md:p-3">
                                                         <div className="flex items-center gap-2">
                                                             <div className="flex -space-x-1">
-                                                                {['Coordinator', 'Trainer', 'Trainee'].map((role) => (
+                                                                {['Coordinator', 'Trainer', 'Student'].map((role) => (
                                                                     <div
                                                                         key={role}
                                                                         className={`w-5 h-5 md:w-6 md:h-6 rounded-full border-2 border-white flex items-center justify-center text-xs ${signatureStatus[role.toLowerCase() as keyof typeof signatureStatus]
