@@ -9,22 +9,16 @@ import { sendRegistrationEmail } from "@/lib/email";
 export async function POST(req: Request) {
   try {
     await connectToDatabase();
-    const { email } = await req.json();
+    const { email, username } = await req.json();
 
     if (!email) {
-      return NextResponse.json(
-        { error: "Email is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
 
     const user = await User.findOne({ email });
 
     if (!user) {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     // Check if already verified
@@ -37,19 +31,19 @@ export async function POST(req: Request) {
 
     // Generate new token
     const registrationToken = crypto.randomBytes(32).toString("hex");
-    const tokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-
+    const tokenExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    
     user.registrationToken = registrationToken;
     user.tokenExpires = tokenExpires;
-    
+
     await user.save();
 
     // Send new registration email
-    await sendRegistrationEmail(email, registrationToken);
+    await sendRegistrationEmail(email, username, registrationToken);
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: true,
-      message: "New registration email sent" 
+      message: "New registration email sent",
     });
   } catch (error) {
     console.error("Error resending registration email:", error);

@@ -1,56 +1,49 @@
+// src/components/TrainingModulesView.tsx
+
 import { Search, Filter, Plus, FileText, History, X, MessageSquare, Save, Archive, AlertCircle } from "lucide-react";
-import { IUser, IUserModule, IUserSubmodule, Roles, Stat } from "@/models/types";
-import { useCallback, useEffect, useState } from "react";
+import { IUserModule, IUserSubmodule, Roles, Stat } from "@/models/types";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useDashboard } from "@/contexts/dashboard-context";
 
 const TrainingModulesView = ({
-    currentUser,
-    viewedUser,
-    trainingData = [],
-    setShowAddModal,
-    loadingModules,
-    fetchModules,
     stats,
-    setTrainingData,
-    setSelectedTraining,
-    setShowHistoryModal,
-    setSaving,
-    setError,
-    error,
-    setOriginalData,
-    setSaveSuccess,
-    saving,
-    isArchived = false
+    isArchived = false,
+    filteredModules: trainingData
 }: {
-    currentUser: IUser
-    viewedUser: IUser
-    trainingData: IUserModule[]
-    setShowAddModal: (show: boolean) => void
-    loadingModules: boolean
-    fetchModules: () => Promise<void>
     stats: Stat
-    setTrainingData: React.Dispatch<React.SetStateAction<IUserModule[]>>
-    setSelectedTraining: React.Dispatch<React.SetStateAction<IUserModule | null>>
-    setShowHistoryModal: React.Dispatch<React.SetStateAction<boolean>>
-    setSaving: React.Dispatch<React.SetStateAction<boolean>>
-    setError: React.Dispatch<React.SetStateAction<string | null>>
-    error: string | null
-    setOriginalData: React.Dispatch<React.SetStateAction<IUserModule[]>>
-    setSaveSuccess: React.Dispatch<React.SetStateAction<boolean>>
-    saving: boolean
     isArchived?: boolean
+    filteredModules: IUserModule[]
 }) => {
     const router = useRouter();
+    
+    const {
+        currentUser,
+        viewedUser,
+        //userModules: trainingData,
+        setUserModules: setTrainingData,
+        setOriginalData,
+        loadingModules,
+        saving,
+        setSaving,
+        setError,
+        setSaveSuccess,
+        setShowAddModal,
+        setSelectedUserModule,
+        setShowHistoryModal,
+    } = useDashboard();
 
-    const isEditable = currentUser && (currentUser.role === Roles.Coordinator || currentUser.role === Roles.Trainer);
-    const isCoordinator = currentUser?.role === Roles.Coordinator;
-    const isTrainee = currentUser?.role === Roles.Student;
+    // Local UI state (component-specific)
     const [searchQuery, setSearchQuery] = useState('');
     const [filterStatus, setFilterStatus] = useState<'all' | 'completed' | 'in-progress' | 'not-started'>('all');
     const [showFilters, setShowFilters] = useState(false);
     const [showNoteModal, setShowNoteModal] = useState(false);
     const [selectedNoteIndex, setSelectedNoteIndex] = useState<number | null>(null);
     const [noteText, setNoteText] = useState('');
+
+    const isEditable = currentUser && (currentUser.role === Roles.Coordinator || currentUser.role === Roles.Trainer);
+    const isCoordinator = currentUser?.role === Roles.Coordinator;
+    const isTrainee = currentUser?.role === Roles.Student;
 
     // Check if user is archived - this prevents editing
     const isUserArchived = viewedUser?.archived || false;
@@ -126,7 +119,7 @@ const TrainingModulesView = ({
     };
 
     const handleSaveNote = async () => {
-        if (selectedNoteIndex === null) return;
+        if (selectedNoteIndex === null || !viewedUser) return;
 
         if (!canEdit) {
             setError(isUserArchived ? 'Cannot edit notes - user is archived' : 'Cannot edit notes - module is archived');
@@ -179,7 +172,7 @@ const TrainingModulesView = ({
     };
 
     const handleRemoveModule = useCallback(async (index: number) => {
-        if (!isCoordinator) return;
+        if (!isCoordinator || !viewedUser) return;
 
         if (!canEdit) {
             setError(isUserArchived ? 'Cannot remove module - user is archived' : 'Cannot remove module - archived cycle');
@@ -212,11 +205,7 @@ const TrainingModulesView = ({
         } finally {
             setSaving(false);
         }
-    }, [isCoordinator, trainingData, viewedUser._id, setTrainingData, setError, setOriginalData, setSaveSuccess, setSaving, canEdit, isUserArchived]);
-
-    useEffect(() => {
-        fetchModules();
-    }, [fetchModules]);
+    }, [isCoordinator, trainingData, viewedUser, setTrainingData, setError, setOriginalData, setSaveSuccess, setSaving, canEdit, isUserArchived]);
 
     const getModuleProgress = (module: IUserModule) => {
         const submodules = module.submodules || [];
@@ -235,6 +224,8 @@ const TrainingModulesView = ({
 
         return { total: totalSubmodules, completed: completedSubmodules, percentage };
     };
+
+    if (!currentUser || !viewedUser) return null;
 
     return (
         <>
@@ -407,7 +398,7 @@ const TrainingModulesView = ({
                                                         )}
                                                         <div className="flex-1 min-w-0">
                                                             <button
-                                                                onClick={() => router.push(`/users/${viewedUser._id}/moduleInfo/${m._id}`)}
+                                                                onClick={() => router.push(`/dashboard/users/${viewedUser._id}/modules/${m._id}`)}
                                                                 className="text-sm font-medium text-gray-900 hover:underline hover:text-blue-800 transition-colors text-left"
                                                             >
                                                                 {moduleName}
@@ -464,7 +455,7 @@ const TrainingModulesView = ({
                                                         <div className="flex items-center justify-center gap-2">
                                                             <button
                                                                 onClick={() => {
-                                                                    setSelectedTraining(m);
+                                                                    setSelectedUserModule(m);
                                                                     setShowHistoryModal(true);
                                                                 }}
                                                                 className="text-blue-600 hover:text-blue-800 p-1.5 hover:bg-blue-50 rounded-lg transition-colors"
@@ -524,7 +515,7 @@ const TrainingModulesView = ({
                                             }`}>
                                             <div className="flex items-start justify-between gap-3 mb-2">
                                                 <button
-                                                    onClick={() => router.push(`/users/${viewedUser._id}/moduleInfo/${m._id}`)}
+                                                    onClick={() => router.push(`/dashboard/users/${viewedUser._id}/modules/${m._id}`)}
                                                     className="flex-1 min-w-0 text-left"
                                                 >
                                                     <div className="flex items-center gap-2 mb-1">
@@ -621,7 +612,7 @@ const TrainingModulesView = ({
                                                 <div className="flex items-center gap-2">
                                                     <button
                                                         onClick={() => {
-                                                            setSelectedTraining(m);
+                                                            setSelectedUserModule(m);
                                                             setShowHistoryModal(true);
                                                         }}
                                                         className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"

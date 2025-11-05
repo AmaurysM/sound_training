@@ -4,7 +4,8 @@ import mongoose from "mongoose";
 import UserSubmodule from "@/models/UserSubmodule";
 import Signature from "@/models/Signature";
 import { connectToDatabase } from "@/lib/mongodb";
-import { IUser, IUserSubmodule } from "@/models";
+import { ITrainingSubmodule, IUser, IUserSubmodule } from "@/models";
+import "@/models/TrainingSubmodule";
 
 // 🔒 Helper for ID validation
 function validateObjectIds(ids: Record<string, string>) {
@@ -51,7 +52,7 @@ export async function GET(
         populate: { path: "user", select: "_id name role archived nickname" },
       });
 
-      if (!submodule) {
+    if (!submodule) {
       return NextResponse.json(
         { success: false, error: "Submodule not found" },
         { status: 404 }
@@ -91,11 +92,17 @@ export async function PATCH(
       );
     }
 
+    // 🔍 Load the submodule
     const submodule = await UserSubmodule.findOne({
       _id: submoduleId,
       module: moduleId,
       archived: { $ne: true },
-    });
+    })
+      .populate("tSubmodule")
+      .populate({
+        path: "signatures",
+        match: { archived: { $ne: true } },
+      });
 
     if (!submodule) {
       return NextResponse.json(
@@ -104,12 +111,9 @@ export async function PATCH(
       );
     }
 
-    // ✏️ Update allowed fields
+    // ✏️ Update editable fields
     if (typeof body.ojt === "boolean") submodule.ojt = body.ojt;
-    if (typeof body.practical === "boolean")
-      submodule.practical = body.practical;
-    if (typeof body.signedOff === "boolean")
-      submodule.signedOff = body.signedOff;
+    if (typeof body.practical === "boolean") submodule.practical = body.practical;
 
     // ✍️ Add new signature if requested
     if (body.addSignature?.userId) {
@@ -127,11 +131,32 @@ export async function PATCH(
         attachedTo: submodule._id,
         role: signAsRole,
       });
+
       submodule.signatures.push(newSignature._id);
     }
 
+    // 🧮 Refresh signatures to count only active ones
+    const activeSignatures = await Signature.countDocuments({
+      _id: { $in: submodule.signatures },
+      archived: { $ne: true },
+    });
+
+    // ✅ Check training submodule requirements
+    const tSub = submodule.tSubmodule as ITrainingSubmodule | null;
+    const requiresPractical = tSub?.requiresPractical ?? false;
+
+    // 🧠 Correct sign-off logic:
+    // Must have: OJT completed, practical (if required), and >= 3 active signatures
+    const isSignedOff =
+      activeSignatures >= 3 &&
+      submodule.ojt &&
+      (!requiresPractical || submodule.practical);
+
+    submodule.signedOff = isSignedOff;
+
     await submodule.save();
 
+    // 🎯 Re-populate for response
     const populatedSubmodule = await UserSubmodule.findById(submodule._id)
       .populate("tSubmodule")
       .populate({
@@ -139,6 +164,12 @@ export async function PATCH(
         match: { archived: { $ne: true } },
         populate: { path: "user", select: "_id name role archived nickname" },
       });
+
+    console.log(
+      `[PATCH] Submodule ${submodule._id} signedOff: ${isSignedOff} | ` +
+      `Requires Practical: ${requiresPractical} | ` +
+      `OJT: ${submodule.ojt} | Practical: ${submodule.practical} | Active Signatures: ${activeSignatures}`
+    );
 
     return NextResponse.json({ success: true, data: populatedSubmodule });
   } catch (error) {
@@ -149,6 +180,7 @@ export async function PATCH(
     );
   }
 }
+
 
 // ✅ DELETE - Soft delete submodule
 export async function DELETE(

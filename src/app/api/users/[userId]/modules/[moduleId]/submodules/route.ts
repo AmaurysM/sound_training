@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import UserSubmodule, { IUserSubmodule } from "@/models/UserSubmodule";
 import UserModule from "@/models/UserModule";
 import { connectToDatabase } from "@/lib/mongodb";
+import "@/models/TrainingSubmodule";
 
 // ✅ GET all submodules for a module
 export async function GET(

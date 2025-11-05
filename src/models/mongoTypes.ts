@@ -1,6 +1,6 @@
 import { Signature } from "@/models";
 // src/models/mongoTypes.ts
-import mongoose, { Document } from "mongoose";
+import mongoose, { Document, PopulatedDoc } from "mongoose";
 import { Role } from "./types";
 
 export interface ITrainingModule extends Document {
@@ -34,12 +34,12 @@ export interface ITrainingSubmodule extends Document {
 }
 
 export interface IUserSubmodule extends Document {
-  module: mongoose.Types.ObjectId | IUserModule;
-  tSubmodule: mongoose.Types.ObjectId | ITrainingSubmodule;
+  module: PopulatedDoc<IUserModule & Document>;
+  tSubmodule: PopulatedDoc<ITrainingSubmodule & Document>;
   ojt: boolean;
   practical: boolean;
   signedOff: boolean;
-  signatures: mongoose.Types.ObjectId[] | ISignature[];
+  signatures: PopulatedDoc<ISignature & Document>[];
 }
 
 export interface ISignature extends Document {

@@ -1,5 +1,7 @@
+// src/app/dashboard/users/[userId]/modules/page.tsx
+
 'use client';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import {
     AlertCircle, CheckCircle2, Loader2, Save, X, RotateCcw,
@@ -10,37 +12,46 @@ import AddModuleModal from '@/app/components/AddModuleModal';
 import EditUserModal from '@/app/components/EditUserModal';
 import TrainingHeader from '@/app/components/TrainingHeader';
 import TrainingModulesView from '@/app/components/TrainingModulesView';
-import { IUserModule, ITrainingModule, IUser, Stat, IUserSubmodule, Roles } from "@/models/types";
+import { Stat, IUserSubmodule, Roles } from "@/models/types";
+import { useDashboard } from '@/contexts/dashboard-context';
+import LoadingScreen from '@/app/components/LoadingScreen';
 
-export default function UserTrainingPage() {
+export default function Modules() {
     const params = useParams();
-    const userId = params.id as string;
+    const userId = params.userId as string;
 
-    const [currentUser, setCurrentUser] = useState<IUser | null>(null);
-    const [viewedUser, setViewedUser] = useState<IUser | null>(null);
-    const [userModules, setUserModules] = useState<IUserModule[]>([]);
-    const [originalData, setOriginalData] = useState<IUserModule[]>([]);
-    const [availableModules, setAvailableModules] = useState<ITrainingModule[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [loadingModules, setLoadingModules] = useState(false);
-    const [saving, setSaving] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [saveSuccess, setSaveSuccess] = useState(false);
-    const [hasChanges, setHasChanges] = useState(false);
-    const [showAddModal, setShowAddModal] = useState(false);
-    const [selectedModuleId, setSelectedModuleId] = useState<string>('');
-    const [addingModule, setAddingModule] = useState(false);
-    const [showHistoryModal, setShowHistoryModal] = useState(false);
-    const [selectedUserModule, setSelectedUserModule] = useState<IUserModule | null>(null);
-
-    const [showMobileMenu, setShowMobileMenu] = useState(false);
-    const [showEditModal, setShowEditModal] = useState(false);
-
-    // Training cycle state
-    const [selectedYear, setSelectedYear] = useState<number | 'all'>(new Date().getFullYear());
-    const [showActiveCycles, setShowActiveCycles] = useState(true);
-    const [showCycleFilter, setShowCycleFilter] = useState(false);
-    const [availableYears, setAvailableYears] = useState<number[]>([]);
+    const {
+        currentUser,
+        viewedUser,
+        userModules,
+        setUserModules,
+        originalData,
+        setOriginalData,
+        availableModules,
+        loading,
+        saving,
+        setSaving,
+        error,
+        setError,
+        saveSuccess,
+        setSaveSuccess,
+        hasChanges,
+        setHasChanges,
+        setShowAddModal,
+        selectedModuleIds,
+        setSelectedModuleIds,
+        setAddingModule,
+        selectedYear,
+        setSelectedYear,
+        showActiveCycles,
+        setShowActiveCycles,
+        showCycleFilter,
+        setShowCycleFilter,
+        availableYears,
+        fetchCurrentUser,
+        fetchModules,
+        fetchViewedUserAndModules,
+    } = useDashboard();
 
     const isSubmoduleComplete = (submodule: IUserSubmodule) => {
         if (!submodule.ojt) return false;
@@ -61,113 +72,54 @@ export default function UserTrainingPage() {
         return true;
     };
 
+    // Fetch current user only once on mount
     useEffect(() => {
-        const fetchCurrentUser = async () => {
-            try {
-                const res = await fetch('/api/me');
-                if (!res.ok) throw new Error('Failed to fetch user');
-                const user: IUser = await res.json();
-                setCurrentUser(user);
-            } catch (err) {
-                setError(err instanceof Error ? err.message : 'Failed to load user');
-                setLoading(false);
-            }
-        };
         fetchCurrentUser();
-    }, []);
+    }, []); // Empty dependency array - only run once
 
-    const fetchModules = useCallback(async () => {
-        if (!currentUser) return;
-        try {
-            setLoadingModules(true);
-            const res = await fetch(`/api/training-modules`);
-            if (!res.ok) throw new Error('Failed to fetch modules');
-            const response = await res.json();
-            const modules: ITrainingModule[] = response.data || response;
-            setAvailableModules(modules);
-        } catch (err) {
-            console.error('Failed to load training modules:', err);
-        } finally {
-            setLoadingModules(false);
-        }
-    }, [currentUser]);
-
-    const fetchViewedUserAndModules = useCallback(async () => {
-        if (!currentUser) return;
-        try {
-            setLoading(true);
-            setError(null);
-
-            const targetUserId = userId ? userId : currentUser._id;
-
-            const userRes = await fetch(`/api/users/${targetUserId}`);
-            if (!userRes.ok) throw new Error('Failed to fetch user data');
-
-            const userResponse = await userRes.json();
-            const user: IUser = userResponse.data || userResponse;
-            setViewedUser(user);
-
-            const modulesRes = await fetch(`/api/users/${targetUserId}/modules`);
-            if (!modulesRes.ok) throw new Error('Failed to fetch modules');
-
-            const modulesResponse = await modulesRes.json();
-            const modules: IUserModule[] = modulesResponse.data || modulesResponse;
-
-            const validModules = modules.filter(m =>
-                m.tModule && (typeof m.tModule === 'object' ? 'name' in m.tModule : true)
-            );
-
-            setUserModules(validModules);
-            setOriginalData(JSON.parse(JSON.stringify(validModules)));
-            setHasChanges(false);
-
-            // Extract unique years from modules
-            const years = [...new Set(validModules.map(m => m.trainingYear).filter(Boolean))] as number[];
-            years.sort((a, b) => b - a);
-            setAvailableYears(years);
-
-            // Set default year if current year not in list
-            if (years.length > 0 && !years.includes(new Date().getFullYear())) {
-                setSelectedYear(years[0]);
-            }
-        } catch (err) {
-            console.error('Error fetching user:', err);
-            setError(err instanceof Error ? err.message : 'Failed to load training data');
-        } finally {
-            setLoading(false);
-        }
-    }, [currentUser, userId]);
-
+    // Fetch modules once when currentUser becomes available
     useEffect(() => {
-        fetchViewedUserAndModules();
-    }, [fetchViewedUserAndModules]);
+        if (currentUser) {
+            fetchModules();
+        }
+    }, [currentUser]); // Only depend on currentUser, not fetchModules
+
+    // Fetch viewed user and their modules once when currentUser is available
+    useEffect(() => {
+        if (currentUser && userId) {
+            fetchViewedUserAndModules(userId);
+        }
+    }, [currentUser, userId]); // Only depend on currentUser and userId
 
     useEffect(() => {
         const changed = JSON.stringify(userModules) !== JSON.stringify(originalData);
         setHasChanges(changed);
-    }, [userModules, originalData]);
+    }, [userModules, originalData, setHasChanges]);
 
     const isEditable = currentUser && (currentUser.role === 'Coordinator' || currentUser.role === 'Trainer');
     const isCoordinator = currentUser?.role === 'Coordinator';
     const isUserArchived = viewedUser?.archived || false;
 
-    const handleAddModule = async () => {
-        if (!selectedModuleId || !viewedUser || !isCoordinator) return;
+    // Filter modules based on selected year and cycle status
+    const filteredModules = useMemo(() => {
+        return userModules.filter(m => {
+            const yearMatch = selectedYear === 'all' || m.trainingYear === selectedYear;
+            const cycleMatch = m.activeCycle === showActiveCycles;
+            return yearMatch && cycleMatch;
+        });
+    }, [userModules, selectedYear, showActiveCycles]);
+
+    const handleToggleModule = (id: string) => {
+        setSelectedModuleIds((prev) =>
+            prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id]
+        );
+    };
+
+    const handleAddModules = async () => {
+        if (selectedModuleIds.length === 0 || !viewedUser || !isCoordinator) return;
 
         if (isUserArchived) {
             setError('Cannot assign modules - user is archived');
-            setTimeout(() => setError(null), 3000);
-            return;
-        }
-
-        const alreadyAssigned = userModules.some(
-            (m) => (typeof m.tModule === 'object' ? m.tModule._id : m.tModule)?.toString() === selectedModuleId &&
-                m.trainingYear === selectedYear &&
-                m.activeCycle === showActiveCycles
-        );
-
-        if (alreadyAssigned) {
-            setError('This module is already assigned for this training cycle');
             setTimeout(() => setError(null), 3000);
             return;
         }
@@ -179,31 +131,46 @@ export default function UserTrainingPage() {
             const targetUserId = viewedUser._id?.toString();
             if (!targetUserId) throw new Error('Invalid user ID');
 
-            const res = await fetch(`/api/users/${targetUserId}/modules`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    tModule: selectedModuleId,
-                    notes: '',
-                    submodules: [],
-                    trainingYear: selectedYear === 'all' ? new Date().getFullYear() : selectedYear,
-                    activeCycle: showActiveCycles
-                }),
-            });
+            const newModules = selectedModuleIds.filter(
+                (id) =>
+                    !userModules.some(
+                        (m) =>
+                            (typeof m.tModule === 'object' ? m.tModule._id : m.tModule)?.toString() === id &&
+                            m.trainingYear === selectedYear &&
+                            m.activeCycle === showActiveCycles
+                    )
+            );
 
-            if (!res.ok) {
-                const errorData = await res.json();
-                throw new Error(errorData.error || 'Failed to add training module');
+            if (newModules.length === 0) {
+                setError('All selected modules are already assigned for this training cycle');
+                setTimeout(() => setError(null), 3000);
+                return;
             }
 
+            await Promise.all(
+                newModules.map((moduleId) =>
+                    fetch(`/api/users/${targetUserId}/modules`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            tModule: moduleId,
+                            notes: '',
+                            submodules: [],
+                            trainingYear: selectedYear === 'all' ? new Date().getFullYear() : selectedYear,
+                            activeCycle: showActiveCycles,
+                        }),
+                    })
+                )
+            );
+
             setShowAddModal(false);
-            setSelectedModuleId('');
-            await fetchViewedUserAndModules();
+            setSelectedModuleIds([]);
+            await fetchViewedUserAndModules(userId);
 
             setSaveSuccess(true);
             setTimeout(() => setSaveSuccess(false), 3000);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to add module');
+            setError(err instanceof Error ? err.message : 'Failed to add modules');
         } finally {
             setAddingModule(false);
         }
@@ -256,7 +223,7 @@ export default function UserTrainingPage() {
     };
 
     const handleRefresh = async () => {
-        await fetchViewedUserAndModules();
+        await fetchViewedUserAndModules(userId);
         await fetchModules();
     };
 
@@ -275,9 +242,7 @@ export default function UserTrainingPage() {
             setSaving(true);
             setError(null);
 
-            const modulesToArchive = userModules.filter(m =>
-                (selectedYear === 'all' || m.trainingYear === selectedYear) && m.activeCycle
-            );
+            const modulesToArchive = filteredModules.filter(m => m.activeCycle);
 
             const updatePromises = modulesToArchive.map(async (module) => {
                 if (!module._id) return;
@@ -292,7 +257,7 @@ export default function UserTrainingPage() {
             });
 
             await Promise.all(updatePromises);
-            await fetchViewedUserAndModules();
+            await fetchViewedUserAndModules(userId);
 
             setSaveSuccess(true);
             setTimeout(() => setSaveSuccess(false), 3000);
@@ -318,9 +283,7 @@ export default function UserTrainingPage() {
             setSaving(true);
             setError(null);
 
-            const modulesToRestore = userModules.filter(m =>
-                (selectedYear === 'all' || m.trainingYear === selectedYear) && !m.activeCycle
-            );
+            const modulesToRestore = filteredModules.filter(m => !m.activeCycle);
 
             const updatePromises = modulesToRestore.map(async (module) => {
                 if (!module._id) return;
@@ -335,7 +298,7 @@ export default function UserTrainingPage() {
             });
 
             await Promise.all(updatePromises);
-            await fetchViewedUserAndModules();
+            await fetchViewedUserAndModules(userId);
 
             setSaveSuccess(true);
             setTimeout(() => setSaveSuccess(false), 3000);
@@ -350,12 +313,6 @@ export default function UserTrainingPage() {
         let completed = 0;
         let inProgress = 0;
         let notStarted = 0;
-
-        const filteredModules = userModules.filter(m => {
-            const yearMatch = selectedYear === 'all' || m.trainingYear === selectedYear;
-            const cycleMatch = m.activeCycle === showActiveCycles;
-            return yearMatch && cycleMatch;
-        });
 
         filteredModules.forEach(module => {
             const submodules = module.submodules || [];
@@ -410,16 +367,7 @@ export default function UserTrainingPage() {
     const unassignedModules = getUnassignedModules();
     const cycleSummary = getCycleSummary();
 
-    if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <div className="text-center">
-                    <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
-                    <p className="text-gray-600">Loading training data...</p>
-                </div>
-            </div>
-        );
-    }
+    if (loading) { return <LoadingScreen message={"Loading training data..."}/>; }
 
     if (error && !currentUser) {
         return (
@@ -444,13 +392,7 @@ export default function UserTrainingPage() {
         <div className="min-h-screen bg-gray-50">
             <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
                 <TrainingHeader
-                    currentUser={currentUser}
-                    viewedUser={viewedUser}
                     handleRefresh={handleRefresh}
-                    loading={loading}
-                    setShowEditModal={setShowEditModal}
-                    setShowMobileMenu={setShowMobileMenu}
-                    showMobileMenu={showMobileMenu}
                     stats={stats}
                 />
 
@@ -597,27 +539,9 @@ export default function UserTrainingPage() {
                 )}
 
                 <TrainingModulesView
-                    currentUser={currentUser}
-                    viewedUser={viewedUser}
-                    trainingData={userModules.filter(m => {
-                        const yearMatch = selectedYear === 'all' || m.trainingYear === selectedYear;
-                        const cycleMatch = m.activeCycle === showActiveCycles;
-                        return yearMatch && cycleMatch;
-                    })}
-                    setShowAddModal={setShowAddModal}
-                    loadingModules={loadingModules}
-                    fetchModules={fetchModules}
                     stats={stats}
-                    setTrainingData={setUserModules}
-                    setSelectedTraining={setSelectedUserModule}
-                    setShowHistoryModal={setShowHistoryModal}
-                    setSaving={setSaving}
-                    setError={setError}
-                    error={error}
-                    setOriginalData={setOriginalData}
-                    setSaveSuccess={setSaveSuccess}
-                    saving={saving}
                     isArchived={!showActiveCycles}
+                    filteredModules={filteredModules}
                 />
 
                 {saveSuccess && (
@@ -664,38 +588,15 @@ export default function UserTrainingPage() {
             </div>
 
             <AddModuleModal
-                show={showAddModal}
                 isCoordinator={isCoordinator}
-                unassignedModules={unassignedModules}
-                selectedModuleId={selectedModuleId}
-                addingModule={addingModule}
-                onClose={() => {
-                    setShowAddModal(false);
-                    setSelectedModuleId('');
-                }}
-                onSelectModule={setSelectedModuleId}
-                onAddModule={handleAddModule}
+                modules={unassignedModules}
+                onToggleModule={handleToggleModule}
+                onAddModules={handleAddModules}
             />
 
-            <TrainingHistoryModal
-                show={showHistoryModal}
-                training={selectedUserModule}
-                isCoordinator={isCoordinator}
-                onClose={() => {
-                    setShowHistoryModal(false);
-                    setSelectedUserModule(null);
-                }}
-            />
+            <TrainingHistoryModal />
 
-            <EditUserModal
-                show={showEditModal}
-                user={viewedUser}
-                onClose={() => setShowEditModal(false)}
-                onSave={() => {
-                    fetchViewedUserAndModules();
-                    setShowEditModal(false);
-                }}
-            />
+            <EditUserModal />
         </div>
     );
 }

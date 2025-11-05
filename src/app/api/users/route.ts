@@ -48,7 +48,7 @@ export async function POST(req: Request) {
 
     // Generate secure registration token
     const registrationToken = crypto.randomBytes(32).toString("hex");
-    const tokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    const tokenExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 24 hours
 
     // Create user (no password yet) - map fullName to name
     const newUser = new User({
@@ -64,7 +64,7 @@ export async function POST(req: Request) {
     await newUser.save();
 
     // Send registration email with token
-    await sendRegistrationEmail(email, registrationToken);
+    await sendRegistrationEmail(email, username, registrationToken);
 
     // Remove sensitive fields from response
     const userObject = newUser.toObject();
