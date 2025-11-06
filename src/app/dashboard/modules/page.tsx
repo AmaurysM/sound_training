@@ -1,66 +1,131 @@
 'use client'
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useDashboard } from '@/contexts/dashboard-context';
 import { ITrainingModule } from '@/models/types';
-import { BookOpen, Search, Plus, ChevronRight, Loader2, ArrowLeft } from 'lucide-react';
+import { 
+  BookOpen, 
+  Search, 
+  ChevronRight, 
+  Loader2, 
+  ArrowLeft,
+  Filter,
+  X
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
+
+interface ModulesFilter {
+  search: string;
+  hasDescription: boolean;
+  hasSubmodules: boolean;
+}
 
 export default function ModulesPage() {
   const router = useRouter();
-  const { currentUser, fetchCurrentUser, availableModules, setAvailableModules, loadingModules, setLoadingModules } = useDashboard();
+  const { 
+    currentUser, 
+    fetchCurrentUser, 
+    availableModules, 
+    setAvailableModules, 
+    loadingModules, 
+    setLoadingModules 
+  } = useDashboard();
+  
   const [searchQuery, setSearchQuery] = useState('');
-  const [filteredModules, setFilteredModules] = useState<ITrainingModule[]>([]);
+  const [filters, setFilters] = useState<ModulesFilter>({
+    search: '',
+    hasDescription: false,
+    hasSubmodules: false
+  });
+  const [showFilters, setShowFilters] = useState(false);
+  const [error, setError] = useState<string>('');
 
-  useEffect(() => {
-    const init = async () => {
-      if (!currentUser) {
-        await fetchCurrentUser();
+  // Memoized filtered modules
+  const filteredModules = useMemo(() => {
+    if (!availableModules.length) return [];
+
+    return availableModules.filter(module => {
+      // Search filter
+      if (filters.search) {
+        const searchLower = filters.search.toLowerCase();
+        const matchesSearch = 
+          module.name.toLowerCase().includes(searchLower) ||
+          (module.description && module.description.toLowerCase().includes(searchLower));
+        if (!matchesSearch) return false;
       }
-      if (availableModules.length === 0) {
-        await fetchModules();
-      } else {
-        setFilteredModules(availableModules);
+
+      // Description filter
+      if (filters.hasDescription && !module.description) {
+        return false;
+      }
+
+      // Submodules filter
+      if (filters.hasSubmodules && (!module.submodules || module.submodules.length === 0)) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [availableModules, filters]);
+
+  // Initialize data
+  useEffect(() => {
+    const initializeData = async () => {
+      try {
+        setError('');
+        if (!currentUser) {
+          await fetchCurrentUser();
+        }
+        if (availableModules.length === 0) {
+          await fetchModules();
+        }
+      } catch (err) {
+        setError('Failed to load modules');
+        console.error('Initialization error:', err);
       }
     };
-    init();
-  }, [currentUser]);
 
-  useEffect(() => {
-    if (availableModules.length > 0) {
-      filterModules(searchQuery);
-    }
-  }, [searchQuery, availableModules]);
+    initializeData();
+  }, [currentUser]);
 
   const fetchModules = async () => {
     try {
       setLoadingModules(true);
-      const res = await fetch('/api/training-modules');
-      if (!res.ok) throw new Error('Failed to fetch modules');
-      const response = await res.json();
-      const modules: ITrainingModule[] = response.data || response;
+      setError('');
+      const response = await fetch('/api/training-modules/submodules');
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch modules: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      const modules: ITrainingModule[] = data.data || data;
+      
       setAvailableModules(modules);
-      setFilteredModules(modules);
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setError(errorMessage);
       console.error('Error fetching modules:', error);
     } finally {
       setLoadingModules(false);
     }
   };
 
-  const filterModules = (query: string) => {
-    if (!query.trim()) {
-      setFilteredModules(availableModules);
-      return;
-    }
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchQuery(value);
+    setFilters(prev => ({ ...prev, search: value }));
+  }, []);
 
-    const lowercaseQuery = query.toLowerCase();
-    const filtered = availableModules.filter(module =>
-      module.name.toLowerCase().includes(lowercaseQuery) ||
-      (module.description && module.description.toLowerCase().includes(lowercaseQuery))
-    );
-    setFilteredModules(filtered);
-  };
+  const clearFilters = useCallback(() => {
+    setSearchQuery('');
+    setFilters({
+      search: '',
+      hasDescription: false,
+      hasSubmodules: false
+    });
+  }, []);
+
+  const hasActiveFilters = filters.search || filters.hasDescription || filters.hasSubmodules;
 
   const isCoordinator = currentUser?.role === 'Coordinator';
 
@@ -79,139 +144,226 @@ export default function ModulesPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Header */}
-
         <div className="mb-6 sm:mb-8">
           <button
             onClick={() => router.push('/dashboard')}
-            className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-4 sm:mb-6 transition-colors"
+            className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-4 sm:mb-6 transition-colors duration-200"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Dashboard
           </button>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">
-            Training Modules
-          </h1>
-          <p className="text-sm sm:text-base text-gray-600">
-            Browse all available training modules
-          </p>
-        </div>
-
-        {/* Search and Actions Bar */}
-        <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4 sm:mb-6">
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-            {/* Search */}
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search modules..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gray-900 transition-colors"
-              />
+          
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">
+                Training Modules
+              </h1>
+              <p className="text-sm sm:text-base text-gray-600">
+                Browse all available training modules
+              </p>
             </div>
-
-            {/* Add Module Button (Coordinators only) */}
-            {isCoordinator && (
+            
+            {/* {isCoordinator && (
               <button
-                onClick={() => {/* Handle add module */ }}
-                className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors text-sm font-medium whitespace-nowrap"
+                onClick={() => router.push('/dashboard/modules/create')}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors duration-200 text-sm font-medium"
               >
                 <Plus className="w-4 h-4" />
-                Add Module
+                Create Module
               </button>
+            )} */}
+          </div>
+        </div>
+
+        {/* Error Alert */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-center justify-between">
+              <p className="text-red-800 text-sm">{error}</p>
+              <button
+                onClick={() => setError('')}
+                className="text-red-600 hover:text-red-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Search and Filters Bar */}
+        <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row gap-3">
+              {/* Search */}
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search modules by name or description..."
+                  value={searchQuery}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-colors"
+                />
+              </div>
+
+              {/* Filter Toggle */}
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className={`flex items-center gap-2 px-4 py-2.5 border rounded-lg text-sm font-medium transition-colors ${
+                  showFilters || hasActiveFilters
+                    ? 'border-gray-900 bg-gray-900 text-white'
+                    : 'border-gray-200 text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <Filter className="w-4 h-4" />
+                Filters
+                {hasActiveFilters && (
+                  <span className="bg-white text-gray-900 rounded-full w-5 h-5 text-xs flex items-center justify-center">
+                    {[filters.search, filters.hasDescription, filters.hasSubmodules].filter(Boolean).length}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Expandable Filters */}
+            {showFilters && (
+              <div className="border-t border-gray-100 pt-4">
+                <div className="flex flex-wrap gap-4">
+                  <label className="flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={filters.hasDescription}
+                      onChange={(e) => setFilters(prev => ({ ...prev, hasDescription: e.target.checked }))}
+                      className="rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                    />
+                    Has Description
+                  </label>
+                  
+                  <label className="flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={filters.hasSubmodules}
+                      onChange={(e) => setFilters(prev => ({ ...prev, hasSubmodules: e.target.checked }))}
+                      className="rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                    />
+                    Has Submodules
+                  </label>
+                </div>
+              </div>
+            )}
+
+            {/* Active Filters Indicator */}
+            {hasActiveFilters && (
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-gray-600">Active filters:</span>
+                <div className="flex flex-wrap gap-2">
+                  {filters.search && (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">
+                      Search: &quot;{filters.search}&quot;
+                      <button onClick={() => handleSearchChange('')}>
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  )}
+                  {filters.hasDescription && (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">
+                      Has Description
+                      <button onClick={() => setFilters(prev => ({ ...prev, hasDescription: false }))}>
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  )}
+                  {filters.hasSubmodules && (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">
+                      Has Submodules
+                      <button onClick={() => setFilters(prev => ({ ...prev, hasSubmodules: false }))}>
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  )}
+                  <button
+                    onClick={clearFilters}
+                    className="text-gray-600 hover:text-gray-900 text-xs font-medium"
+                  >
+                    Clear all
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         </div>
 
-        {/* Stats Bar */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <p className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">
-              {availableModules.length}
-            </p>
-            <p className="text-xs sm:text-sm text-gray-600">Total Modules</p>
-          </div>
-
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <p className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">
-              {filteredModules.length}
-            </p>
-            <p className="text-xs sm:text-sm text-gray-600">Showing</p>
-          </div>
-
-          <div className="bg-white border border-gray-200 rounded-lg p-4 col-span-2 sm:col-span-1">
-            <p className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">
-              {availableModules.filter(m => m.submodules && Array.isArray(m.submodules) && m.submodules.length > 0).length}
-            </p>
-            <p className="text-xs sm:text-sm text-gray-600">With Submodules</p>
-          </div>
+        {/* Results Count */}
+        <div className="mb-4 flex items-center justify-between">
+          <p className="text-sm text-gray-600">
+            Showing {filteredModules.length} of {availableModules.length} modules
+          </p>
         </div>
 
-        {/* Modules List */}
+        {/* Modules Grid */}
         {filteredModules.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {filteredModules.map((module) => (
-              <button
+              <div
                 key={module._id!.toString()}
+                className="bg-white border border-gray-200 rounded-lg p-5 hover:border-gray-900 hover:shadow-sm transition-all duration-200 group cursor-pointer"
                 onClick={() => router.push(`/dashboard/modules/${module._id}`)}
-                className="bg-white border border-gray-200 rounded-lg p-4 sm:p-5 hover:border-gray-900 hover:shadow-sm transition-all text-left group"
               >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1 pr-2">
-                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1 group-hover:text-gray-700 transition-colors">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1 pr-3">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-gray-700 transition-colors line-clamp-2">
                       {module.name}
                     </h3>
-                    {module.description && (
-                      <p className="text-xs sm:text-sm text-gray-600 line-clamp-2">
+                    {/* {module.description ? (
+                      <p className="text-sm text-gray-600 line-clamp-3">
                         {module.description}
                       </p>
-                    )}
+                    ) : (
+                      <p className="text-sm text-gray-400 italic">No description provided</p>
+                    )} */}
                   </div>
-                  <div className="flex-shrink-0">
-                    <BookOpen className="w-5 h-5 text-gray-400" />
-                  </div>
+                  <BookOpen className="w-5 h-5 text-gray-400 shrink-0" />
                 </div>
 
                 {/* Module Meta Info */}
-                <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                <div className="flex items-center justify-between pt-4 border-t border-gray-100">
                   <div className="flex items-center gap-3 text-xs text-gray-500">
                     {module.submodules && Array.isArray(module.submodules) && (
-                      <span>
+                      <span className={module.submodules.length === 0 ? 'text-gray-400' : ''}>
                         {module.submodules.length} {module.submodules.length === 1 ? 'submodule' : 'submodules'}
                       </span>
                     )}
                   </div>
                   <ChevronRight className="w-4 h-4 text-gray-400 group-hover:translate-x-1 transition-transform" />
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         ) : (
-          <div className="bg-white border border-gray-200 rounded-lg p-8 sm:p-12 text-center">
-            <BookOpen className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
-              {searchQuery ? 'No modules found' : 'No modules available'}
+          <div className="bg-white border border-gray-200 rounded-lg p-12 text-center">
+            <BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              {hasActiveFilters ? 'No modules match your filters' : 'No modules available'}
             </h3>
-            <p className="text-sm text-gray-600 mb-4">
-              {searchQuery
-                ? 'Try adjusting your search query'
-                : 'Training modules will appear here once added'}
+            <p className="text-gray-600 mb-6 max-w-md mx-auto">
+              {hasActiveFilters
+                ? 'Try adjusting your filters to see more results'
+                : 'Training modules will appear here once they are added to the system'}
             </p>
-            {searchQuery && (
+            {hasActiveFilters && (
               <button
-                onClick={() => setSearchQuery('')}
-                className="text-sm text-gray-900 hover:text-gray-600 font-medium"
+                onClick={clearFilters}
+                className="px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
               >
-                Clear search
+                Clear all filters
               </button>
             )}
           </div>
         )}
 
         {/* Footer */}
-        <div className="mt-8 text-center">
-          <p className="text-xs sm:text-sm text-gray-500">
+        <div className="mt-12 pt-6 border-t border-gray-200 text-center">
+          <p className="text-sm text-gray-500">
             Sound Aircraft Services FBO • NATA Certified Training
           </p>
         </div>

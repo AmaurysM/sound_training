@@ -147,21 +147,17 @@ export default function Modules() {
                 return;
             }
 
-            await Promise.all(
-                newModules.map((moduleId) =>
-                    fetch(`/api/users/${targetUserId}/modules`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            tModule: moduleId,
-                            notes: '',
-                            submodules: [],
-                            trainingYear: selectedYear === 'all' ? new Date().getFullYear() : selectedYear,
-                            activeCycle: showActiveCycles,
-                        }),
-                    })
-                )
-            );
+            const res = await fetch(`/api/users/${targetUserId}/modules/batch`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    modules: newModules,
+                    trainingYear: selectedYear === 'all' ? new Date().getFullYear() : selectedYear,
+                    activeCycle: showActiveCycles,
+                }),
+            });
+
+            if (!res.ok) throw new Error('Failed to add modules');
 
             setShowAddModal(false);
             setSelectedModuleIds([]);
@@ -175,6 +171,8 @@ export default function Modules() {
             setAddingModule(false);
         }
     };
+
+
 
     const handleSave = async () => {
         if (!viewedUser || !isEditable) return;
@@ -367,7 +365,7 @@ export default function Modules() {
     const unassignedModules = getUnassignedModules();
     const cycleSummary = getCycleSummary();
 
-    if (loading) { return <LoadingScreen message={"Loading training data..."}/>; }
+    if (loading) { return <LoadingScreen message={"Loading training data..."} />; }
 
     if (error && !currentUser) {
         return (

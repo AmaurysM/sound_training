@@ -459,7 +459,7 @@ export default function SubmodulesPage() {
                           <p className="text-2xl font-bold text-gray-900">{stats.totalUsers}</p>
                         </div>
 
-                        <div className={`rounded-lg p-4 border ${getStatusBg(100)}`}>
+                        <div className={`rounded-lg p-4  ${getStatusBg(100)}`}>
                           <div className="flex items-center gap-2 mb-2">
                             <CheckCircle className="w-4 h-4 text-green-600" />
                             <span className="text-xs text-gray-600">Completed</span>
@@ -473,14 +473,6 @@ export default function SubmodulesPage() {
                             <span className="text-xs text-gray-600">In Progress</span>
                           </div>
                           <p className="text-2xl font-bold text-gray-900">{stats.inProgress}</p>
-                        </div>
-
-                        <div className="bg-gray-100 rounded-lg p-4 border border-gray-200">
-                          <div className="flex items-center gap-2 mb-2">
-                            <AlertCircle className="w-4 h-4 text-gray-500" />
-                            <span className="text-xs text-gray-600">Not Started</span>
-                          </div>
-                          <p className="text-2xl font-bold text-gray-900">{stats.notStarted}</p>
                         </div>
                       </div>
 

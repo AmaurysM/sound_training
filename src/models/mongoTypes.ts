@@ -40,6 +40,9 @@ export interface IUserSubmodule extends Document {
   practical: boolean;
   signedOff: boolean;
   signatures: PopulatedDoc<ISignature & Document>[];
+
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface ISignature extends Document {
