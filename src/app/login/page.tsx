@@ -43,7 +43,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen w-full bg-linear-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center p-4 relative overflow-hidden">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500 opacity-10 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-green-500 opacity-10 rounded-full blur-3xl animate-pulse"></div>
@@ -51,7 +51,7 @@ export default function LoginPage() {
       {/* Main Container */}
       <div className="w-full max-w-6xl flex bg-white rounded-2xl shadow-xl overflow-hidden z-40">
         {/* Left Side - Branding */}
-        <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-green-600 to-blue-700 p-12 text-white relative overflow-hidden">
+        <div className="hidden lg:flex lg:w-1/2 bg-linear-to-br from-green-600 to-blue-700 p-12 text-white relative overflow-hidden">
           {/* Subtle pattern overlay */}
           <div className="absolute inset-0 opacity-10">
             <div className="absolute top-10 left-10 w-32 h-32 border-2 border-white rounded-full"></div>
@@ -104,7 +104,7 @@ export default function LoginPage() {
           <div className="max-w-md mx-auto">
             {/* Mobile Logo */}
             <div className="lg:hidden flex items-center gap-3 mb-8">
-              <div className="w-12 h-12 bg-gradient-to-br from-green-600 to-blue-600 rounded-xl flex items-center justify-center">
+              <div className="w-12 h-12 bg-linear-to-br from-green-600 to-blue-600 rounded-xl flex items-center justify-center">
                 <Plane className="w-6 h-6 text-white" />
               </div>
               <div>
@@ -166,7 +166,7 @@ export default function LoginPage() {
               {/* Error Message */}
               {loginError && (
                 <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-lg p-4">
-                  <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
+                  <AlertCircle className="h-5 w-5 text-red-600 shrink-0" />
                   <p className="text-red-700 text-sm font-medium">{loginError}</p>
                 </div>
               )}
@@ -175,7 +175,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white py-3 px-4 rounded-lg font-semibold shadow-sm hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full bg-linear-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white py-3 px-4 rounded-lg font-semibold shadow-sm hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isLoading ? (
                   <>

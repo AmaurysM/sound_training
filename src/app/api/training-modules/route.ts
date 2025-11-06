@@ -1,3 +1,4 @@
+// api/training-modules
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import TrainingModule from "@/models/TrainingModule";

@@ -261,8 +261,8 @@ export default function ViewStudents() {
 
                         {/* Title + User Info */}
                         <div className="flex-1 min-w-0 px-3 sm:px-4">
-                            <h1 className="text-lg sm:text-xl font-semibold text-gray-900 truncate">
-                                NATA Training Dashboard
+                            <h1 className="text-lg sm:text-xl font-semibold text-gray-900 truncate pt-3">
+                                Users
                             </h1>
                             <div className="text-xs sm:text-sm text-gray-600 mt-1 flex items-center gap-2">
                                 <div className="flex items-center gap-1 truncate">
@@ -375,8 +375,6 @@ export default function ViewStudents() {
                             </div>
                         </div>
                     </div>
-
-
 
                     {/* Mobile Menu */}
                     {mobileMenuOpen && (
@@ -562,7 +560,7 @@ export default function ViewStudents() {
                                             <p className="font-medium mb-1">How it works:</p>
                                             <ul className="list-disc list-inside space-y-0.5 text-blue-700">
                                                 <li>User receives an email with a secure registration link</li>
-                                                <li>Link is valid for 24 hours</li>
+                                                <li>Link is valid for 7 days</li>
                                                 <li>User creates their own password during registration</li>
                                             </ul>
                                         </div>
@@ -706,11 +704,7 @@ export default function ViewStudents() {
                                         currentUser.role === Roles.Coordinator ||
                                         (currentUser.role === Roles.Trainer && user.role === Roles.Student)
 
-                                    const rowClass = `
-                                ${user.archived ? 'bg-gray-100 text-gray-500 italic' : ''}
-                                ${canAccess && user.isVerified  ? 'hover:bg-gray-50 cursor-pointer' : 'opacity-70'}
-                            `
-
+                                    const rowClass = `${user.archived ? 'bg-gray-100 text-gray-500 italic' : ''} ${canAccess && user.isVerified  ? 'hover:bg-gray-100 cursor-pointer' : 'opacity-70'} `
                                     return (
                                         <tr
                                             key={user._id}
@@ -806,7 +800,7 @@ export default function ViewStudents() {
                                     className={`p-4 border-b border-gray-200 last:border-b-0 ${user.archived
                                             ? 'bg-gray-100 text-gray-500 italic'
                                             : canAccess && user.isVerified
-                                                ? 'hover:bg-gray-50 cursor-pointer'
+                                                ? 'hover:bg-gray-100 cursor-pointer'
                                                 : 'opacity-70'
                                         }`}
                                 >
@@ -895,7 +889,7 @@ export default function ViewStudents() {
                                         ${user.archived
                                             ? 'bg-gray-100 text-gray-500 italic hover:bg-white'
                                             : canAccess && user.isVerified
-                                                ? 'hover:bg-gray-50 cursor-pointer'
+                                                ? 'hover:bg-gray-100 cursor-pointer'
                                                 : 'opacity-70'
                                         }`}
                                 >
@@ -984,7 +978,5 @@ export default function ViewStudents() {
                 </div>
             </div>
         </div>
-    
-        
     );
 }

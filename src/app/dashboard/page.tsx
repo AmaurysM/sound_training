@@ -13,10 +13,14 @@ import {
   TrendingUp,
   UserCheck,
   Award,
-  ClipboardCheck,
   LogOut,
   Menu,
-  X
+  X,
+  UserPlus,
+  FileCheck,
+  Play,
+  UserX,
+  RefreshCw
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import LoadingScreen from '../components/LoadingScreen';
@@ -39,15 +43,25 @@ interface DashboardStats {
 }
 
 interface RecentActivity {
+  id: string;
   userId: string;
   userName: string;
   userInitials: string;
-  action: 'completed' | 'in-progress' | 'assigned';
-  moduleName: string;
-  moduleId: string;
+  userRole?: string;
+  action: 'completed' | 'in-progress' | 'assigned' | 'signed-off' | 'user-added' | 'user-archived' | 'module-started';
+  moduleName?: string;
+  submoduleName?: string;
+  moduleId?: string;
   timestamp: Date;
   timeAgo: string;
-  completionPercentage: number;
+  completionPercentage?: number;
+  signerName?: string;
+  signerRole?: string;
+  metadata?: {
+    previousStatus?: string;
+    newStatus?: string;
+    signaturesCount?: number;
+  };
 }
 
 interface UserModulesForDashboard {
@@ -199,6 +213,35 @@ export default function Dashboard() {
       let totalSubmodulesPending = 0;
       const activityList: RecentActivity[] = [];
 
+      // Track user creation/archival events
+      allUsers.forEach((user) => {
+        if (user.createdAt) {
+          activityList.push({
+            id: `user-created-${user._id}`,
+            userId: user._id!.toString(),
+            userName: user.name,
+            userInitials: user.name.split(" ").map((n) => n[0]).join("").toUpperCase(),
+            userRole: user.role,
+            action: 'user-added',
+            timestamp: new Date(user.createdAt),
+            timeAgo: getTimeAgo(new Date(user.createdAt)),
+          });
+        }
+
+        if (user.archived && user.updatedAt) {
+          activityList.push({
+            id: `user-archived-${user._id}`,
+            userId: user._id!.toString(),
+            userName: user.name,
+            userInitials: user.name.split(" ").map((n) => n[0]).join("").toUpperCase(),
+            userRole: user.role,
+            action: 'user-archived',
+            timestamp: new Date(user.updatedAt),
+            timeAgo: getTimeAgo(new Date(user.updatedAt)),
+          });
+        }
+      });
+
       for (const { userId, userName, modules } of allUserModules) {
         if (!modules.length) continue;
         usersWithModules++;
@@ -218,6 +261,77 @@ export default function Dashboard() {
             userNotStarted++;
             continue;
           }
+
+          // Track module assignment/start
+          if (userModule.createdAt) {
+            const hasAnyProgress = subs.some(s => {
+              const signatures = (s.signatures || []) as ISignature[];
+              return signatures.some(sig => !sig.archived) || s.ojt || s.practical;
+            });
+
+            if (hasAnyProgress) {
+              activityList.push({
+                id: `module-started-${userId}-${moduleId}`,
+                userId,
+                userName,
+                userInitials: userName.split(" ").map((n) => n[0]).join("").toUpperCase(),
+                action: 'module-started',
+                moduleName,
+                moduleId,
+                timestamp: new Date(userModule.createdAt),
+                timeAgo: getTimeAgo(new Date(userModule.createdAt)),
+              });
+            }
+          }
+
+          // Process submodules for completion and sign-offs
+          subs.forEach((sub) => {
+            const submoduleObj = sub.tSubmodule as ITrainingSubmodule;
+            const submoduleName = submoduleObj?.title ?? 'Unknown Submodule';
+
+            // Track sign-offs
+            const signatures = (sub.signatures || []) as ISignature[];
+            signatures.forEach((sig) => {
+              if (!sig.archived && sig.createdAt) {
+
+                const signer = allUsers.find(u => u._id?.toString() === (sig.user as IUser)._id?.toString());
+                //console.log(allUsers, sig.user._id)
+                activityList.push({
+                  id: `signoff-${userId}-${sub._id}-${sig._id}`,
+                  userId,
+                  userName,
+                  userInitials: userName.split(" ").map((n) => n[0]).join("").toUpperCase(),
+                  action: 'signed-off',
+                  moduleName,
+                  submoduleName,
+                  moduleId,
+                  timestamp: new Date(sig.createdAt),
+                  timeAgo: getTimeAgo(new Date(sig.createdAt)),
+                  signerName: signer?.name || 'Unknown',
+                  signerRole: sig.role,
+                  metadata: {
+                    signaturesCount: signatures.filter(s => !s.archived).length,
+                  }
+                });
+              }
+            });
+
+            // Track submodule completion
+            if (isSubmoduleSignedOff(sub) && sub.updatedAt) {
+              activityList.push({
+                id: `submodule-completed-${userId}-${sub._id}`,
+                userId,
+                userName,
+                userInitials: userName.split(" ").map((n) => n[0]).join("").toUpperCase(),
+                action: 'completed',
+                moduleName,
+                submoduleName,
+                moduleId,
+                timestamp: new Date(sub.updatedAt),
+                timeAgo: getTimeAgo(new Date(sub.updatedAt)),
+              });
+            }
+          });
 
           // Count completed submodules using proper sign-off logic
           const completedSubs = subs.filter(s => isSubmoduleSignedOff(s)).length;
@@ -243,27 +357,47 @@ export default function Dashboard() {
             totalCompleted++;
             userCompleted++;
             status = "completed";
+
+            // Add module completion activity
+            if (userModule.updatedAt) {
+              activityList.push({
+                id: `module-completed-${userId}-${moduleId}`,
+                userId,
+                userName,
+                userInitials: userName.split(" ").map((n) => n[0]).join("").toUpperCase(),
+                action: 'completed',
+                moduleName,
+                moduleId,
+                timestamp: new Date(userModule.updatedAt),
+                timeAgo: getTimeAgo(new Date(userModule.updatedAt)),
+                completionPercentage: 100
+              });
+            }
           } else if (completedSubs > 0 || pendingSubs > 0) {
             totalInProgress++;
             userInProgress++;
             status = "in-progress";
+
+            if (userModule.updatedAt) {
+              activityList.push({
+                id: `module-progress-${userId}-${moduleId}`,
+                userId,
+                userName,
+                userInitials: userName.split(" ").map((n) => n[0]).join("").toUpperCase(),
+                action: 'in-progress',
+                moduleName,
+                moduleId,
+                timestamp: new Date(userModule.updatedAt),
+                timeAgo: getTimeAgo(new Date(userModule.updatedAt)),
+                completionPercentage,
+                metadata: {
+                  previousStatus: completedSubs === 0 ? 'started' : 'ongoing'
+                }
+              });
+            }
           } else {
             totalNotStarted++;
             userNotStarted++;
-          }
-
-          if (userModule.updatedAt) {
-            activityList.push({
-              userId,
-              userName,
-              userInitials: userName.split(" ").map((n) => n[0]).join("").toUpperCase(),
-              action: status,
-              moduleName,
-              moduleId,
-              timestamp: new Date(userModule.updatedAt),
-              timeAgo: getTimeAgo(new Date(userModule.updatedAt)),
-              completionPercentage
-            });
           }
         }
 
@@ -291,17 +425,17 @@ export default function Dashboard() {
         totalSubmodulesPending
       }));
 
-      // Sort activity by timestamp and completion percentage
-      activityList.sort((a, b) => {
-        const timeDiff = b.timestamp.getTime() - a.timestamp.getTime();
-        if (timeDiff !== 0) return timeDiff;
-        return b.completionPercentage - a.completionPercentage;
-      });
-      setRecentActivity(activityList.slice(0, 4)); // Show fewer activities on mobile
+      // Sort activity by timestamp (most recent first) and remove duplicates
+      const uniqueActivities = Array.from(
+        new Map(activityList.map(item => [item.id, item])).values()
+      );
+
+      uniqueActivities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+      setRecentActivity(uniqueActivities.slice(0, 7));
 
       // Module Progress
       const moduleProgressData = await calculateModuleProgress(allModules, allUserModules);
-      setTopModules(moduleProgressData.slice(0, 3)); // Show fewer modules on mobile
+      setTopModules(moduleProgressData.slice(0, 3));
 
       // Current User's Progress
       if (currentUser) {
@@ -344,6 +478,14 @@ export default function Dashboard() {
         return <Clock className="w-4 h-4 text-blue-500" />;
       case 'assigned':
         return <BookOpen className="w-4 h-4 text-gray-500" />;
+      case 'signed-off':
+        return <FileCheck className="w-4 h-4 text-purple-500" />;
+      case 'user-added':
+        return <UserPlus className="w-4 h-4 text-green-500" />;
+      case 'user-archived':
+        return <UserX className="w-4 h-4 text-orange-500" />;
+      case 'module-started':
+        return <Play className="w-4 h-4 text-blue-500" />;
       default:
         return <BookOpen className="w-4 h-4 text-gray-500" />;
     }
@@ -352,13 +494,41 @@ export default function Dashboard() {
   const getActionText = (activity: RecentActivity) => {
     switch (activity.action) {
       case 'completed':
+        if (activity.submoduleName) {
+          return `completed "${activity.submoduleName}" in ${activity.moduleName}`;
+        }
         return `completed ${activity.moduleName}`;
       case 'in-progress':
         return `${activity.completionPercentage}% through ${activity.moduleName}`;
       case 'assigned':
         return `assigned to ${activity.moduleName}`;
+      case 'signed-off':
+        return `received ${activity.signerRole} sign-off from ${activity.signerName} on "${activity.submoduleName}"`;
+      case 'user-added':
+        return `joined as ${activity.userRole}`;
+      case 'user-archived':
+        return `account archived`;
+      case 'module-started':
+        return `started ${activity.moduleName}`;
       default:
         return `working on ${activity.moduleName}`;
+    }
+  };
+
+  const getActionColor = (action: RecentActivity['action']) => {
+    switch (action) {
+      case 'completed':
+        return 'bg-green-50 border-green-200';
+      case 'signed-off':
+        return 'bg-purple-50 border-purple-200';
+      case 'user-added':
+        return 'bg-blue-50 border-blue-200';
+      case 'module-started':
+        return 'bg-blue-50 border-blue-200';
+      case 'user-archived':
+        return 'bg-orange-50 border-orange-200';
+      default:
+        return 'bg-gray-50 border-gray-200';
     }
   };
 
@@ -444,7 +614,6 @@ export default function Dashboard() {
       } else if (completedSubs > 0) {
         inProgress++;
       } else {
-        // Check if any work has started
         const hasAnyProgress = subs.some(s => {
           const signatures = (s.signatures || []) as ISignature[];
           return signatures.some(sig => !sig.archived) || s.ojt || s.practical;
@@ -541,7 +710,6 @@ export default function Dashboard() {
                 </div>
               </button>
 
-
               <button
                 onClick={() => {
                   router.push(`/dashboard/users/${currentUser?._id}/profile`);
@@ -573,18 +741,27 @@ export default function Dashboard() {
               </p>
             </div>
 
-            <button
-              onClick={handleLogout}
-              disabled={isLoggingOut}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-            >
-              {isLoggingOut ? (
-                <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-              ) : (
-                <LogOut className="w-4 h-4" />
-              )}
-              {isLoggingOut ? 'Logging out...' : 'Logout'}
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={fetchDashboardData}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-colors duration-200"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Refresh
+              </button>
+              <button
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+              >
+                {isLoggingOut ? (
+                  <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                ) : (
+                  <LogOut className="w-4 h-4" />
+                )}
+                {isLoggingOut ? 'Logging out...' : 'Logout'}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -737,56 +914,80 @@ export default function Dashboard() {
 
         {/* Main Content Grid - Mobile Stack */}
         <div className="space-y-4 lg:grid lg:grid-cols-3 lg:gap-6 lg:space-y-0">
-          {/* Recent Activity - Mobile First */}
+          {/* Enhanced Recent Activity */}
           <div className="lg:col-span-2 bg-white border border-gray-200 rounded-xl p-4">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">Recent Activity</h2>
-
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Recent Activity</h2>
+                <p className="text-xs text-gray-500 mt-0.5">Last 10 activities</p>
+              </div>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-2">
               {recentActivity.length > 0 ? (
                 recentActivity.map((activity, idx) => (
                   <button
-                    key={idx}
-                    onClick={() => router.push(`/dashboard/users/${activity.userId}/modules`)}
-                    className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors text-left group"
+                    key={activity.id}
+                    onClick={() => {
+                      if (activity.action !== 'user-added' && activity.action !== 'user-archived') {
+                        router.push(`/dashboard/users/${activity.userId}/modules`);
+                      }
+                    }}
+                    className={`w-full flex items-start gap-3 p-3 rounded-lg border transition-all text-left group ${getActionColor(activity.action)} hover:shadow-md`}
+                    disabled={activity.action === 'user-added' || activity.action === 'user-archived'}
                   >
-                    <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-gray-900 to-gray-700 rounded-full flex items-center justify-center text-white text-xs font-medium">
+                    <div className="flex-shrink-0 w-9 h-9 bg-gradient-to-br from-gray-900 to-gray-700 rounded-full flex items-center justify-center text-white text-xs font-medium">
                       {activity.userInitials}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         {getActionIcon(activity.action)}
-                        <p className="text-sm text-gray-900 truncate">
-                          <span className="font-semibold">{activity.userName}</span>
+                        <p className="text-sm font-semibold text-gray-900 truncate">
+                          {activity.userName}
                         </p>
+                        {activity.userRole && (activity.action === 'user-added' || activity.action === 'user-archived') && (
+                          <span className="text-xs text-gray-500 bg-white px-2 py-0.5 rounded-full border border-gray-200">
+                            {activity.userRole}
+                          </span>
+                        )}
                       </div>
-                      <p className="text-xs text-gray-600 truncate">
+                      <p className="text-xs text-gray-700 leading-relaxed">
                         {getActionText(activity)}
                       </p>
-                      <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
-                        <span>{activity.timeAgo}</span>
-                        {activity.action === 'in-progress' && (
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <span className="text-xs text-gray-500">{activity.timeAgo}</span>
+                        {activity.action === 'in-progress' && activity.completionPercentage !== undefined && (
                           <>
-                            <span>•</span>
-                            <div className="flex-1 max-w-[60px]">
-                              <div className="w-full bg-gray-200 rounded-full h-1">
+                            <span className="text-gray-400">•</span>
+                            <div className="flex items-center gap-2 flex-1 max-w-[120px]">
+                              <div className="flex-1 bg-gray-200 rounded-full h-1.5">
                                 <div
-                                  className="bg-blue-500 h-1 rounded-full"
+                                  className="bg-blue-500 h-1.5 rounded-full transition-all"
                                   style={{ width: `${activity.completionPercentage}%` }}
                                 ></div>
                               </div>
                             </div>
                           </>
                         )}
+                        {activity.metadata?.signaturesCount && activity.action === 'signed-off' && (
+                          <>
+                            <span className="text-gray-400">•</span>
+                            <span className="text-xs text-purple-600 font-medium">
+                              {activity.metadata.signaturesCount}/3 signatures
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
+                    {activity.action !== 'user-added' && activity.action !== 'user-archived' && (
+                      <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-gray-900 group-hover:translate-x-1 transition-all flex-shrink-0 mt-1" />
+                    )}
                   </button>
                 ))
               ) : (
-                <div className="text-center py-6">
-                  <BookOpen className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                <div className="text-center py-8">
+                  <BookOpen className="w-10 h-10 text-gray-300 mx-auto mb-3" />
                   <p className="text-sm text-gray-500">No recent activity</p>
+                  <p className="text-xs text-gray-400 mt-1">Activity will appear here as users progress</p>
                 </div>
               )}
             </div>

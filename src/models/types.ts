@@ -52,6 +52,8 @@ export interface IUserSubmodule extends Document {
   practical: boolean;
   signedOff: boolean;
   signatures: ISignature[];
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface ITrainingModule {
