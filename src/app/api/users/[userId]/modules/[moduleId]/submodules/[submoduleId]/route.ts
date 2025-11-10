@@ -4,8 +4,9 @@ import mongoose from "mongoose";
 import UserSubmodule from "@/models/UserSubmodule";
 import Signature from "@/models/Signature";
 import { connectToDatabase } from "@/lib/mongodb";
-import { ITrainingSubmodule, IUser, IUserSubmodule } from "@/models";
+import { ITrainingSubmodule } from "@/models";
 import "@/models/TrainingSubmodule";
+import { generateHash } from "@/lib/util/generateHash";
 
 // 🔒 Helper for ID validation
 function validateObjectIds(ids: Record<string, string>) {
@@ -16,6 +17,8 @@ function validateObjectIds(ids: Record<string, string>) {
   }
   return { valid: true };
 }
+
+// 🧩 Browser/Server-safe SHA-256 hash function
 
 // ✅ GET single submodule
 export async function GET(
@@ -28,17 +31,14 @@ export async function GET(
 ) {
   try {
     await connectToDatabase();
-
     const { userId, moduleId, submoduleId } = await params;
 
-    // 🧩 Validate IDs
     const validation = validateObjectIds({ userId, moduleId, submoduleId });
-    if (!validation.valid) {
+    if (!validation.valid)
       return NextResponse.json(
         { success: false, error: validation.error },
         { status: 400 }
       );
-    }
 
     const submodule = await UserSubmodule.findOne({
       _id: submoduleId,
@@ -52,12 +52,11 @@ export async function GET(
         populate: { path: "user", select: "_id name role archived nickname" },
       });
 
-    if (!submodule) {
+    if (!submodule)
       return NextResponse.json(
         { success: false, error: "Submodule not found" },
         { status: 404 }
       );
-    }
 
     return NextResponse.json({ success: true, data: submodule });
   } catch (error) {
@@ -69,7 +68,7 @@ export async function GET(
   }
 }
 
-// ✅ PATCH - Update submodule
+// ✅ PATCH - Update submodule and add secure signature
 export async function PATCH(
   req: NextRequest,
   {
@@ -83,80 +82,85 @@ export async function PATCH(
     const body = await req.json();
     const { userId, moduleId, submoduleId } = await params;
 
-    // 🧩 Validate IDs
     const validation = validateObjectIds({ userId, moduleId, submoduleId });
-    if (!validation.valid) {
+    if (!validation.valid)
       return NextResponse.json(
         { success: false, error: validation.error },
         { status: 400 }
       );
-    }
 
-    // 🔍 Load the submodule
     const submodule = await UserSubmodule.findOne({
       _id: submoduleId,
       module: moduleId,
       archived: { $ne: true },
     })
       .populate("tSubmodule")
-      .populate({
-        path: "signatures",
-        match: { archived: { $ne: true } },
-      });
+      .populate({ path: "signatures", match: { archived: { $ne: true } } });
 
-    if (!submodule) {
+    if (!submodule)
       return NextResponse.json(
         { success: false, error: "Submodule not found" },
         { status: 404 }
       );
-    }
 
-    // ✏️ Update editable fields
+    // Update editable fields
     if (typeof body.ojt === "boolean") submodule.ojt = body.ojt;
-    if (typeof body.practical === "boolean") submodule.practical = body.practical;
+    if (typeof body.practical === "boolean")
+      submodule.practical = body.practical;
 
-    // ✍️ Add new signature if requested
+    // Add new secure signature
     if (body.addSignature?.userId) {
       const { userId: signerId, signAsRole } = body.addSignature;
 
-      if (!mongoose.Types.ObjectId.isValid(signerId)) {
+      if (!mongoose.Types.ObjectId.isValid(signerId))
         return NextResponse.json(
           { success: false, error: "Invalid signature userId" },
           { status: 400 }
         );
-      }
+
+      // Capture metadata
+      const ipAddress =
+        req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+        req.headers.get("x-real-ip") ||
+        "unknown";
+      const ipHash = await generateHash(ipAddress); // hash IP for privacy
+      const userAgent = req.headers.get("user-agent") || "unknown";
+      const createdAt = new Date();
+
+      // Create signature hash
+      const hashInput = `${signerId}|${submoduleId}|${signAsRole}|${ipHash}|${userAgent}|${createdAt.toISOString()}`;
+      const hash = await generateHash(hashInput);
 
       const newSignature = await Signature.create({
         user: signerId,
         attachedTo: submodule._id,
         role: signAsRole,
+        ipAddress: ipHash,
+        userAgent,
+        hash,
+        createdAt,
       });
 
       submodule.signatures.push(newSignature._id);
     }
 
-    // 🧮 Refresh signatures to count only active ones
+    // Count active signatures
     const activeSignatures = await Signature.countDocuments({
       _id: { $in: submodule.signatures },
       archived: { $ne: true },
     });
 
-    // ✅ Check training submodule requirements
     const tSub = submodule.tSubmodule as ITrainingSubmodule | null;
     const requiresPractical = tSub?.requiresPractical ?? false;
 
-    // 🧠 Correct sign-off logic:
-    // Must have: OJT completed, practical (if required), and >= 3 active signatures
-    const isSignedOff =
+    // Sign-off logic
+    submodule.signedOff =
       activeSignatures >= 3 &&
       submodule.ojt &&
       (!requiresPractical || submodule.practical);
-
-    submodule.signedOff = isSignedOff;
-
     await submodule.save();
 
-    // 🎯 Re-populate for response
+    // Re-populate
     const populatedSubmodule = await UserSubmodule.findById(submodule._id)
       .populate("tSubmodule")
       .populate({
@@ -165,11 +169,9 @@ export async function PATCH(
         populate: { path: "user", select: "_id name role archived nickname" },
       });
 
-    console.log(
-      `[PATCH] Submodule ${submodule._id} signedOff: ${isSignedOff} | ` +
-      `Requires Practical: ${requiresPractical} | ` +
-      `OJT: ${submodule.ojt} | Practical: ${submodule.practical} | Active Signatures: ${activeSignatures}`
-    );
+    // console.log(
+    //   `[PATCH] Submodule ${submodule._id} signedOff: ${submodule.signedOff} | Active Signatures: ${activeSignatures}`
+    // );
 
     return NextResponse.json({ success: true, data: populatedSubmodule });
   } catch (error) {
@@ -181,8 +183,7 @@ export async function PATCH(
   }
 }
 
-
-// ✅ DELETE - Soft delete submodule
+// ✅ DELETE - Soft delete
 export async function DELETE(
   req: NextRequest,
   {
@@ -193,28 +194,23 @@ export async function DELETE(
 ) {
   try {
     await connectToDatabase();
-
     const { userId, moduleId, submoduleId } = await params;
 
-    // 🧩 Validate IDs
     const validation = validateObjectIds({ userId, moduleId, submoduleId });
-    if (!validation.valid) {
+    if (!validation.valid)
       return NextResponse.json(
         { success: false, error: validation.error },
         { status: 400 }
       );
-    }
 
     const submodule = await UserSubmodule.findByIdAndUpdate(submoduleId, {
       archived: true,
     });
-
-    if (!submodule) {
+    if (!submodule)
       return NextResponse.json(
         { success: false, error: "Submodule not found" },
         { status: 404 }
       );
-    }
 
     return NextResponse.json({
       success: true,

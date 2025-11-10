@@ -18,11 +18,14 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.918.0",
+    "@types/jspdf": "^2.0.0",
     "aws-sdk": "^2.1692.0",
     "bcrypt": "^6.0.0",
     "dotenv": "^17.2.3",
     "jose": "^6.1.0",
     "jsonwebtoken": "^9.0.2",
+    "jspdf": "^3.0.3",
+    "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.548.0",
     "mongoose": "^8.19.2",
     "multer": "^2.0.2",
@@ -31,7 +34,8 @@
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-select": "^5.10.2",
-    "react-select-v2": "^2.4.2"
+    "react-select-v2": "^2.4.2",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

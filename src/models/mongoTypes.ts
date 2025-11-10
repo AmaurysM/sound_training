@@ -50,6 +50,10 @@ export interface ISignature extends Document {
   attachedTo: mongoose.Types.ObjectId;
   role: Role;
   archived: boolean;
+
+  ipAddress?: string;
+  userAgent?: string;
+
   createdAt?: Date;
   updatedAt?: Date;
 }

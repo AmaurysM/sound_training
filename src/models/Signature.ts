@@ -8,6 +8,8 @@ const SignatureSchema = new Schema<ISignature>(
     user: { type: Schema.Types.ObjectId, ref: "User", required: true },
     attachedTo: { type: Schema.Types.ObjectId },
     archived: { type: Boolean, default: false },
+    ipAddress: { type: String },
+    userAgent: { type: String },
     role: {
       type: String,
       enum: RoleEnum,

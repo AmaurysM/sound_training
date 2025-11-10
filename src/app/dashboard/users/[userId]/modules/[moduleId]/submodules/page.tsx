@@ -21,6 +21,9 @@ import {
 import { ISignature, IUser, IUserSubmodule, Role, RoleEnum, Roles } from "@/models/types";
 import { useDashboard } from "@/contexts/dashboard-context";
 import LoadingScreen from "@/app/components/LoadingScreen";
+import { downloadSubmodulesCSV } from "@/lib/util/downloadSubmodulesCSV";
+import { downloadSubmodulesPDF } from "@/lib/util/downloadSubmodulesPDF";
+import { downloadSubmodulesExcel } from "@/lib/util/downloadSubmodulesExcel";
 
 interface SortConfig {
     key: keyof IUserSubmodule | 'signatureStatus';
@@ -137,88 +140,27 @@ export default function SubmodulesPage() {
         };
     }, [userId, moduleId, currentUser, viewedUser, fetchCurrentUser]);
 
-    const downloadCSV = () => {
-        if (submodules.length === 0) {
-            alert("No data to download");
-            return;
-        }
+    //import { downloadSubmodulesCSV } from "@/utils/downloadCSV";
 
-        const headers = [
-            "Submodule Code",
-            "Submodule Title",
-            "Submodule Description",
-            "Type",
-            "OJT Status",
-            "Practical Status",
-            "Practical Required",
-            "Completion Status",
-            "Coordinator Signed By",
-            "Coordinator Signed At",
-            "Trainer Signed By",
-            "Trainer Signed At",
-            "Student Signed By",
-            "Student Signed At",
-            "Total Signatures",
-        ];
+    // const handleDownload = async () => {
+    //     const timestamp = new Date().toISOString().split("T")[0];
+    //     const filename = `submodules_${viewedUser?.username || userId}_${timestamp}.csv`;
 
-        const rows = submodules.map(submodule => {
-            const signatureStatus = getSignatureStatus(submodule);
-            const isComplete = isSubmoduleComplete(submodule);
+    //     await downloadSubmodulesCSV(submodules, filename, getSignatureStatus, isSubmoduleComplete);
+    // };
 
-            const coordSig = submodule.signatures?.find(s => s.role === Roles.Coordinator);
-            const trainerSig = submodule.signatures?.find(s => s.role === Roles.Trainer);
-            const studentSig = submodule.signatures?.find(s => s.role === Roles.Student);
+    // const handleDownloadPDF = async () => {
+    //     const timestamp = new Date().toISOString().split("T")[0];
+    //     const filename = `submodules_${viewedUser?.username || userId}_${timestamp}.pdf`;
 
-            const getSignerName = (sig: ISignature | undefined) => {
-                if (!sig) return "";
-                if (typeof sig.user === "string") return "Unknown User";
-                return sig.user.name || sig.user.username || "Unknown User";
-            };
+    //     await downloadSubmodulesPDF(submodules, filename, getSignatureStatus, isSubmoduleComplete);
+    // };
 
-            const getSignedDate = (sig: ISignature | undefined) => {
-                if (!sig || !sig.createdAt) return "";
-                return new Date(sig.createdAt).toLocaleString();
-            };
+    const handleDownloadExcel = async () => {
+        const timestamp = new Date().toISOString().split("T")[0];
+        const filename = `submodules_${viewedUser?.username || userId}_${timestamp}.pdf`;
 
-            return [
-                submodule.tSubmodule?.code || "",
-                submodule.tSubmodule?.title || "",
-                (submodule.tSubmodule?.description || "").replace(/"/g, '""'),
-                submodule.tSubmodule?.requiresPractical ? "Practical" : "Theory",
-                submodule.ojt ? "Completed" : "Pending",
-                submodule.tSubmodule?.requiresPractical
-                    ? (submodule.practical ? "Completed" : "Pending")
-                    : "N/A",
-                submodule.tSubmodule?.requiresPractical ? "Yes" : "No",
-                isComplete ? "Complete" : "In Progress",
-                getSignerName(coordSig),
-                getSignedDate(coordSig),
-                getSignerName(trainerSig),
-                getSignedDate(trainerSig),
-                getSignerName(studentSig),
-                getSignedDate(studentSig),
-                `${signatureStatus.count}/3`,
-            ];
-        });
-
-        const csvContent = [
-            headers.map(h => `"${h}"`).join(","),
-            ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
-        ].join("\n");
-
-        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-        const link = document.createElement("a");
-        const url = URL.createObjectURL(blob);
-
-        const timestamp = new Date().toISOString().split('T')[0];
-        const filename = `submodules_${viewedUser?.username || userId}_${timestamp}.csv`;
-
-        link.setAttribute("href", url);
-        link.setAttribute("download", filename);
-        link.style.visibility = "hidden";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        await downloadSubmodulesExcel(submodules, filename, getSignatureStatus, isSubmoduleComplete);
     };
 
     const openSignOffModal = async (submodule: IUserSubmodule) => {
@@ -630,11 +572,11 @@ export default function SubmodulesPage() {
                     </button>
 
                     <button
-                        onClick={downloadCSV}
+                        onClick={handleDownloadExcel}
                         className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all shadow-sm font-medium text-sm sm:text-base"
                     >
                         <Download className="w-4 h-4" />
-                        <span>Download CSV</span>
+                        <span>Download Excel File</span>
                     </button>
                 </div>
 

@@ -72,10 +72,10 @@ export interface IUserModule {
   submodules: string[] | IUserSubmodule[];
   notes: string;
   archived: boolean;
-  
+
   trainingYear: number;
   activeCycle: boolean;
-  
+
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -86,6 +86,11 @@ export interface ISignature {
   attachedTo: string;
   archived: boolean;
   role: Role;
+
+  ipAddress?: string;
+  userAgent?: string;
+  hash?: string;
+  
   createdAt?: Date;
   updatedAt?: Date;
 }
